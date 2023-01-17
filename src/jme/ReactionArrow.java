@@ -1,0 +1,123 @@
+package jme;
+
+import java.awt.Color;
+import java.awt.geom.Line2D;
+
+class ReactionArrow extends Graphical2DObject {
+
+	double arrowWidth = 24 * 2;
+	
+	double centerX = 0;
+	double centerY = 0;
+	
+	public boolean hasBeenPlaced = false;
+	
+	Box boundingBox ;
+	
+	
+	Line2D.Double horizontalLine = new Line2D.Double();
+	Line2D.Double topTipLine = new Line2D.Double();
+	Line2D.Double bottomTipLine = new Line2D.Double();
+	
+	Line2D.Double[]  lines = new Line2D.Double[] {horizontalLine, topTipLine, bottomTipLine};
+
+
+	// TODO: use a base length propotiional to JMEmol RBond
+	public ReactionArrow(double size) {
+		this.boundingBox = new Box();
+		this.arrowWidth = size;
+	}
+	
+	
+	public double width() {
+		return this.arrowWidth;
+	}
+	
+	@Override
+	void draw(PreciseGraphicsAWT og) {
+				
+		double m = arrowHeigth() / 2; // hrot sipky
+		og.setColor(Color.magenta);
+		double xLeft = centerX - arrowWidth / 2;
+		double xRight = centerX + arrowWidth / 2;
+		
+		horizontalLine.setLine(xLeft, centerY, xRight, centerY);
+		topTipLine.setLine(xRight, centerY, xRight - m, centerY + m);
+		bottomTipLine.setLine(xRight, centerY, xRight - m, centerY - m);
+		
+
+		for(Line2D.Double eachLine : this.lines ) {
+			og.drawLine(eachLine.x1, eachLine.y1, eachLine.x2, eachLine.y2);
+		}
+		
+		
+	}
+	
+	protected double arrowHeigth() {
+		return arrowWidth / 4 ;
+	}
+
+	
+	/**
+	 * Absolute positioning
+	 */
+	@Override
+	public void XY(double x, double y) {
+		hasBeenPlaced = true;
+		centerX = x;
+		centerY = y;
+	}
+	@Override
+	protected void moveXY(double moveX, double moveY) {
+		hasBeenPlaced = true;
+		centerX += moveX;
+		centerY += moveY;
+		//System.out.println("Moved arrow: " + centerX + ", " + centerY);
+		
+	}
+
+	@Override
+	public Box computeBoundingBoxWithAtomLabels() {
+		
+		double x = centerX - arrowWidth / 2;
+		double w = this.arrowWidth;
+		
+		double y = centerY() + arrowHeigth() / 2;
+		double h = arrowHeigth();
+
+		this.boundingBox.setRect(x, y, w, h);
+		
+		assert(this.boundingBox != null);
+
+		return this.boundingBox;
+
+	}
+
+	@Override
+	public double centerX() {
+		return centerX;
+	}
+
+	@Override
+	public double centerY() {
+		return centerY;
+	}
+
+
+	@Override
+	public double closestDistance(double x, double y) {
+		double min = Double.MAX_VALUE;
+		
+		for(Line2D.Double eachLine : this.lines ) {
+			@SuppressWarnings("static-access")
+			double d = this.closestDistancePointToLine(x, y, eachLine);
+			//System.out.println("Arrow " + x + ":" + y + " d=" + d);
+
+			min = Math.min(d, min);
+		}
+		//System.out.println("Arrow " + x + ":" + y + " min=" + min);
+		
+		return min;
+	}
+	
+}
