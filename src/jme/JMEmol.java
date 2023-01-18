@@ -1380,34 +1380,6 @@ public class JMEmol extends Graphical2DObject {
 		}
 		// TODO: no more reference to scalingIsPerformedByGraphicsEngine and
 		// molecularAreaScale
-//		if(! this.jme.scalingIsPerformedByGraphicsEngine) {
-//			//if (jme.depictScale != 1. ) { // depictScale sa plni len pri depict
-//			sirka2 *= jme.molecularAreaScale; sirka3 *= jme.molecularAreaScale;
-//			double xs = 1.0;
-//			if (jme.molecularAreaScale < 0.7) {
-//				xs = 1.2;// aby font nie primaly 
-//			}
-//			float fs = (float) (jme.atomMolecularDrawingAreaFontSize * jme.molecularAreaScale * xs);
-//			jme.initatomDrawingAreaFont(fs);
-//
-//			//}
-//		} else {
-//			// this is done in JME.init()
-//			//jme.initatomDrawingAreaFont(jme.atomMolecularDrawingAreaFontSize);
-//		}
-
-		// 2018-10 : if marker option is set and paste structure contains atom maps,
-		// then do not show the atom maps
-		// but instead show the blue background color for the mapped atoms
-//		if(markColorBackground) {
-//			for(int i = 1; i <= nAtoms(); i++) {
-//				Atom atom = this.atoms[i];
-//				if(atom.hasBeenMapped() && bgc(atom) == 0) {
-//					//doColoring = -1;
-//					this.setStarredAtomBackground(atom); // only set the background color (blue)
-//				}
-//			}
-//		} 
 		// atom + bond background coloring - done before drawing the atoms
 
 		// bonds
@@ -1416,18 +1388,6 @@ public class JMEmol extends Graphical2DObject {
 			for (int i = 1; i <= nbonds; i++) {
 				atom1 = bonds[i].va;
 				atom2 = bonds[i].vb;
-
-				// int[] commonBGcolors = JMEUtil.intersection(bgcs(atom1),bgcs(atom2));
-				// if(commonBGcolors.length == 0 || commonBGcolors[0] == 0) continue;
-				// if (bgc(atom1) == 0) continue;
-				// if (bgc(atom1) != bgc(atom2)) continue;
-				// if (! JMEUtil.equals(bgcs(atom1), bgcs(atom2))) continue;
-
-				// Color atomColor = this.averageColor(commonBGcolors);
-				// if(atomColor == null) continue;
-
-				// og.setColor(atomColor);
-				// changed Sept 2019: bond coloring does not involve atoms anymore
 
 				// setPresetPastelBackGroundColor() returns null if no bacground colors have
 				// been specified != mark
@@ -6446,26 +6406,6 @@ public class JMEmol extends Graphical2DObject {
 		double dx, dy, rx, sina, cosa;
 
 		int cumuleneAtoms[] = this.findCumuleneChain(ati);
-		// cumuleneAtoms[1] = ati;
-		// while (true) { // loop po allene chain po double vazbe
-		// boolean ok = false;
-		// //loop over neighbors
-		// for (int ni = 1; ni <= nv(currentCumuleneAtom); ni++) {
-		// int atomx = v(currentCumuleneAtom)[ni];
-		// if (atomx == cumuleneAtoms[1] || atomx == cumuleneAtoms[numberCumuleneAtoms -
-		// 1])
-		// continue;
-		// int bi = bondIdentity(currentCumuleneAtom, atomx);
-		// if (bonds[bi].bondType == DOUBLE && btype[bi] != AROMATIC) {
-		// cumuleneAtoms[++numberCumuleneAtoms] = atomx;
-		// currentCumuleneAtom = atomx;
-		// ok = true;
-		// break;
-		// }
-		// }
-		// if (!ok)
-		// break;
-		// }
 		int numberCumuleneAtoms = cumuleneAtoms[0]; // kolko ich je v chaine
 
 		// BB check the number of atoms in the cumulene - must be odd otherwise no

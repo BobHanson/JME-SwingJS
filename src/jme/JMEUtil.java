@@ -1,7 +1,5 @@
 package jme;
 
-import java.awt.Color;
-import java.awt.Graphics2D;
 import java.lang.reflect.Array;
 import java.util.Calendar;
 import java.util.StringTokenizer;
@@ -217,54 +215,6 @@ public abstract class JMEUtil {
 
 	public static boolean isHighDPI() {
 		return false;
-	}
-
-	public static class ExtendedGraphics2D {
-		Graphics2D baseGraphics;
-
-		public ExtendedGraphics2D(Graphics2D baseGraphics) {
-			this.baseGraphics = baseGraphics;
-
-		}
-
-		public void drawStringWithStroke(String str, int x, int y, Color strokeColor, int strokeWidth) {
-
-			// TBC for Java
-
-			// ((StringGraphics)this.baseGraphics).drawString(str, x, y, strokeColor,
-			// strokeWidth);
-			// this.baseGraphics.dr
-
-			this.baseGraphics.drawString(str, x, y);
-
-		}
-
-		/*
-		 * 
-		 */
-		/**
-		 * 
-		 * @param str
-		 * @param x
-		 * @param y
-		 * @param strokeColor
-		 * @param strokeWidth
-		 * @param             subscripts: sections of text to be subscript e.g. NH2, 2
-		 *                    must be subscript, [[2,1]]
-		 * @param superscript sections of text to be supescript, e.g Ca++ ++ must be
-		 *                    superscript. [[2,2]], 13C -> [[0.2]]
-		 */
-		public void drawStringWithStrokeAndBaselineShifts(String str, int x, int y, Color strokeColor, int strokeWidth,
-				int subscripts[][], int superscript[][]) {
-
-			// TBC for Java
-
-			// ((StringGraphics)this.baseGraphics).drawString(str, x, y, strokeColor,
-			// strokeWidth, subscripts, superscript);
-
-			this.baseGraphics.drawString(str, x, y);
-
-		}
 	}
 
 	/**

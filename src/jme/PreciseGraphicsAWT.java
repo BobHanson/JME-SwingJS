@@ -13,8 +13,6 @@ import java.awt.Paint;
 import java.awt.RenderingHints.Key;
 import java.awt.geom.Rectangle2D;
 
-import jme.JMEUtil.ExtendedGraphics2D;
-
 //END JAVA_IMPORT
 
 //START GWT_IMPORT
@@ -101,11 +99,57 @@ class PreciseFontMetrics {
  *
  */
 public class PreciseGraphicsAWT {
+	
+	
+	public class ExtendedGraphics2D {
+	
+		// BH 2023.01.18 inner class -- no need to duplicate references to original graphics object.
+		// These generally should not be held as fields.
+		
+		public void drawStringWithStroke(String str, int x, int y, Color strokeColor, int strokeWidth) {
+	
+			// TBC for Java
+	
+			// ((StringGraphics)this.baseGraphics).drawString(str, x, y, strokeColor,
+			// strokeWidth);
+			// this.baseGraphics.dr
+	
+			baseGraphics.drawString(str, x, y);
+	
+		}
+	
+		/*
+		 * 
+		 */
+		/**
+		 * 
+		 * @param str
+		 * @param x
+		 * @param y
+		 * @param strokeColor
+		 * @param strokeWidth
+		 * @param             subscripts: sections of text to be subscript e.g. NH2, 2
+		 *                    must be subscript, [[2,1]]
+		 * @param superscript sections of text to be supescript, e.g Ca++ ++ must be
+		 *                    superscript. [[2,2]], 13C -> [[0.2]]
+		 */
+		public void drawStringWithStrokeAndBaselineShifts(String str, int x, int y, Color strokeColor, int strokeWidth,
+				int subscripts[][], int superscript[][]) {
+	
+			// TBC for Java
+	
+			// ((StringGraphics)this.baseGraphics).drawString(str, x, y, strokeColor,
+			// strokeWidth, subscripts, superscript);
+	
+			baseGraphics.drawString(str, x, y);
+	
+		}
+	}
+
 	static BasicStroke defaultStroke = new BasicStroke(1.0f);
 	Graphics2D baseGraphics;
-	ExtendedGraphics2D extendedBaseGraphics;
+	PreciseGraphicsAWT.ExtendedGraphics2D extendedBaseGraphics;
 	
-	final static protected double precision; //scaling factor to improve the drawing precision
 	protected double scale = 1.0; //for zooming in and out
 	protected Font unscaledFont ;
 	protected Font enlargeddFont ;
@@ -121,17 +165,6 @@ public class PreciseGraphicsAWT {
 	Rectangle2D.Double screenArea = new Rectangle2D.Double(); //not scaled
 	//actually needs only integer
 	
-	//FIXME:
-	//The java applet does not work anymore with a scale != 1.0 . Use 1.5 to debug it.
-	static {
-		final boolean  isJavaScript = System.getProperty("java.vm.name" ).equals("JavaScript");
-		if(isJavaScript) {
-			 precision  = 30; //10 looks good with FF at maximum zoom
-		} else {
-			precision  = 1.0;
-		}
-	}
-
 	/**
 	 * width to be used for drawing using real coordinates
 	 * @return
@@ -202,15 +235,12 @@ public class PreciseGraphicsAWT {
 		
 	}
 
-	static double getPrecisionFactor() {
-		return precision;
-	}
 	public PreciseGraphicsAWT(Graphics graphics) {
-		this.baseGraphics = (Graphics2D) graphics;
-		if(precision > 1.0) {
-			this.setStroke(defaultStroke);
+		baseGraphics = (Graphics2D) graphics;
+		if(JME.precision > 1.0) {
+			setStroke(defaultStroke);
 		}
-		this.extendedBaseGraphics = new ExtendedGraphics2D(this.baseGraphics);
+		extendedBaseGraphics = new PreciseGraphicsAWT.ExtendedGraphics2D();
 	}
 
 	public void initPrecisionScale() {
@@ -219,22 +249,21 @@ public class PreciseGraphicsAWT {
 	}
 	
 	public void initPrecisionScale(double absoluteScale) {
-		/*
-		 * Concatenates the current Graphics2D Transform with a scaling transformation Subsequent rendering is resized according to the specified scaling factors relative to the previous scaling.
-		 */
 		
-		if(false) {
+		//Concatenates the current Graphics2D Transform with a scaling transformation Subsequent rendering is resized according to the specified scaling factors relative to the previous scaling.
+		
+		
+//		if(false) {
 			//Java implementation FIXME why is it diferent?
 			if(absoluteScale != scale) {
 				double transformScale = absoluteScale/scale;
-				this.baseGraphics.scale(transformScale/this.precision, transformScale/this.precision);
+				this.baseGraphics.scale(transformScale/JME.precision, transformScale/JME.precision);
 				scale = absoluteScale;
 			}
-		} else { //JavaScript
-			scale = absoluteScale;
-			this.baseGraphics.scale(scale/this.precision, scale/this.precision);
-
-		}
+//		} else { //JavaScript
+//			scale = absoluteScale;
+//			this.baseGraphics.(scale/JME.precision, scale/JME.precision);
+//		}
 	}
 
 	public Graphics2D getGraphics() {
@@ -348,7 +377,7 @@ public class PreciseGraphicsAWT {
 
 	public void setFont(Font font) {
 		this.unscaledFont = font;
-		this.enlargeddFont = font.deriveFont((float) (font.getSize() * this.precision));
+		this.enlargeddFont = font.deriveFont((float) (font.getSize() * JME.precision));
 		this.baseGraphics.setFont(this.enlargeddFont);
 	}
 
@@ -389,11 +418,11 @@ public class PreciseGraphicsAWT {
 	 * Convert a coordinate to a pixel position
 	 */
 	protected int r(double v) {
-		return  (int) Math.round(v * this.precision);
+		return  (int) Math.round(v * JME.precision);
 	}
 
 	protected double ir(int v) {
-		return  (double)v / this.precision;
+		return  (double)v / JME.precision;
 	}
 
 	
@@ -446,16 +475,9 @@ public class PreciseGraphicsAWT {
      */
 	public void setStroke(BasicStroke basicStroke) {
 		this.unscaledStroke = basicStroke;
-		this.enlargedStroke = new BasicStroke((float) (this.precision * basicStroke.getLineWidth()));
-		
+		this.enlargedStroke = new BasicStroke((float) (JME.precision * basicStroke.getLineWidth()));		
 		this.baseGraphics.setStroke(this.enlargedStroke);
 		
 	}
-	public void scale(double s) {
-		this.baseGraphics.scale(s, s);
-	}
-
-
-
 
 }
