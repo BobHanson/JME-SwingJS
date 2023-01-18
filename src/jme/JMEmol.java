@@ -363,7 +363,7 @@ public class JMEmol extends Graphical2DObject {
 		StringTokenizer st = new StringTokenizer(molFile, separator, true);
 
 		for (int i = 1; i <= 4; i++) {
-			line = JMEUtil.nextData(st, separator);
+			line = JMEUtil.nextData(st, separator); 
 		}
 		int natomsx = Integer.valueOf(line.substring(0, 3).trim()).intValue();
 		int nbondsx = Integer.valueOf(line.substring(3, 6).trim()).intValue();

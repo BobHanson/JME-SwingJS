@@ -504,7 +504,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	//can raise exception
 	public boolean readMDLstringInput(String s, MoleculeHandlingParameters pars) {
 		
-		this.reset();
+		this.reset(); 
 		input = s;
 		String separator = JMEUtil.findLineSeparator(s);
 		
@@ -549,10 +549,8 @@ public class JMEmolList extends ArrayList<JMEmol> {
 				
 			}
 			
-		} else {
-			if(!this.readSingleMOL(s, pars)) {
-				return false;
-			}
+		} else if(!this.readSingleMOL(s, pars)) {
+			return false;
 		}
 		
 		

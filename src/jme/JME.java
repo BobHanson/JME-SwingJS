@@ -10162,14 +10162,14 @@ public class JME extends JPanel
 	}
 
 	private void readDroppedData(Object newValue) {
-		String data = newValue.toString().trim();
+		String data = newValue.toString();
 		try {
 			if (data.indexOf("\n") >= 0)
 				readMolFile(data);
-			else if (data.indexOf(" ") >= 0)
+			else if (data.trim().indexOf(" ") >= 0)
 				readMolecule(data);
 			else
-				readSmiles(data);
+				readSmiles(data.trim());
 		} catch (Exception e) {
 			System.err.println("JME error reading data starting with " + data.substring(Math.min(data.length(), 100)));
 		}
