@@ -10163,13 +10163,15 @@ public class JME extends JPanel
 
 	private void readDroppedData(Object newValue) {
 		String data = newValue.toString();
+		String trimmed = data.trim();
+		// BH 2023.1.18 Allowing for copying with a bit of whitespace for SMILES
 		try {
-			if (data.indexOf("\n") >= 0)
+			if (trimmed.indexOf("\n") >= 0)
 				readMolFile(data);
-			else if (data.trim().indexOf(" ") >= 0)
+			else if (trimmed.indexOf(" ") >= 0)
 				readMolecule(data);
 			else
-				readSmiles(data.trim());
+				readSmiles(trimmed);
 		} catch (Exception e) {
 			System.err.println("JME error reading data starting with " + data.substring(Math.min(data.length(), 100)));
 		}

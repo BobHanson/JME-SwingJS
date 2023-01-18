@@ -31,7 +31,7 @@
   	<property name="swingjs.dir" value="${site.dir}/swingjs" />
   	<property name="j2s.dir" value="${swingjs.dir}/j2s" />
   	<property name="html.dir" value="html" />
-  	<property name="resource.dir" value="resources" />
+  	<property name="resources.dir" value="resources" />
   	<property name="openchemlib.dir" value="../openchemlib/site/swingjs/j2s" />
   	 
   	<!-- unzip SwingJS-site.zip 
@@ -53,60 +53,60 @@
     </copy>
 
  	<!-- transfer resources -->
-
-  	<echo> Copying ${resource.dir} files into ${j2s.dir} </echo>
-  	<copy failonerror="false" todir="${j2s.dir}">
-      <fileset dir="${resource.dir}">
-      	<include name="**"/>
-   	  </fileset>
-  </copy>
-  	<!--
-  	<copy failonerror="false" todir="${j2s.dir}">
+  	<echo> Copying ${openchemlib.dir} files into ${resources.dir} </echo>
+  	<copy failonerror="false" todir="${resources.dir}">
         <fileset dir="${openchemlib.dir}" includes="
-        	com/actelion/research/util/Angle.js
         	com/actelion/research/util/ColorHelper.js
         	com/actelion/research/util/SortedList.js
         	com/actelion/research/util/IntArrayComparator.js
         	com/actelion/research/gui/generic/GenericRectangle.js
         	com/actelion/research/gui/generic/GenericPoint.js
-        	com/actelion/research/chem/coords/InventorFragment.js
-        	com/actelion/research/chem/coords/InventorChain.js
-        	com/actelion/research/chem/coords/InventorTemplate.js
-        	com/actelion/research/chem/coords/InventorAngle.js
         	com/actelion/research/chem/coords/CoordinateInventor.js
+        	com/actelion/research/chem/coords/InventorFragment.js
         	com/actelion/research/chem/coords/InventorDefaultTemplateList.js
-        	com/actelion/research/chem/SmilesRange.js
+        	com/actelion/research/chem/coords/InventorTemplate.js
+
+        	com/actelion/research/chem/coords/InventorChain.js
+        	com/actelion/research/chem/Molecule.js
+        	com/actelion/research/chem/Canonizer.js
+        	com/actelion/research/chem/AbstractDepictor.js
+        	com/actelion/research/chem/SSSearcherWithIndex.js
+        	com/actelion/research/chem/ExtendedMolecule.js
+        	com/actelion/research/chem/RingCollection.js
+        	com/actelion/research/chem/SSSearcher.js
+        	com/actelion/research/chem/IDCodeParserWithoutCoordinateInvention.js
+        	com/actelion/research/chem/AromaticityResolver.js
+        	com/actelion/research/chem/SmilesParser.js
+        	com/actelion/research/chem/MolfileParser.js
+        	com/actelion/research/chem/MolfileCreator.js
+        	com/actelion/research/chem/SVGDepictor.js
+        	com/actelion/research/chem/StereoMolecule.js
+        	com/actelion/research/chem/CanonizerMesoHelper.js
+        	com/actelion/research/chem/CanonizerBaseValue.js
+        	com/actelion/research/chem/DepictorTransformation.js
+        	com/actelion/research/chem/CanonizerMesoHelper.ESRGroupFragmentMatrix.js
         	com/actelion/research/chem/Coordinates.js
+        	com/actelion/research/chem/CanonizerBond.js
         	com/actelion/research/chem/CanonizerFragment.js
         	com/actelion/research/chem/IDCodeParser.js
-        	com/actelion/research/chem/MolfileCreator.js
-        	com/actelion/research/chem/Canonizer.js
-        	com/actelion/research/chem/Molecule.js
-        	com/actelion/research/chem/EZHalfParity.js
-        	com/actelion/research/chem/StereoMolecule.js
-        	com/actelion/research/chem/ExtendedMolecule.js
-        	com/actelion/research/chem/SVGDepictor.js
-        	com/actelion/research/chem/AromaticityResolver.js
-        	com/actelion/research/chem/DepictorTransformation.js
-        	com/actelion/research/chem/SmilesParser.THParity.js
-        	com/actelion/research/chem/SmilesParser.ParityNeighbour.js
-        	com/actelion/research/chem/IDCodeParserWithoutCoordinateInvention.js
-        	com/actelion/research/chem/CanonizerMesoHelper.js
-        	com/actelion/research/chem/SmilesParser.js
-        	com/actelion/research/chem/AbstractDepictor.js
-        	com/actelion/research/chem/CanonizerBond.js
-        	com/actelion/research/chem/MesoFragmentMembers.js
-        	com/actelion/research/chem/RingCollection.js
+        	com/actelion/research/chem/SmilesRange.js
         	com/actelion/research/chem/AbstractDepictor.DepictorLine.js
-        	com/actelion/research/chem/CanonizerBaseValue.js
-        	com/actelion/research/chem/CanonizerMesoHelper.ESRGroupFragmentMatrix.js
-        	com/actelion/research/chem/SSSearcherWithIndex.js
-        	com/actelion/research/chem/SSSearcher.js
-        	com/actelion/research/chem/MolfileParser.js
-      	"/>	
-    </copy>
-	-->
 
+        	
+        	com/actelion/research/gui/generic/GenericShape.js
+           	com/actelion/research/util/Angle.js
+        	com/actelion/research/chem/MesoFragmentBranch.js
+        	
+
+        	"/>	
+    </copy>
+
+  	<echo> Copying ${resources.dir} files into ${j2s.dir} </echo>
+  	<copy failonerror="false" todir="${j2s.dir}">
+      <fileset dir="${resources.dir}">
+      	<include name="**"/>
+   	  </fileset>
+  </copy>
 </target>
 	
 
