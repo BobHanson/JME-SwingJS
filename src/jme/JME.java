@@ -292,6 +292,18 @@ public class JME extends JPanel
 	}
 
 	/**
+	 * This method is used only in a batch mode test suite in order to have an
+	 * instance of JME that has a this.dimension that is not null
+	 * 
+	 * @param width
+	 * @param height
+	 */
+	public void setDirectSizeForTesting(int width, int height) {
+		setDimension(width, height);
+		updateMyMolecularAreaSize();
+	}
+
+	/**
 	 * Used for the test suite
 	 * 
 	 * @param width
@@ -304,6 +316,8 @@ public class JME extends JPanel
 		this.dimension.setSize(width, height);
 		return this;
 	}
+	
+
 
 	// tieto parametere sa naplnaju v init (aby sa vynulovali pri starte)
 	// boolean bwMode = false;
@@ -1345,9 +1359,8 @@ public class JME extends JPanel
 		// Show the copyright stuff at the bottom of the page when the applet starts
 		info(programName + " " + startInfoText);
 
-		dimension = getSize(); // potrebne pre centrovanie nacitanej molekuly //needed for centering loaded
-								// molecules
-		log("init: " + dimension.width + " " + dimension.height);
+		dimension = getSize(); // will be 0,0 in Java and JavaScript;
+		
 		setLayout(null);
 
 		// NS3 ma error vo font metrics (nedava ascent)
@@ -1578,7 +1591,6 @@ public class JME extends JPanel
 		// cita molekuly (uz by malo poznat dimension)
 		// addNotify(); // ??? nekompatibilne z mipc
 		// dimension = getSize(); //already done in init()
-		// log("start: " + dimension.width + " " + dimension.height);
 		dimension = getSize();
 
 		// no repaint because the applet viewer will call repaint() after start()
@@ -2455,8 +2467,6 @@ public class JME extends JPanel
 		double space = 0.;
 		if (isDepict()) { // cize == 1.
 			molecularAreaScale = Math.min(scalex, scaley); // inak dS = 1.
-			log("alignMolecules Depict: molecularAreaScale=" + molecularAreaScale + " xsize=" + xsize + " ysize="
-					+ ysize + "\n");
 			space = RBOND * xsize / sumx;
 			if (reactionRole == JMEmol.ReactionRole.AGENT)
 				space = RBOND * ysize / sumy;
@@ -4057,8 +4067,8 @@ public class JME extends JPanel
 		if (initOrResize) {
 			mustRedrawEverything();
 			updateMyMolecularAreaSize(this.dimension, this.menuScale);
-			log("update(): " + dimension + " " + "initOrResize: " + initOrResize + " " + this.molecularAreaWidth + " "
-					+ this.molecularAreaHeight);
+//			log("update(): " + dimension + " " + "initOrResize: " + initOrResize + " " + this.molecularAreaWidth + " "
+//					+ this.molecularAreaHeight);
 
 			// compute or resize the graphics
 			molecularAreaImage = createOrResizePreciseImage(molecularAreaImage, this.molecularAreaWidth,
@@ -4142,23 +4152,6 @@ public class JME extends JPanel
 				(int) (Math.round(d))));
 	}
 
-	/**
-	 * This methos is used only in a batch mode test suite in order to have an
-	 * instance of JME that has a this.dimension that is not null
-	 * 
-	 * @param width
-	 * @param height
-	 */
-	public void setDirectSizeForTesting(int width, int height) {
-		if (this.dimension == null) {
-			this.dimension = new Dimension();
-		}
-		this.dimension.width = width;
-		this.dimension.height = height;
-
-		this.updateMyMolecularAreaSize();
-
-	}
 	// ----------------------------------------------------------------------------
 
 	// BB
@@ -4293,7 +4286,6 @@ public class JME extends JPanel
 	// ----------------------------------------------------------------------------
 	void drawMolecularArea(Graphics g) {
 
-		log("drawMolecularArea  mustReDrawMolecularArea=" + mustReDrawMolecularArea + "\n");
 		// BB
 		if (!this.mustReDrawMolecularArea) {
 			return;
@@ -4321,7 +4313,6 @@ public class JME extends JPanel
 
 		double imgWidth = this.molecularAreaWidth;
 		double imgHeight = this.molecularAreaHeight;
-		log("drawMolecularArea  " + imgWidth + " : " + imgHeight + " scale: " + this.molecularAreaScale + "\n");
 		og.setColor(canvasBg);
 
 		imgWidth /= this.molecularAreaScale;
@@ -4447,8 +4438,6 @@ public class JME extends JPanel
 		double imgWidth = rightBorder(1);
 		// double imgHeight = (double)this.molecularAreaHeight/this.depictScale;
 		double imgHeight = screenArea.height / this.menuScale;
-		// System.out.print("@@@@ drawRightBorderImage
-		// dimensionHeight="+dimension.height + " imgHeight=" + imgHeight + "\n");
 		if (newLook) {
 			og.setColor(Color.darkGray);
 			// og.drawLine(imgWidth - 1, 0, imgWidth - 1, imgHeight - 1);//right line
@@ -4476,10 +4465,6 @@ public class JME extends JPanel
 //Swing will handle this differently
 //		if (!this.mustReDrawTopMenu)
 //			return;
-
-		// System.out.print("@@@@ drawTopMenu");
-
-		// PreciseGraphicsAWT og = topMenuImage.getGraphics();
 
 		Rectangle2D.Double screenArea = new Rectangle2D.Double(0, 0, dimension.width, topMenuHeight());
 		PreciseGraphicsAWT og = this.getScaledGraphicsOfPreciseImage(topMenuImage, menuScale, screenArea);
@@ -4580,8 +4565,7 @@ public class JME extends JPanel
 
 	// ----------------------------------------------------------------------------
 	protected void drawInfo(Graphics g) {
-		// log("drawInfo: " + this.mustReDrawInfo + " : " + infoText);
-		// Swing will handle this differently
+		// BH 2023.01.18 Swing will handle this differently
 //		if (!this.mustReDrawInfo)
 //			return;
 		if (infoText == null) {
@@ -5712,10 +5696,6 @@ public class JME extends JPanel
 
 			}
 		} else { // ypos >=3 (left menu squares)
-
-			if (square == 1301) {
-				this.log("");
-			}
 			int dan = mapActionToAtomNumber(square, -1);
 			if (dan != -1) {
 				String label = zlabel[dan];
@@ -6077,10 +6057,9 @@ public class JME extends JPanel
 		if (text == null)
 			text = customDefaultInfoText;
 		mustReDrawInfo = true;
+		if (infoText != text && text != "")
+			this.log("info: " + text);
 		infoText = text;
-		this.log("info: " + text);
-
-		// co s doMenu a repaintom
 	}
 
 	// ----------------------------------------------------------------------------
@@ -7246,12 +7225,6 @@ public class JME extends JPanel
 	public boolean mouseDrag(MouseEvent e, int x, int y) {
 		// public void mouseDragged(MouseEvent e) {
 
-//		System.out.println("@@@@ mouseDrag");
-		// Commented because if zooming is allopwed in depict mode, then moving should
-		// as well
-//		if (depict && ! depictActionEnabled)
-//			return true;
-		// 2Banding possible only after succesfull addition of the bond
 		if (!movePossible)
 			return true;
 
@@ -7518,8 +7491,6 @@ public class JME extends JPanel
 //	@Override
 	public boolean mouseMove(MouseEvent e, int x, int y) {
 
-		// public void mouseMoved(MouseEvent e) {
-		// System.out.println("@@@@ mouseMove");
 		// is depictActionEnabled test needed here? if depictActionEnabled is used only
 		// for the toggle edit/depict, then no
 		if (isDepict() && !(this.canHandleAtomHighLightCallBack() || this.canHandleBondHighLightCallBack()
@@ -7720,9 +7691,6 @@ public class JME extends JPanel
 		boolean alt = e.getModifiers() == Event.ALT_MASK;
 		// On Mac: meta is down for system copy
 		boolean meta = isMacintosh() ? e.isMetaDown() : e.isControlDown();
-
-		// In GWT debug mode, key is always uppercase
-		System.out.println("@@@@ keyDown: " + key + ' ' + Character.toString((char) key) + " shift=" + shift);
 
 		int pressed = 0;
 
@@ -8952,7 +8920,6 @@ public class JME extends JPanel
 			return;
 		}
 
-		System.out.println("@@@@ save state");
 		SavedState state = this.createState();
 		// if(state != null) {
 		this.molChangeManager.insertItem(state);
