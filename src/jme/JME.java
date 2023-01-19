@@ -7239,7 +7239,7 @@ public class JME extends JPanel
 			return true;
 		} else if (lastAction == LA_BOND) {
 			// mol.rubberBanding(drawingAreaX, drawingAreaY);
-			info("mouseDrag(): lasaction = LA_BOND " + lastAction);
+			//info("mouseDrag(): lasaction = LA_BOND " + lastAction);
 
 			// code copied and adapted from mol.rubberBanding
 			// goal: to crerate bond between two different molecule parts
