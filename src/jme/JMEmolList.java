@@ -908,47 +908,24 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		Box boundingBox = null;
 		
 		//loop through all molecules, extend the bounding box with each molecule
-		for(JMEmol mol :this) {
-			
-			Box moleculeBox = mol.computeCoordinate2DboundingBox(); //create a new instance each time this method is called
-			// correctedBoundingBox uses atom labels
-			if(moleculeBox == null) //if no atoms
-				continue;
-			if(boundingBox == null ) {
-				boundingBox = moleculeBox;
-			} else {
-				boundingBox = boundingBox.createUnion(moleculeBox);
-				// boundingBox.union(src1, src2, dest); // todo test if this works - advantage: does not create a new instance
-			}
+		// correctedBoundingBox uses atom labels
+		for(JMEmol mol :this) {			
+			//create a new instance each time this method is called
+			Box moleculeBox = mol.computeCoordinate2DboundingBox(); 
+			if(moleculeBox != null) //if no atoms
+				boundingBox = (boundingBox == null ? moleculeBox : boundingBox.createUnion(moleculeBox, boundingBox));
 		}
-		
-		
 		return boundingBox;
 	}
 		/**
 		 * uses atom labels
 		 * @return null if no atoms
 		 */
-	public Box computeBoundingBoxWithAtomLabels() {
-			
+	public Box computeBoundingBoxWithAtomLabels() {			
 			Box boundingBox = null;
-			
-			//loop through all molecules, extend the bounding box with each molecule
-			for(JMEmol mol :this) {
-				
-				Box moleculeBox = mol.computeBoundingBoxWithAtomLabels(); //create a new instance each time this method is called
-				// correctedBoundingBox uses atom labels
-				if(moleculeBox == null) //if no atoms
-					continue;
-				if(boundingBox == null ) {
-					boundingBox = moleculeBox;
-				} else {
-					boundingBox = boundingBox.createUnion(moleculeBox);
-					// boundingBox.union(src1, src2, dest); // todo test if this works - advantage: does not create a new instance
-				}
+			for(JMEmol mol : this) {
+				boundingBox = mol.computeBoundingBoxWithAtomLabels(boundingBox);
 			}
-			
-			
 			return boundingBox;
 	}
 	/**
@@ -992,44 +969,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		Graphical2DObjectGroup<JMEmol> distributer = new Graphical2DObjectGroup<JMEmol>();
 		distributer.addAll(this);
 		distributer.distributePositions(xOrY, margin);
-;		
-//		JMEmolList sorted = new JMEmolList();
-//		sorted.addAll(this);
-//		sorted.removeEmptyMolecules(); //otherwise boundingBox is null
-//
-//		if (sorted.isEmpty()) {
-//			return;
-//		}
-//
-//		Collections.sort(sorted, new Comparator<JMEmol>() {
-//			@Override
-//			public int compare(JMEmol m1, JMEmol m2) {
-//				// -1 - less than, 1 - greater than, 0 - equal, all inversed for descending
-//				double x2 = m1.boundingBox().get(xOrY);
-//				double x1 = m2.boundingBox().get(xOrY);
-//				return x1 > x2 ? -1 : (x2 < x1) ? 1 : 0;
-//			}
-//		});
-		
-		// does this implementation need to sort?
-//		boolean first = true;
-//		double x2 = 0;
-//		for(JMEmol mol: sorted) {
-//			Box moleculeBox = mol.boundingBox();
-//			double x1 = moleculeBox.get(xOrY);
-//			if (first) {
-//				x2 = x1 + moleculeBox.getDim(xOrY);
-//				first = false;
-//				continue;
-//			}
-//			
-//			double move = x2 - x1 + margin;
-//			mol.move(xOrY, move);
-//			x2 = x1 +  moleculeBox.getDim(xOrY) + move;
-//
-//		
-//			//sumMove += moleculeBox.getDim(xOrY) + margin;
-//		}
 	}
 	
 	public void alignCenterY() {
@@ -1045,16 +984,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		Graphical2DObjectGroup<JMEmol> aligner = new Graphical2DObjectGroup<JMEmol>(this);
 		aligner.alignCenter(xOrY);
 		
-//		double max = -1;
-//		for(JMEmol mol: this) {
-//			Box moleculeBox = mol.boundingBox();
-//			max = Math.max(max, moleculeBox.getDim(xOrY));
-//		}
-//		for(JMEmol mol: this) {
-//			Box moleculeBox = mol.boundingBox();
-//			double move = - moleculeBox.get(xOrY) + (max - moleculeBox.getDim(xOrY))/2;
-//			mol.move(xOrY, move);
-//		}
 	}
 	/**
 	 * Replace the first occurrence of the given mol by a new one
@@ -1180,14 +1109,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		}
 	}
 
-//	public JMEmolList setAtomColors(String s) {
-//		if(s != null)
-//			for(JMEmol mol : this) {
-//				mol.setAtomColors(s, false);
-//			}
-//		
-//		return this;
-//	}
 	public JMEmolList setAtomBackGroundColors(String s) {
 		if(s != null)
 			for(JMEmol mol : this) {
@@ -1217,36 +1138,38 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	// October 2019 dirty fix instead of using the new JMEmolList class
 	// Duplicated code with scaling()
 	public void scaleInternalBondMolList() {
-		double dx,dy,sumlen = 0.,scale=0.;
+		double sumlen = 0, scale = 0;
 		int bondCount = 0;
-		for(JMEmol mol: this) {
-			for (int i=1;i<=mol.nbonds;i++, bondCount++) {
-				dx = mol.x(mol.bonds[i].va) - mol.x(mol.bonds[i].vb);
-				dy = mol.y(mol.bonds[i].va) - mol.y(mol.bonds[i].vb);
-				sumlen += Math.sqrt(dx*dx + dy*dy); 
-
+		for (JMEmol mol : this) {
+			int n = mol.nbonds;
+			for (int i = 1; i <= n; i++) {
+				Bond b = mol.bonds[i];
+				double dx = mol.x(b.va) - mol.x(b.vb);
+				double dy = mol.y(b.va) - mol.y(b.vb);
+				sumlen += Math.sqrt(dx * dx + dy * dy);
 			}
+			bondCount += n;
 		}
-		if(bondCount > 0) {
+		if (bondCount > 0) {
 			sumlen = sumlen / bondCount;
-			//scale = RBOND / sumlen;
-			scale = this.first().RBOND() / sumlen; //BB
+			// scale = RBOND / sumlen;
+			scale = this.first().RBOND() / sumlen; // BB
 
 		} else {
-			for(JMEmol mol: this) {;
-				if(mol.nAtoms() > 1) {
-					scale = 3. * mol.RBOND() / Math.sqrt(( mol.x(1)- mol.x(2))*( mol.x(1)-
-							mol.x(2))+( mol.y(1)- mol.y(2))*( mol.y(1)- mol.y(2))); //BB
+			for (JMEmol mol : this) {
+				;
+				if (mol.nAtoms() > 1) {
+					scale = 3. * mol.RBOND() / Math.sqrt((mol.x(1) - mol.x(2)) * (mol.x(1) - mol.x(2))
+							+ (mol.y(1) - mol.y(2)) * (mol.y(1) - mol.y(2))); // BB
 
 					break;
 				}
 
 			}
 
-
 		}
-		if(scale > 0) {
-			for(JMEmol mol: this) {;
+		if (scale > 0) {
+			for (JMEmol mol : this) {
 				mol.scaleXY(scale);
 			}
 		}

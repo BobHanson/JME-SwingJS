@@ -1751,25 +1751,9 @@ public class JME extends JPanel
 		if (mol.nAtoms() == 0) {
 			return ReactionRole.NOROLE;
 		}
-		Box bbox = mol.computeBoundingBoxWithAtomLabels();
-//		double middleX = this.getMolecularAreaBoundingBoxCoordinate().getCenterX();
-//
-//		if (bbox.getCenterX() < middleX - arrowWidth / 2)
-//			return ReactionRole.REACTANT;
-//		else if (bbox.getCenterX() > middleX + arrowWidth / 2)
-//			return ReactionRole.PRODUCT;
-//		else
-//			return ReactionRole.AGENT;
-
-//		if (bbox.getCenterX() < reactionArrow.centerX())
-//			return ReactionRole.REACTANT;
-//		else if (bbox.getCenterX() > reactionArrow.centerX())
-//			return ReactionRole.PRODUCT;
-//		else
-//			return ReactionRole.AGENT;
-
+		Box bbox = mol.computeBoundingBoxWithAtomLabels(null);
 		// May 2020 improvement for the agent
-		Box reactionArrowBox = reactionArrow.computeBoundingBoxWithAtomLabels();
+		Box reactionArrowBox = reactionArrow.updateBoundingBox();
 		if (bbox.getCenterX() < reactionArrowBox.x)
 			return ReactionRole.REACTANT;
 		else if (bbox.getCenterX() > reactionArrowBox.x + reactionArrowBox.width)
@@ -2367,7 +2351,7 @@ public class JME extends JPanel
 
 		for (int i = m1; i <= m2; i++) {
 			JMEmol mol = moleculePartsList.get(i);
-			Rectangle2D.Double moleculeBox = mol.computeBoundingBoxWithAtomLabels();
+			Rectangle2D.Double moleculeBox = mol.computeBoundingBoxWithAtomLabels(null);
 			double dx = moleculeBox.x * -1;
 			double dy = moleculeBox.y * -1;
 
@@ -2423,7 +2407,7 @@ public class JME extends JPanel
 		for (int i = m1; i <= m2; i++) {
 			if (moleculePartsList.get(i).nAtoms() == 0)
 				continue; // boundingBox() returns null if no atoms
-			Rectangle2D.Double moleculeBox = moleculePartsList.get(i).computeBoundingBoxWithAtomLabels(); // zisti
+			Box moleculeBox = moleculePartsList.get(i).computeBoundingBoxWithAtomLabels(null); // zisti
 																											// dimenzie
 			sumx += moleculeBox.getWidth();// center[2]; //width of mol
 			sumy += moleculeBox.getHeight(); // ; //height of mol
@@ -2546,11 +2530,10 @@ public class JME extends JPanel
 	 */
 	public Box getChemicalDrawingBoundingBox(Graphical2DObjectGroup<?> graphicalObjecList) {
 
-		Box boundingBox = graphicalObjecList.newBoundingBox();
-
 		// leave a margin around the molecule
 		double margin = (double) JMEmol.RBOND / 2;
 
+		Box boundingBox = graphicalObjecList.newBoundingBox();
 		if (boundingBox != null && !boundingBox.isEmpty()) {
 			boundingBox.x -= margin;
 			boundingBox.y -= margin;
@@ -4413,8 +4396,10 @@ public class JME extends JPanel
 //			return; // not implemented yet
 		// this.appletHasBeenResized = false;
 
-		Rectangle2D.Double chemicalDrawingBoundingBox = this.getChemicalDrawingBoundingBox(graphicalObjecList); // molecule
-																												// coordinate
+		Rectangle2D.Double chemicalDrawingBoundingBox = this.getChemicalDrawingBoundingBox(graphicalObjecList);
+		if (chemicalDrawingBoundingBox == null)
+			return;
+		// molecule coordinate
 		Rectangle2D.Double appletMolBoundingBox = this.getMolecularAreaBoundingBoxCoordinate(appletDimension, menuScale,
 				molecularAreaScale);
 		double dx = appletMolBoundingBox.getCenterX() - chemicalDrawingBoundingBox.getCenterX();
@@ -4901,7 +4886,7 @@ public class JME extends JPanel
 				}
 
 				// compute the bounding box of the source molecule
-				Box cad = activeMol.computeBoundingBoxWithAtomLabels();
+				Box cad = activeMol.computeBoundingBoxWithAtomLabels(null);
 				if (cad == null)
 					break;
 
@@ -5996,7 +5981,7 @@ public class JME extends JPanel
 		} else {
 			g.setFont(menuCellFont);
 		}
-		double h = this.stringHeight(fm); // vyska fontu
+		double h = JMEUtil.stringHeight(fm); // vyska fontu
 
 		g.drawString(text, xstart + (menuCellSize - w) / 2, ystart + (menuCellSize - h) / 2 + h);
 
@@ -6005,7 +5990,7 @@ public class JME extends JPanel
 	// --------------------------------------------------------------------------
 	void squareTextBold(PreciseGraphicsAWT g, double xstart, double ystart, Color col, String text) {
 		// Used for the atom symbols on the left side menu
-		double h = this.stringHeight(menuCellFontBoldMet); // vyska fontu
+		double h = JMEUtil.stringHeight(menuCellFontBoldMet); // vyska fontu
 		double w = menuCellFontBoldMet.stringWidth(text);
 		g.setFont(menuCellFontBold);
 		g.setColor(col);
@@ -9184,15 +9169,7 @@ public class JME extends JPanel
 		return popup;
 	}
 
-	/*
-	 * Provide the ideal height of a string consisting of usual upper case
-	 * characters. Purpose: centering of String in the center of a box. Does not
-	 * work for $ , y ; and others
-	 */
-	public double stringHeight(FontMetrics fm) {
-		return fm.getAscent() - fm.getDescent();
-		// return fm.getAscent();
-	}
+	
 
 	// public int stringHeight(FontMetrics fm, String text) {
 	// int h = stringHeight(fm);

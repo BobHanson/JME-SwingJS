@@ -76,21 +76,19 @@ class ReactionArrow extends Graphical2DObject {
 		
 	}
 
+	public Box updateBoundingBox() {
+		boundingBox.setRect(centerX - arrowWidth / 2, centerY() + arrowHeigth() / 2, arrowWidth, arrowHeigth());
+		return boundingBox;
+	}
+	
 	@Override
-	public Box computeBoundingBoxWithAtomLabels() {
-		
-		double x = centerX - arrowWidth / 2;
-		double w = this.arrowWidth;
-		
-		double y = centerY() + arrowHeigth() / 2;
-		double h = arrowHeigth();
-
-		this.boundingBox.setRect(x, y, w, h);
-		
-		assert(this.boundingBox != null);
-
-		return this.boundingBox;
-
+	public Box computeBoundingBoxWithAtomLabels(Box union) {
+		updateBoundingBox();
+		if (union != null)
+			return boundingBox.createUnion(union, union);
+		union = new Box();
+		union.setFrame(boundingBox);
+		return union;
 	}
 
 	@Override
@@ -119,5 +117,6 @@ class ReactionArrow extends Graphical2DObject {
 		
 		return min;
 	}
-	
+
+
 }

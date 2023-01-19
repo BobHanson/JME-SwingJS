@@ -34,7 +34,7 @@ public abstract class  Graphical2DObject {
 	
 	protected abstract void moveXY(double movex, double movey);
 
-	public abstract Box computeBoundingBoxWithAtomLabels();
+	public abstract Box computeBoundingBoxWithAtomLabels(Box union);
 
 	
 	public abstract double centerX();
@@ -68,10 +68,7 @@ public abstract class  Graphical2DObject {
 	
 	void move(double movex, double movey, Rectangle2D.Double boundingBoxLimits) {
 
-		Box bbox = computeBoundingBoxWithAtomLabels();
-
-
-
+		Box bbox = computeBoundingBoxWithAtomLabels(null);
 		double centerx=bbox.getCenterX(); double centery=bbox.getCenterY();
 
 		//does not work correctly if moved to bottom right corner
@@ -103,10 +100,7 @@ public abstract class  Graphical2DObject {
 	 * @return an empty box if empty
 	 */
 	public Box newBoundingBox() {
-		Box newBox = new Box();
-		newBox.setRect(this.computeBoundingBoxWithAtomLabels());
-		
-		return newBox;
+		return computeBoundingBoxWithAtomLabels(null);
 	}
 
 	
@@ -226,27 +220,11 @@ class  Graphical2DObjectGroup<T extends Graphical2DObject> extends Graphical2DOb
 
 	@Override
 	// duplicated code with JMEmolList
-	public Box computeBoundingBoxWithAtomLabels() {
-	Box boundingBox = null;
-		
-		//loop through all objects, extend the bounding box with each object
-		for(T go : this.group) {
-			
-			Box eachBox = go.computeBoundingBoxWithAtomLabels(); //create a new instance each time this method is called
-			if(eachBox == null) //if no atoms
-				continue;
-			if(boundingBox == null ) {
-				boundingBox = eachBox;
-			} else {
-				boundingBox = boundingBox.createUnion(eachBox);
-			}
+	public Box computeBoundingBoxWithAtomLabels(Box union) {
+		for (T go : group) {
+			union = go.computeBoundingBoxWithAtomLabels(union); 
 		}
-		
-		if(boundingBox == null ) {
-			boundingBox = new Box();
-		}
-		
-		return boundingBox;
+		return union;
 	}
 
 	@Override
@@ -340,8 +318,7 @@ class  Graphical2DObjectGroup<T extends Graphical2DObject> extends Graphical2DOb
 		if (this.size() <= 1) {
 			return;
 		}
-		
-		
+				
 		Graphical2DObjectGroup<T> sorted = new Graphical2DObjectGroup<T>();
 		sorted.addAll(this);
 		sorted.removeNoSizeObjects(); //otherwise boundingBox is null
@@ -349,25 +326,22 @@ class  Graphical2DObjectGroup<T extends Graphical2DObject> extends Graphical2DOb
 			return;
 		}
 		double beforeAlignCenter = sorted.center(xOrY);
-
 		if (keepXorYorder) {
 			Collections.sort(sorted.group, new Comparator<T>() {
 				@Override
 				public int compare(T m1, T m2) {
 					// -1 - less than, 1 - greater than, 0 - equal, all inversed for descending
-					double x2 = m1.computeBoundingBoxWithAtomLabels().get(xOrY);
-					double x1 = m2.computeBoundingBoxWithAtomLabels().get(xOrY);
+					double x2 = m1.computeBoundingBoxWithAtomLabels(null).get(xOrY);
+					double x1 = m2.computeBoundingBoxWithAtomLabels(null).get(xOrY);
 					return x1 > x2 ? -1 : (x2 < x1) ? 1 : 0;
 				}
 			});
 		}
 		double sumMove = 0;
 		for(T mol: sorted.group) {
-			Box moleculeBox = mol.computeBoundingBoxWithAtomLabels();
+			Box moleculeBox = mol.computeBoundingBoxWithAtomLabels(null);
 			double move = sumMove - moleculeBox.get(xOrY);
 			mol.move(xOrY, move);
-
-		
 			sumMove += moleculeBox.getDim(xOrY) + margin;
 		}
 		
@@ -387,7 +361,7 @@ class  Graphical2DObjectGroup<T extends Graphical2DObject> extends Graphical2DOb
 		
 		Graphical2DObjectGroup<T> emptyList= new Graphical2DObjectGroup<T>();
 		for(T mol :this.group) {
-			Box moleculeBox = mol.computeBoundingBoxWithAtomLabels();
+			Box moleculeBox = mol.computeBoundingBoxWithAtomLabels(null);
 			if (moleculeBox == null || moleculeBox.isEmpty()) {
 				emptyList.add(mol);
 			}

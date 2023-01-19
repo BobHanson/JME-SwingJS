@@ -1,8 +1,8 @@
 package jme;
 
 import java.awt.Color;
+import java.awt.FontMetrics;
 import java.awt.geom.Rectangle2D;
-
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -1078,19 +1078,22 @@ public class JMEmol extends Graphical2DObject {
 	 */
 	public double internalBondLengthScaling() {
 		// proper scaling (to RBOND)
-		double dx, dy, sumlen = 0., scale = 0.;
+		double sumlen = 0., scale = 0.;
 
-		double max = Double.MIN_VALUE;
+		double max = 0;
 		double min = Double.MAX_VALUE;
-		double referenceBondLength = RBOND();
+		double refBondLength = RBOND();
 
 		for (int i = 1; i <= nbonds; i++) {
-			dx = x(bonds[i].va) - x(bonds[i].vb);
-			dy = y(bonds[i].va) - y(bonds[i].vb);
+			Bond b = bonds[i];
+			double dx = x(b.va) - x(b.vb);
+			double dy = y(b.va) - y(b.vb);
 			double d = Math.sqrt(dx * dx + dy * dy);
 			sumlen += d;
-			max = Math.max(max, d);
-			min = Math.min(min, d);
+			if (d > max)
+				max = d;
+			if (d < min)
+				min = d;
 		}
 
 		if (sumlen > 0) {
@@ -1104,9 +1107,9 @@ public class JMEmol extends Graphical2DObject {
 					scale = max;
 				}
 
-				scale = referenceBondLength / scale;
+				scale = refBondLength / scale;
 			} else if (natoms > 1) { // disconnected structure(s)
-				scale = 3. * referenceBondLength
+				scale = 3. * refBondLength
 						/ Math.sqrt((x(1) - x(2)) * (x(1) - x(2)) + (y(1) - y(2)) * (y(1) - y(2)));
 			}
 
@@ -1116,7 +1119,7 @@ public class JMEmol extends Graphical2DObject {
 
 			this.findBondCenters(); // BB added June 2020
 
-			return referenceBondLength;
+			return refBondLength;
 		}
 
 		return 0;
@@ -1149,7 +1152,7 @@ public class JMEmol extends Graphical2DObject {
 			return;
 		}
 
-		Rectangle2D.Double cad = computeBoundingBoxWithAtomLabels();
+		Rectangle2D.Double cad = computeBoundingBoxWithAtomLabels(null);
 
 		double shiftx = xpix / 2 - cad.getCenterX(); // . center[0];
 		double shifty = ypix / 2 - cad.getCenterY(); // center[1];
@@ -1546,7 +1549,7 @@ public class JMEmol extends Graphical2DObject {
 				}
 				// query bond text
 				og.setFont(jme.atomDrawingAreaFont);
-				double h = jme.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
+				double h = JMEUtil.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
 				/*
 				 * String z = "?"; switch (stereob[i]) { case QB_ANY: z = "~"; break; case
 				 * QB_AROMATIC: z = ":"; break; case QB_RING: z = "@"; break; case QB_NONRING: z
@@ -1618,7 +1621,7 @@ public class JMEmol extends Graphical2DObject {
 				String btag = bond.btag;
 				if (btag != null && btag.length() > 0) {
 					og.setFont(jme.atomDrawingAreaFont);
-					double h = jme.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
+					double h = JMEUtil.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
 					double w = jme.atomDrawingAreaFontMet.stringWidth(btag);
 					double xstart = (xa + xb) / 2. - w / 2.;
 					double ystart = (ya + yb) / 2. + h / 2 - 1; // o 1 vyssie
@@ -1629,10 +1632,10 @@ public class JMEmol extends Graphical2DObject {
 			}
 		}
 
-		this.computeAtomLabels();
+		computeAtomLabels();
 
 		og.setFont(jme.atomDrawingAreaFont);
-		double h = jme.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
+		double h = JMEUtil.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
 
 		// BB
 		// try to improve the positioning and direction of the atom label when there are
@@ -1647,6 +1650,7 @@ public class JMEmol extends Graphical2DObject {
 		for (int i = 1; i <= natoms; i++) {
 
 			Atom atom = this.atoms[i];
+			
 			if (atom.al.noLabelAtom) {
 				continue;
 			}
@@ -1668,7 +1672,7 @@ public class JMEmol extends Graphical2DObject {
 			og.setColor(JME.color[an(i)]);
 			Color strokeColor = atomTextStrokeColorArray[i];
 
-			og.drawStringWithStrokeAndBaselineShifts(atom.al.zz, xstart, ystart, strokeColor, h / 20,
+			og.drawStringWithStrokeAndBaselineShifts(atom.al.str, xstart, ystart, strokeColor, h / 20,
 					atom.al.subscripts, atom.al.superscripts);
 		}
 
@@ -1824,28 +1828,16 @@ public class JMEmol extends Graphical2DObject {
 
 		// first compute for each atom the average X of its neighbors
 		// this will be used to determine the text orientation of the label
-		double neighborXaverage[] = JMEUtil.createDArray(natoms + 1);
+		double neighborXSum[] = JMEUtil.createDArray(natoms + 1);
 		int neighborCount[] = JMEUtil.createArray(natoms + 1);
 
 		for (int i = 1; i <= nbonds; i++) {
-
 			atom1 = bonds[i].va;
 			atom2 = bonds[i].vb;
-
-			double atom1X = x(atom1);
-			double atom2X = x(atom2);
-
+			neighborXSum[atom1] += x(atom2);
+			neighborXSum[atom2] += x(atom1);
 			neighborCount[atom1]++;
 			neighborCount[atom2]++;
-
-			neighborXaverage[atom1] = neighborXaverage[atom1] / neighborCount[atom1] + atom2X / neighborCount[atom1];
-			neighborXaverage[atom2] = neighborXaverage[atom2] / neighborCount[atom2] + atom1X / neighborCount[atom2];
-		}
-		double h = 9.0;
-
-		if (this.jme != null) {
-			h = jme.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
-
 		}
 
 		// BB
@@ -1856,212 +1848,28 @@ public class JMEmol extends Graphical2DObject {
 		// TODO: NH2, the 2 should subscript
 		// TODO NH3+, the + should be superscript
 
-		int boundingBoxpadding = 2; // number of pixel of white space surrounding the atom labels
-
+		boolean showHs = moleculeHandlingParameters.hydrogenHandlingParameters.showHs;
+		boolean showMap = (!moleculeHandlingParameters.mark
+				|| moleculeHandlingParameters.showAtomMapNumberWithBackgroundColor);
+		FontMetrics fm = (jme == null ? null : jme.atomDrawingAreaFontMet);
+		double h = (jme == null ? 9.0 : JMEUtil.stringHeight(fm));
+		double rb = RBOND();		
 		for (int i = 1; i <= natoms; i++) {
+			int n = neighborCount[i];
+			double diff = neighborXSum[i] / neighborCount[i] - x(i);
+			int alignment;
 
-			String z = getAtomLabel(i);
-			if (z == null || z.length() < 1) {
-				z = "*";
-				System.err.println("Z error!");
-			}
-
-			Atom atom = this.atoms[i];
-			atom.al = new AtomDisplayLabel(z);
-
-			double smallWidth = 0; // used to position / center the atom label
-			double fullWidth = 0;
-			boolean leftToRight = true;
-
-			if (an(i) == JME.AN_C && nv(i) > 0 && q(i) == 0 && atom.iso == 0 && !atom.isCumuleneSP() && !TESTDRAW) {
-				// No atom atom label: C and a bond angle
-				// atom.al.zz = z;
-				// atom.al.smallAtomWidthLabel = atom.al.fullAtomWidthLabel =
-				// jme.atomDrawingAreaFontMet.stringWidth(z);
-				atom.al.noLabelAtom = true;
-
-				// TODO: add bond thickness, different for double, triple
-				// atom.al.atomLabelBoundingBox = new Box(atom.x, atom.y, 0, 0);
-
-			} else {
-				atom.al.noLabelAtom = false;
-			}
-			if (true) { // even if there are no labels, the bounding box is needed for mouse over
-
-				// BB better display for OH or o- : the bond will point at the atom symbol "O"
-				// and not at the center of the "OH"
-				String atomSymbolsToBeUsedToComputeStringWidth = z;
-
-				// determine the direction for the additional atom labels
-				leftToRight = neighborXaverage[i] < x(i);
-				boolean doSideMove = true; // the whole label will not be centered on the atom x,y coordinates
-
-				// correction
-				// if more than one neighbors and no clear x direction
-				if (neighborCount[i] > 1 && Math.abs(neighborXaverage[i] - x(i)) < RBOND() / 3) {
-					doSideMove = false;
-				}
-				// if more than 2 neighbors
-				if (neighborCount[i] > 2) {
-					doSideMove = false;
-				}
+			if (n > 2 || n == 0 || n == 2 && Math.abs(diff) < rb / 3) {
+				// if more than 2 neighbors, center
+				// or if more than one neighbors and no clear x direction
+				alignment = JMEUtil.ALIGN_CENTER;
+			} else if (n == 1 && Math.abs(diff) < rb / 10) {
 				// if the two atoms are vertically aligned, then no right to left
-				if (neighborCount[i] == 1 && Math.abs(neighborXaverage[i] - x(i)) < RBOND() / 10) {
-					leftToRight = true;
-				}
-
-				String hydrogenSymbols = "";
-
-				// nekresli C na allene (problemy s #C-)
-				if (this.moleculeHandlingParameters.hydrogenHandlingParameters.showHs && !TESTDRAW) {
-					int nh = this.atoms[i].nh;
-					if (nh > 0) {
-						hydrogenSymbols += "H";
-						if (nh > 1) {
-							hydrogenSymbols += nh; // add the number of hydrogens e.g for NH2
-							// ???
-
-						}
-					}
-				}
-
-				// otherwise the bounding box for the mouse over will be too large
-				if (atom.al.noLabelAtom) {
-					hydrogenSymbols = "";
-				}
-
-				// BB isotopes
-				String isoSymbol = "";
-				if (atom.iso != 0) {
-					isoSymbol = "[" + atom.iso + "]";
-				}
-
-				// charges
-				String chargeSymbols = "";
-				if (q(i) != 0) {
-					if (Math.abs(q(i)) > 1)
-						chargeSymbols += Math.abs(q(i));
-					if (q(i) > 0)
-						chargeSymbols += "+";
-					else
-						chargeSymbols += "-";
-
-				}
-
-				// testDraw ??
-				String testDrawSymbol = "";
-
-				if (TESTDRAW)
-					testDrawSymbol += i; // add CT atom index
-
-				if (leftToRight || !doSideMove) {
-					atom.al.leftToRight = true;
-					z = isoSymbol + z + hydrogenSymbols + chargeSymbols + testDrawSymbol; // NH2 , NH3+
-				} else {
-					atom.al.leftToRight = false;
-					z = chargeSymbols + hydrogenSymbols + testDrawSymbol + isoSymbol + z; // H2N +H3N
-
-				}
-
-				if (!doSideMove) {
-					atomSymbolsToBeUsedToComputeStringWidth = z;
-				}
-				atom.al.zz = z;
-
-				// used to position / center the atom label
-				smallWidth = jme.atomDrawingAreaFontMet.stringWidth(atomSymbolsToBeUsedToComputeStringWidth);
-				// used to compute the bounding box of the atom label
-				fullWidth = jme.atomDrawingAreaFontMet.stringWidth(z);
-
-				atom.al.smallAtomWidthLabel = smallWidth;
-				atom.al.fullAtomWidthLabel = fullWidth;
-
-				atom.al.leftToRight = leftToRight;
-				// TODO: atom mapping missing
-				atom.al.atomLabelBoundingBox = createAtomLabelBoundingBoxRect(boundingBoxpadding, i, smallWidth,
-						fullWidth, h, leftToRight);
-
-				atom.al.mapString = null;
-
-				atom.al.labelX = atom.al.atomLabelBoundingBox.x + boundingBoxpadding + 1; // see
-																							// createAtomLabelBoundingBoxRect
-																							// for the +1 (line
-																							// thickness)
-				atom.al.labelY = atom.al.atomLabelBoundingBox.y + h + boundingBoxpadding; // o 1 vyssie
-
-				// place hydrogen count symbols subscript
-				if (hydrogenSymbols.length() > 1) {
-					int pos = z.indexOf(hydrogenSymbols);
-					// H2 -> 2 subscript
-					int[] styleIndices = { pos + 1, hydrogenSymbols.length() - 1 };
-
-					atom.al.subscripts = new int[][] { styleIndices };
-				}
-
-				// place charge symbols superscript
-				if (chargeSymbols.length() > 0) {
-					int pos = z.indexOf(chargeSymbols);
-					int[] styleIndices = { pos, chargeSymbols.length() };
-					atom.al.superscripts = new int[][] { styleIndices };
-
-				}
-
-				// place isotope symbols superscript
-				if (isoSymbol.length() > 0) {
-					int pos = z.indexOf(isoSymbol);
-					int[] styleIndices = { pos, isoSymbol.length() };
-
-					if (atom.al.superscripts == null) {
-						atom.al.superscripts = new int[][] { styleIndices };
-					} else {
-						atom.al.superscripts = new int[][] { atom.al.superscripts[0], styleIndices };
-					}
-
-				}
-
+				alignment = JMEUtil.ALIGN_LEFT;
+			} else { 
+				alignment = (diff < 0 ? JMEUtil.ALIGN_LEFT : JMEUtil.ALIGN_RIGHT);
 			}
-
-			if (!moleculeHandlingParameters.mark || moleculeHandlingParameters.showAtomMapNumberWithBackgroundColor) { 
-				if (!atom.hasBeenMapped()) {
-					continue;
-				}
-				// to extend the size of the atomLabelBoundingBox
-				Box box = atom.al.atomLabelBoundingBox;
-
-				String mapString;
-
-				mapString = " " + atom.getMap();
-
-				double atomMapX;
-				double atomMapY;
-				if (!atom.al.noLabelAtom) {
-					double atomMapStringWidth = jme.atomMapDrawingAreaFontMet.stringWidth(mapString);
-
-					// remember: y points down
-					double superscriptMove = h * 0.3; // BB: move the map symbol higher
-					// double superscriptHeight = jme.atomMapDrawingAreaFontMet.getHeight();
-					atomMapY = y(i) - superscriptMove;
-					box.y -= superscriptMove;
-					box.height += superscriptMove;
-					box.width += atomMapStringWidth;
-
-					if (leftToRight) {
-						atomMapX = x(i) - smallWidth / 2. + fullWidth;
-					} else {
-						box.x -= atomMapStringWidth;
-						atomMapX = x(i) + smallWidth / 2 - fullWidth - atomMapStringWidth;
-					}
-
-				} else {
-					atomMapY = y(i) - (double) h * 0.1; // BB: move the map symbol higher
-					atomMapX = x(i) + smallWidth / 4; // no atom symbol: put the map label closer, on the right
-				}
-				// double atomMapY = y(i) + h/2 - 1; // o 1 vyssie
-
-				atom.al.atomMapX = atomMapX;
-				atom.al.atomMapY = atomMapY;
-				atom.al.mapString = mapString;
-			}
+			atoms[i].setDisplay(alignment, showHs, showMap, fm, h);
 		}
 	}
 
@@ -2071,32 +1879,6 @@ public class JMEmol extends Graphical2DObject {
 				return true;
 		}
 		return false;
-	}
-
-	// BB: create a bounding box that surrounds the atom label with a padding of 1
-	// pixel
-	// smallWidth is the width of the atom label without charge and extra H
-	// full width is the width of the atom label with everything
-	// the box is bigger than the atom label itself (padding argument)
-	Box createAtomLabelBoundingBoxRect(double padding, int atomIndex, double smallAtomWidthLabelArray,
-			double smallAtomWidthLabelArray2, double height, boolean leftToRight) {
-		int lineThickness = 1;
-
-		// small width is used to compute the position xstart, that is the x position of
-		// the label
-		double xstart = x(atomIndex) - smallAtomWidthLabelArray / 2.;
-		if (!leftToRight) {
-			xstart -= (smallAtomWidthLabelArray2 - smallAtomWidthLabelArray); // move the xstart further left
-		}
-		double ystart = y(atomIndex) - height / 2; // o 1 vyssie
-
-		// to take into account the line thickness
-		xstart -= lineThickness;
-		smallAtomWidthLabelArray2 += lineThickness;
-
-		return new Box(xstart - padding, ystart - padding, smallAtomWidthLabelArray2 + 2 * padding,
-				height + 2 * padding);
-
 	}
 
 	// ----------------------------------------------------------------------------
@@ -2118,7 +1900,7 @@ public class JMEmol extends Graphical2DObject {
 			return; // bbox is null if the molecule has no atoms
 
 		// get original position
-		Box bbox = computeBoundingBoxWithAtomLabels();
+		Box bbox = computeBoundingBoxWithAtomLabels(null);
 		double centerx = bbox.getCenterX();
 		double centery = bbox.getCenterY();
 
@@ -2133,7 +1915,7 @@ public class JMEmol extends Graphical2DObject {
 		}
 
 		// moving to original position
-		bbox = computeBoundingBoxWithAtomLabels();
+		bbox = computeBoundingBoxWithAtomLabels(null);
 		moveXY(centerx - bbox.getCenterX(), centery - bbox.getCenterY());
 	}
 
@@ -2180,48 +1962,13 @@ public class JMEmol extends Graphical2DObject {
 		return bbox;
 	}
 
-	/**
-	 * *Bug: estimate size the atom labels that will be used for displaying
-	 * 
-	 * @return
-	 */
-	public Box computeBoundingBoxWithAtomLabels() {
-		Box bbox = null;
-
+	public Box computeBoundingBoxWithAtomLabels(Box union) {
 		if (natoms == 0)
-			return bbox;
-
-		this.computeAtomLabels();
-
-		double minx = Double.MAX_VALUE, maxx = Double.MIN_VALUE, miny = Double.MAX_VALUE, maxy = Double.MIN_VALUE;
-
-		for (int i = 1; i <= natoms; i++) {
-			AtomDisplayLabel al = this.atoms[i].al;
-			Box box = al.atomLabelBoundingBox;
-
-			if (box.x < minx)
-				minx = box.x;
-
-			maxx = Math.max(box.x + box.width, maxx);
-
-			if (box.y < miny)
-				miny = box.y;
-
-			maxy = Math.max(box.y + box.height, maxy);
-		}
-
-		bbox = new Box();
-		bbox.x = minx;
-		bbox.y = miny;
-
-		// for scaling in depict
-		// bbox.width = Math.max(maxx - minx, RBOND);
-		// bbox.height = Math.max(maxy - miny, RBOND);
-
-		bbox.width = maxx - minx;
-		bbox.height = maxy - miny;
-
-		return bbox;
+			return union;
+		computeAtomLabels();
+		for (int i = 1; i <= natoms; i++)
+			union = this.atoms[i].al.atomLabelBoundingBox.createUnion(union, union);
+		return union;
 	}
 
 	public Box computeCoordinate2DboundingBox() {
@@ -2911,7 +2658,7 @@ public class JMEmol extends Graphical2DObject {
 			int atom1 = v(selectedAtom)[1];
 			int atom3 = 0; // reference, aby to slo rovno
 			if (nv(atom1) == 2) {
-				if (v(atom1)[1] == selectedAtom)
+				if (v(atom1)[1] == selectedAtom) 
 					atom3 = v(atom1)[2];
 				else
 					atom3 = v(atom1)[1];
@@ -7102,10 +6849,7 @@ public class JMEmol extends Graphical2DObject {
 
 	// ----------------------------------------------------------------------------
 	public String getAtomLabel(int i) {
-		String z = JME.zlabel[an(i)]; // aj C kvoli ramcekom
-		if (an(i) == JME.AN_X)
-			z = atoms[i].label;
-		return z;
+		return atoms[i].getLabel();
 	}
 
 	boolean hasHydrogen() {

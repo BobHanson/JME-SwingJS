@@ -3,6 +3,7 @@
  */
 package jme;
 
+import java.awt.FontMetrics;
 //START JAVA_IMPORT
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -370,13 +371,14 @@ public class Atom extends AtomBondCommon {
 		return symbol;
 	}
 
+	public void setDisplay(int alignment, boolean showHs, boolean showMap, FontMetrics fm, double h) {
 
-	/**
-	 * 
-	 * @param symbol
-	 */
-	public void setSymbol(String symbol) {
+		al = new AtomDisplayLabel(x, y, getLabel(), an, nv, sbo, nh, q, iso, showMap && hasBeenMapped() ? getMap() : -1, alignment, fm, h, showHs);
+		
+	}
 
+	public String getLabel() {
+		return (an == JME.AN_X ? label : JME.zlabel[an]);
 	}
 
 

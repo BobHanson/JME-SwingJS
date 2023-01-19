@@ -47,17 +47,24 @@ public class Box extends Rectangle2D.Double {
 		
 		return  this;
 	}
+
 	/**
-	 * Duplicated code with super class to avoid type casting error
-	 * at run time
+	 * Duplicated code with super class to avoid type casting error at run time
+	 * 
 	 * @param r
 	 * @return
 	 */
-    public Box createUnion(Box r) {
-        Box dest = new Box();
-        Box.union(this, r, dest);
-        return dest;
-    }
+	public Box createUnion(Box r, Box union) {
+		if (union == null) {
+			union = new Box();
+			union.setFrame(this);
+		} else {
+			Box.union(union, this, union);
+		}
+		if (r != null && r != union)
+			Box.union(union, r, union);
+		return union;
+	}
 
 	int getRoundedWidth() {
 		return (int)Math.round(width);
