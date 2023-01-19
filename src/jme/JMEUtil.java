@@ -613,14 +613,6 @@ public abstract class JMEUtil {
 	 */
 	public static double stringHeight(FontMetrics fm) {
 		return fm.getAscent() - fm.getDescent();
-		// return fm.getAscent();
 	}
-
-//	static {
-//		for (int i = -20; i < 20; i++) {
-//			System.out.println(i + " >" + fformat(i/100.,5,2) + "<>" + iformat(i, 2) + "<");
-//		}
-//		System.out.println("???");
-//	}
 
 }
