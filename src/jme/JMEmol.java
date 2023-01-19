@@ -1656,8 +1656,6 @@ public class JMEmol extends Graphical2DObject {
 			}
 			Box r = atom.al.atomLabelBoundingBox;
 
-			double xstart = atom.al.labelX;
-			double ystart = atom.al.labelY;
 
 			og.setBackGroundColor(); // set default background color
 			setPresetPastelBackGroundColor(og, i, true);
@@ -1672,7 +1670,7 @@ public class JMEmol extends Graphical2DObject {
 			og.setColor(JME.color[an(i)]);
 			Color strokeColor = atomTextStrokeColorArray[i];
 
-			og.drawStringWithStrokeAndBaselineShifts(atom.al.str, xstart, ystart, strokeColor, h / 20,
+			og.drawStringWithStrokeAndBaselineShifts(atom.al.str, atom.al.labelX, atom.al.labelY, strokeColor, h / 20,
 					atom.al.subscripts, atom.al.superscripts);
 		}
 
@@ -1826,6 +1824,13 @@ public class JMEmol extends Graphical2DObject {
 	void computeAtomLabels() {
 		int atom1, atom2;
 
+		boolean showHs = moleculeHandlingParameters.hydrogenHandlingParameters.showHs;
+		boolean showMap = (!moleculeHandlingParameters.mark
+				|| moleculeHandlingParameters.showAtomMapNumberWithBackgroundColor);
+		FontMetrics fm = (jme == null ? null : jme.atomDrawingAreaFontMet);
+		double h = (jme == null ? 9.0 : JMEUtil.stringHeight(fm));
+		double rb = RBOND();		
+
 		// first compute for each atom the average X of its neighbors
 		// this will be used to determine the text orientation of the label
 		double neighborXSum[] = JMEUtil.createDArray(natoms + 1);
@@ -1848,12 +1853,6 @@ public class JMEmol extends Graphical2DObject {
 		// TODO: NH2, the 2 should subscript
 		// TODO NH3+, the + should be superscript
 
-		boolean showHs = moleculeHandlingParameters.hydrogenHandlingParameters.showHs;
-		boolean showMap = (!moleculeHandlingParameters.mark
-				|| moleculeHandlingParameters.showAtomMapNumberWithBackgroundColor);
-		FontMetrics fm = (jme == null ? null : jme.atomDrawingAreaFontMet);
-		double h = (jme == null ? 9.0 : JMEUtil.stringHeight(fm));
-		double rb = RBOND();		
 		for (int i = 1; i <= natoms; i++) {
 			int n = neighborCount[i];
 			double diff = neighborXSum[i] / neighborCount[i] - x(i);
