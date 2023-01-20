@@ -49,6 +49,7 @@ public class FileDropper implements DropTargetListener {
 	public static final String PROPERTY_FILEDROPPER_INLINE = "FileDropper.inline";
 	public static final String PROPERTY_FILEDROPPER_FILE = "FileDropper.file";
 	
+	public static DataFlavor uriDrop;
 	
 	private PropertyChangeSupport fd_propSupport;
 	private PropertyChangeListener pcl;
@@ -117,11 +118,15 @@ public class FileDropper implements DropTargetListener {
 	@Override
 	@SuppressWarnings("unchecked")
 	public void drop(DropTargetDropEvent dtde) {
-		System.out.println("FileDropper " + dtde.getDropTargetContext().getComponent());
+		System.out.println("FileDropper? " + dtde.getDropTargetContext().getComponent());
 		Transferable t = dtde.getTransferable();
 		boolean isAccepted = false;
-		DataFlavor f;
+		if (uriDrop != null && t.isDataFlavorSupported(uriDrop)) { 
+			if (doURIDrop(t, dtde, isAccepted, uriDrop))
+				return;
+		}
 		if (t.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+			while (true) {
 				Object o = null;
 				try {
 					dtde.acceptDrop(DnDConstants.ACTION_COPY_OR_MOVE);
@@ -132,6 +137,10 @@ public class FileDropper implements DropTargetListener {
 						final int length = fileList.size();
 						if (length >= 1) {
 							String fileName = fileList.get(0).getAbsolutePath().trim();
+							if (fileName.endsWith(".URL")) {
+								// this is a drag drop from a link on a web page. We can do better.
+								break;
+							}
 							dtde.getDropTargetContext().dropComplete(true);
 							loadFile(fileName);
 							return;
@@ -143,6 +152,8 @@ public class FileDropper implements DropTargetListener {
 					System.err.println("jme.FileDropper failed " + e);
 					// try another
 				}
+				break;
+			}
 		}
 		DataFlavor[] df = t.getTransferDataFlavors();
 		if (df == null || df.length == 0)
@@ -158,19 +169,9 @@ public class FileDropper implements DropTargetListener {
 			String mimeType = flavor.getMimeType();
 			if (mimeType.startsWith("text/uri-list")
 					&& flavor.getRepresentationClass().getName().equals("java.lang.String")) {
-				try {
-					if (!isAccepted)
-						dtde.acceptDrop(DnDConstants.ACTION_COPY_OR_MOVE);
-					isAccepted = true;
-					o = t.getTransferData(flavor);
-				} catch (Exception e) {
-					System.err.println("jme.FileDropper failed drop for " + flavor);
-				}
-				if (o instanceof String) {
-					loadFile(o.toString());
-					dtde.getDropTargetContext().dropComplete(true);
+				uriDrop = flavor;
+				if (doURIDrop(t, dtde, isAccepted, flavor))
 					return;
-				}
 			} else if (mimeType.equals("application/x-java-serialized-object; class=java.lang.String")
 					|| mimeType.startsWith("text/plain;")) {
 				try {
@@ -195,6 +196,25 @@ public class FileDropper implements DropTargetListener {
 		}
 		if (!isAccepted)
 			dtde.rejectDrop();
+	}
+
+	private boolean doURIDrop(Transferable t, DropTargetDropEvent dtde, boolean isAccepted, DataFlavor flavor) {
+		Object o;
+		try {
+			if (!isAccepted)
+				dtde.acceptDrop(DnDConstants.ACTION_COPY_OR_MOVE);
+			isAccepted = true;
+			o = t.getTransferData(flavor);
+			if (o instanceof String) {
+				System.err.println("jme.FileDropper drop for " + o);
+				loadFile(o.toString());
+				dtde.getDropTargetContext().dropComplete(true);
+				return true;
+			}
+		} catch (Exception e) {
+			System.err.println("jme.FileDropper failed drop for " + flavor);
+		}
+		return false;
 	}
 
 }

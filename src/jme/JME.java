@@ -47,6 +47,8 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
+import java.io.InputStream;
+import java.net.URL;
 import java.util.NoSuchElementException;
 import java.util.Vector;
 import java.util.regex.Pattern;
@@ -72,9 +74,8 @@ import jme.TextTransfer.PasteAction;
 // ----------------------------------------------------------------------------
 // ****************************************************************************
 @SuppressWarnings("serial")
-public class JME extends JPanel
-		implements ActionListener, MouseWheelListener, MouseListener, KeyListener, MouseMotionListener
-		/* , MouseListener */, PropertyChangeListener {
+public class JME extends JPanel implements ActionListener, MouseWheelListener, MouseListener, KeyListener,
+		MouseMotionListener, PropertyChangeListener {
 
 	protected String parserImpl = "jme.OclParser";
 
@@ -316,8 +317,6 @@ public class JME extends JPanel
 		this.dimension.setSize(width, height);
 		return this;
 	}
-	
-
 
 	// tieto parametere sa naplnaju v init (aby sa vynulovali pri starte)
 	// boolean bwMode = false;
@@ -728,7 +727,6 @@ public class JME extends JPanel
 	boolean movingAtom = false; // BB
 
 	String molText = null;
-	// JMEmol mol = new JMEmol(this); // sposobovalo problemy v NS
 	protected JMEmol activeMol; // BB: the molecule JME is presently working on
 	JMEmol uniColorMolecule = null;
 	Graphical2DObject activeGraphicalObject;
@@ -786,7 +784,7 @@ public class JME extends JPanel
 	private static final double mouseWheelFactor = 10; // BH 2023 - now this works on my computer.
 
 	static {
-		
+
 		if (isJavaScript) {
 			programName = "JSME";
 			precision = 30; // 10 looks good with FF at maximum zoom
@@ -1360,7 +1358,7 @@ public class JME extends JPanel
 		info(programName + " " + startInfoText);
 
 		dimension = getSize(); // will be 0,0 in Java and JavaScript;
-		
+
 		setLayout(null);
 
 		// NS3 ma error vo font metrics (nedava ascent)
@@ -2093,114 +2091,7 @@ public class JME extends JPanel
 		if (success && !inputMolList.isReallyEmpty()) {
 			this.processIncomingMolecules(inputMolList, repaint);
 		}
-
 		return success;
-
-		// spracuva aj multipart a reactions (aj chybu R>P miesto R>>P)
-		// input v JME format
-
-		// this.postSave();
-
-		// reset(repaint); //BB : cancel this: it set numberofMoleculeParts to 0
-//		int lastReactant = 0, firstProduct = 0;
-//
-//		StringTokenizer st = new StringTokenizer(molecule, "|>", true);
-//		boolean inputIsReaction = (molecule.indexOf(">") > -1); // false meas it is a molecule
-//		int rx = 1; // pocita >
-//
-//		int nt = st.countTokens();
-//		boolean addedToExistingParts = numberofMoleculeParts > 0;
-//		if (!canBeAddedToExistingMultipartOrReaction() || inputIsReaction) {// if reaction input: replace evrything
-//			numberofMoleculeParts = 0;
-//			addedToExistingParts = false;
-//		}
-//
-//		for (int i = 1; i <= nt; i++) {
-//			String s = st.nextToken();
-//			s.trim();
-//			if (s.equals("|"))
-//				continue;
-//			if (s.equals(">")) {
-//				rx++;
-//				if (rx == 2)
-//					lastReactant = numberofMoleculeParts;
-//				else if (rx == 3)
-//					firstProduct = numberofMoleculeParts + 1;
-//				continue;
-//			}
-//			activeMol = new JMEmol(this, s, true);
-//			if (activeMol.natoms == 0) {
-//				this.showError("problems in reading/processing molecule !");
-//				System.err.println("ERROR while processing\n" + s);
-//				// continue;
-//				return false; // BB
-//			}
-//			// vsetko ok - preberie ju do editora
-//			numberofMoleculeParts++; // moze byt aj multipart
-//			actualMoleculePartIndex = numberofMoleculeParts;
-//			moleculeParts[numberofMoleculeParts] = activeMol;
-//			// newMolecule = false;
-//			smol = null; // kvoli undo
-//
-//		}
-//
-//		// --- chyba v zadani reakcie (zly pocet >)
-//		if (rx == 2) {
-//			firstProduct = lastReactant + 1;
-//			this.showError("strange reaction - fixing !");
-//			System.err.println("ERROR - reactant and product should be separated by >>\n");
-//			return false;
-//		} else if (rx > 3) {
-//			this.showError("strange reaction !");
-//			System.err.println("ERROR - strange reaction !\n");
-//			return false;
-//		}
-//
-//		// FIXME: duplicate code with reading MOL/RXN?
-//		if (numberofMoleculeParts > 1 && !inputIsReaction)
-//			options("multipart");
-//		if (inputIsReaction && !reaction)
-//			reaction = true;
-//		// if (!inputIsReaction && reaction && !addedToExistingParts)
-//		// reaction=false;; //back to mol editing
-//
-//		if (!inputIsReaction) {
-//			// BB: align only if needed to avoid overlap, otherwise keep original
-//			// coordinates but scale if needed -does not seem to wotk
-//			if (!reaction) {
-//				if (isDepict()) {
-//					// new simplified method that can handle multiple fragments
-//					molecularAreaScale = this.scaleAndCenterForDepictMode();
-//				} else {
-//					alignMolecules(1, numberofMoleculeParts, 0, !addedToExistingParts);
-//				}
-//			}
-//		} else {
-//			if (!addedToExistingParts) { // aligh with one extra mol : todo correctly
-//				alignMolecules(1, lastReactant, 1);
-//				alignMolecules(lastReactant + 1, firstProduct - 1, 2);
-//				alignMolecules(firstProduct, numberofMoleculeParts, 3);
-//			}
-//		}
-//
-//		// BB
-//		this.setMaxMapAfterReadingInput();
-//		this.recordAfterStructureChangedEvent(JME.READ_JME);
-//		this.afterStructureChangeEvent.setOrigin_API();
-//
-//		this.setMustRedrawMolecular(true);
-//
-//		// BB oct 2019
-//		if (this.depict) {
-//			molecularAreaScale = this.scaleAndCenterForDepictMode();
-//		}
-//
-//		if (repaint)
-//			repaint();
-//		// this.recordAfterStructureChangedEvent(JME.READ_JME); //added June 2016
-//		// removed Aug 2016 because this will be done by the method calling this one
-//
-//		return true;
 	}
 
 	public void showError(String errorMessage) {
@@ -2408,7 +2299,7 @@ public class JME extends JPanel
 			if (moleculePartsList.get(i).nAtoms() == 0)
 				continue; // boundingBox() returns null if no atoms
 			Box moleculeBox = moleculePartsList.get(i).computeBoundingBoxWithAtomLabels(null); // zisti
-																											// dimenzie
+																								// dimenzie
 			sumx += moleculeBox.getWidth();// center[2]; //width of mol
 			sumy += moleculeBox.getHeight(); // ; //height of mol
 			maxy = Math.max(maxy, moleculeBox.getHeight());
@@ -6137,7 +6028,6 @@ public class JME extends JPanel
 		double notches = e.getPreciseWheelRotation() * mouseWheelFactor;
 		if (notches == 0)
 			return;
-		
 
 		String message;
 		String newline = "\n";
@@ -6164,10 +6054,10 @@ public class JME extends JPanel
 		double sizeChange = (100.0 + 2 * notches) / 100;
 		if (isInMolecularArea(x, y)) {
 			newScale = this.molecularAreaScale * sizeChange;
-			
-			System.out.println("JME wheeling " + notches + " " + this.molecularAreaScale + " " + newScale + " " + sizeChange);
-			
-			
+
+			System.out.println(
+					"JME wheeling " + notches + " " + this.molecularAreaScale + " " + newScale + " " + sizeChange);
+
 			if ((newScale > this.molecularAreaScale && newScale <= maxMolecularAreaScale) // size increased, but not too
 																							// much
 					|| (newScale < this.molecularAreaScale && newScale >= minmolecularAreaScale) // size decreased, but
@@ -7239,7 +7129,7 @@ public class JME extends JPanel
 			return true;
 		} else if (lastAction == LA_BOND) {
 			// mol.rubberBanding(drawingAreaX, drawingAreaY);
-			//info("mouseDrag(): lasaction = LA_BOND " + lastAction);
+			// info("mouseDrag(): lasaction = LA_BOND " + lastAction);
 
 			// code copied and adapted from mol.rubberBanding
 			// goal: to crerate bond between two different molecule parts
@@ -9169,8 +9059,6 @@ public class JME extends JPanel
 		return popup;
 	}
 
-	
-
 	// public int stringHeight(FontMetrics fm, String text) {
 	// int h = stringHeight(fm);
 	// //Correction for a string that is only lower case - NO working : i is as high
@@ -10116,9 +10004,11 @@ public class JME extends JPanel
 				readMolecule(data);
 			else
 				readSmiles(trimmed);
+			activeMol.center();
 		} catch (Exception e) {
 			System.err.println("JME error reading data starting with " + data.substring(Math.min(data.length(), 100)));
 		}
+
 	}
 
 	private void readSmiles(String data) {
@@ -10131,10 +10021,10 @@ public class JME extends JPanel
 
 	private void readDroppedTextFile(String fileName) {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
-		FileInputStream fis = null;
+		InputStream fis = null;
 		try {
-			fis = new FileInputStream(fileName);
-			byte[] bytes = new byte[0x100];
+			fis = (fileName.indexOf("://") >= 0 ? new URL(fileName).openStream() : new FileInputStream(fileName));
+			byte[] bytes = new byte[0x1000];
 			int n;
 			while ((n = fis.read(bytes)) > 0) {
 				bos.write(bytes, 0, n);

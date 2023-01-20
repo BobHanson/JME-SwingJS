@@ -18,17 +18,6 @@ import java.io.IOException;
 
 
 
-//import ejava.awt.Toolkit;
-//import ejava.awt.datatransfer.Clipboard;
-//import ejava.awt.datatransfer.ClipboardOwner;
-//import ejava.awt.datatransfer.DataFlavor;
-//import ejava.awt.datatransfer.StringSelection;
-//import ejava.awt.datatransfer.Transferable;
-//import ejava.awt.datatransfer.UnsupportedFlavorException;
-//import ejava.awt.event.ActionEvent;
-//import ejava.awt.event.ActionListener;
-//import ejava.io.IOException;
-
 /**
  * Credit: http://www.javapractices.com/topic/TopicAction.do?Id=82
  */
