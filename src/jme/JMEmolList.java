@@ -4,8 +4,8 @@
 package jme;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+//START JAVA_IMPORT
+import java.util.StringTokenizer;
 
 import com.actelion.research.chem.AromaticityResolver;
 import com.actelion.research.chem.MolfileCreator;
@@ -13,8 +13,7 @@ import com.actelion.research.chem.MolfileParser;
 import com.actelion.research.chem.StereoMolecule;
 import com.actelion.research.chem.coords.CoordinateInventor; // to compute 2D coordinates
 
-//START JAVA_IMPORT
-import java.util.StringTokenizer;
+import jme.JME.SupportedFileFormat;
 import jme.JMEUtil.GWT;
 
 //END JAVA_IMPORT
@@ -156,7 +155,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 
 	boolean isReaction = false ;
 	protected String errorMsg = null;
-	String input = null;
 	String warning = null;
 	protected Exception error = null;
 
@@ -164,12 +162,9 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	
 	public void reset() {
 		removeAll();
-		
 		errorMsg = null;
-		input = null;
 		error = null;
 		isReaction =false;
-		
 	}
 	
 	
@@ -269,9 +264,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		//> is reaction separator
 		
 		this.reset();
-		
-		input = molecule;
-		
 		StringTokenizer st = new StringTokenizer(molecule, "|>", true);
 		isReaction = (molecule.indexOf(">") > -1); //false means it is a molecule
 		int nt = st.countTokens();
@@ -296,7 +288,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			JMEmol mol = null;
 			
 			try {
-				mol = new JMEmol(null, s, true, pars);
+				mol = new JMEmol(null, s, JME.SupportedFileFormat.JME, pars);
 				if (mol.natoms == 0) {
 					//this.showError("problems in reading/processing molecule !"); //old original error message
 					errorMsg = "0 atoms found in \"" + s + "\"";
@@ -339,80 +331,79 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	}
 
 	/**
-	 * In most cases, the returned molecule is the same as the input one. If OCL lib changfed the number of atoms,
-	 * then another molecule is returned. Return null if 2D fails.
+	 * In most cases, the returned molecule is the same as the input one. If OCL lib
+	 * changfed the number of atoms, then another molecule is returned. Return null
+	 * if 2D fails.
+	 * 
 	 * @param mol
 	 * @return
 	 */
-	public JMEmol compute2Dcoordinates(final JMEmol mol)  {
+	public JMEmol compute2Dcoordinates(final JMEmol mol) {
 
-		
-		if (mol.nAtoms() <= 1 ) {
+		if (mol.nAtoms() <= 1) {
 			return mol;
 		}
 
 		JMEmol result = mol;
 		JMEmol molCopy = mol;
-		
-		// OenCHemLib issue: the hydrogens are placed at the end of the CT, thus atom arder is changed
+
+		// OenCHemLib issue: the hydrogens are placed at the end of the CT, thus atom
+		// arder is changed
 		boolean hasExplicitHydrogens = mol.hasHydrogen();
-		if( hasExplicitHydrogens) {
+		if (hasExplicitHydrogens) {
 			molCopy = mol.deepCopy();
-			for(int i = 1; i <= molCopy.natoms; i++) {
+			for (int i = 1; i <= molCopy.natoms; i++) {
 				Atom atom = molCopy.getAtom(i);
 				if (atom.an == JME.AN_H) { // replace hydrogen
 					atom.an = JME.AN_X;
 					atom.iso = 0;
-					atom.label ="A" + i;
+					atom.label = "A" + i;
 				}
 			}
 		}
-		
+
 		// create a molfile
 		String molFile = molCopy.createMolFile("");
 
-		
 		// create a OCL molecule
 		StereoMolecule oclMol = new StereoMolecule();
-		if (new MolfileParser().parse( oclMol,  molFile) ) {
+		if (new MolfileParser().parse(oclMol, molFile)) {
 			boolean computed2D = true;
 			// generate 2D - can fail
 			try {
-				// argument: do not remove explicit  H
+				// argument: do not remove explicit H
 				new CoordinateInventor(0).invent(oclMol);
-			} catch(Exception e) {
+			} catch (Exception e) {
 				computed2D = false;
 				result = null;
 			}
-			
+
 			if (computed2D) {
 				// assume that the order of the atoms is the same
 				if (oclMol.getAllAtoms() == mol.nAtoms()) {
-					for( int i = 0; i < oclMol.getAllAtoms(); i++) {
-						mol.XY(i+1, oclMol.getAtomX(i), oclMol.getAtomY(i));
+					for (int i = 0; i < oclMol.getAllAtoms(); i++) {
+						mol.XY(i + 1, oclMol.getAtomX(i), oclMol.getAtomY(i));
 					}
-					
 					mol.internalBondLengthScaling();
-					
 				} else {
 					// TODO: test case:
 					MolfileCreator mfc = new MolfileCreator(oclMol);
-					String newMolfile = mfc.getMolfile();
-					
-					result = new JMEmol(mol.jme,  mol.moleculeHandlingParameters).initFromMOL(newMolfile);
-					
+					try {
+						result = new JMEmol(mol.jme, mfc.getMolfile(), JME.SupportedFileFormat.MOL,
+								mol.moleculeHandlingParameters);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
 					result.chiralFlag = mol.chiralFlag; // is this needed? TODO
-					
 					result.internalBondLengthScaling();
-					
+
 				}
 			}
-			
+
 		}
-		
+
 		return result;
 
-		
 	}
 
 	public boolean hasAromaticBondType(JMEmol mol) {
@@ -501,78 +492,77 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		
 
 	}
-	//can raise exception
-	public boolean readMDLstringInput(String s, MoleculeHandlingParameters pars) {
-		
-		this.reset(); 
-		input = s;
-		String separator = JMEUtil.findLineSeparator(s);
-		
-		isReaction = s.startsWith("$RXN");
-		if (isReaction) {
-			StringTokenizer st = new StringTokenizer(s, separator, true);
-			String line = "";
-			for (int i = 1; i <= 5; i++) {
-				line = JMEUtil.nextData(st, separator);
-			}
-			//TODO: exception handling
-			int nr = Integer.valueOf(line.substring(0, 3).trim()).intValue();
-			int np = Integer.valueOf(line.substring(3, 6).trim()).intValue();
-			//support of agents, this is not standard, same convention as in Marvin JS
-			int na = 0;
-			if(line.length() >=9) {
-				na = Integer.valueOf(line.substring(6, 9).trim()).intValue();
-			}
 
-			JMEUtil.nextData(st, separator); // 1. $MOL
-			for (int p = 1; p <= nr + np + na; p++) {
-				String m = "";
-				while (true) {
-					String ns = JMEUtil.nextData(st, separator);
-					if (ns == null || ns.equals("$MOL"))
-						break;
-					else
-						m += ns + separator;
-				}
-				// System.err.print("MOLS"+p+separator+m);
-				if(!this.readSingleMOL(m, pars)) {
-					return false;
-				}
-				JMEmol mol = this.last();
-				if(p <= nr) {
-					mol.setReactionRole(JMEmol.ReactionRole.REACTANT);
-				} else if(p > nr  && p <=  nr + np) {
-					mol.setReactionRole(JMEmol.ReactionRole.PRODUCT);
-				} else {
-					mol.setReactionRole(JMEmol.ReactionRole.AGENT);
-				}
-				
-			}
-			
-		} else if(!this.readSingleMOL(s, pars)) {
-			return false;
+	// can raise exception
+	public boolean readMDLstringInput(String s, MoleculeHandlingParameters pars) {
+
+		this.reset();
+		isReaction = s.startsWith("$RXN");
+		if (!isReaction) {
+			return this.readSingleMOL(s, pars);
 		}
-		
-		
+		String separator = JMEUtil.findLineSeparator(s);
+		StringTokenizer st = new StringTokenizer(s, separator, true);
+		String line = "";
+		for (int i = 1; i <= 5; i++) {
+			line = JMEUtil.nextData(st, separator);
+		}
+		// TODO: exception handling
+		int nr = Integer.valueOf(line.substring(0, 3).trim()).intValue();
+		int np = Integer.valueOf(line.substring(3, 6).trim()).intValue();
+		// support of agents, this is not standard, same convention as in Marvin JS
+		int na = 0;
+		if (line.length() >= 9) {
+			na = Integer.valueOf(line.substring(6, 9).trim()).intValue();
+		}
+
+		JMEUtil.nextData(st, separator); // 1. $MOL
+		for (int p = 1; p <= nr + np + na; p++) {
+			String m = "";
+			while (true) {
+				String ns = JMEUtil.nextData(st, separator);
+				if (ns == null || ns.equals("$MOL"))
+					break;
+				else
+					m += ns + separator;
+			}
+			// System.err.print("MOLS"+p+separator+m);
+			if (!this.readSingleMOL(m, pars)) {
+				return false;
+			}
+			JMEmol mol = this.last();
+			if (p <= nr) {
+				mol.setReactionRole(JMEmol.ReactionRole.REACTANT);
+			} else if (p > nr && p <= nr + np) {
+				mol.setReactionRole(JMEmol.ReactionRole.PRODUCT);
+			} else {
+				mol.setReactionRole(JMEmol.ReactionRole.AGENT);
+			}
+		}
 		return true;
 	}
-	
-	/*
-	 * MDL MOL
-	 */
-	protected boolean readSingleMOL(String s, MoleculeHandlingParameters pars) {
-		JMEmol mol = null;
+
+	public boolean readJmolAdaptorInput(Object[] iterators, MoleculeHandlingParameters params) {
 		try {
-			mol = new JMEmol(pars).initFromMOL(s);
+			add(new JMEmol(null, iterators, SupportedFileFormat.JMOL, params));
+			return true;
 		} catch (Exception e) {
 			this.error = e;
 			return false;
 		}
-		
+	}
 
-		this.add(mol);
-		
-		return true;
+	/*
+	 * MDL MOL
+	 */
+	private boolean readSingleMOL(String s, MoleculeHandlingParameters pars) {
+		try {
+			add(new JMEmol(null, s, JME.SupportedFileFormat.MOL, pars));
+			return true;
+		} catch (Exception e) {
+			this.error = e;
+			return false;
+		}
 	}
 
 	/**
@@ -1209,4 +1199,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		return newGroup;
 		
 	}
+
+
 }

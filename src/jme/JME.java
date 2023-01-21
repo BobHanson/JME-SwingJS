@@ -1,12 +1,12 @@
-/***
- * 
- * 
- * 
- * 
- * 
- */
-
 package jme;
+
+// BH 2023.01.20:
+
+// - adds headless creation of PNG images
+// - adds JmolD.jar (could use JmolData.jar, ufnless one wants to show the Jmol frame).
+// - JME constructor clean-up and expansion
+// - centralizes options in Options class
+// - adds hooks for subclass JmolJME to write CDXML, MOL, and PNG images using a file dialog
 
 // BH 2023.01.15:
 // - moved OCL-dependent methods to OclParser implements Parser
@@ -25,7 +25,6 @@ import java.awt.Event;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -43,6 +42,7 @@ import java.awt.event.MouseWheelListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.ByteArrayOutputStream;
@@ -51,21 +51,19 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.NoSuchElementException;
 import java.util.Vector;
-import java.util.regex.Pattern;
 
 import javax.swing.JFrame;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 
-import jme.JMEUtil.GWT;
-
-import jme.JMEUtil.JSME_RunAsyncCallback;
-import jme.JMEUtil.RunAsyncCallback;
-import jme.JMEUtil.RunWhenDataReadyCallback;
 import jme.Box.Axis;
 import jme.ChemicalFormatDetector.MajorChemicalFormat;
 import jme.ColorManager.ColorInfo;
+import jme.JMEUtil.GWT;
+import jme.JMEUtil.JSME_RunAsyncCallback;
+import jme.JMEUtil.RunAsyncCallback;
+import jme.JMEUtil.RunWhenDataReadyCallback;
 import jme.JMEmol.ReactionRole;
 import jme.JMEmolList.MolFileOrRxnParameters;
 import jme.MoleculeHandlingParameters.HydrogenHandlingParameters;
@@ -77,112 +75,128 @@ import jme.TextTransfer.PasteAction;
 public class JME extends JPanel implements ActionListener, MouseWheelListener, MouseListener, KeyListener,
 		MouseMotionListener, PropertyChangeListener {
 
-	protected String parserImpl = "jme.OclParser";
-
-	protected static final String OCL_ID_CODE_LABEL = "OCL ID code" /* + " to the clipboard" */;
-	private static final String UN_MARK_ATOM = "unMarkAtom";
-	private static final String MARK_ATOM = "markAtom";
-	private static final String ADD_ATOM_QUERY = "addAtomQuery";
-	private static final String CHARGE_ATOM_MINUS = "chargeAtom-";
-	private static final String CHARGE_ATOM_PLUS = "chargeAtom+";
-	private static final String CHARGE_ATOM0 = "chargeAtom0";
-	private static final String DEL_ATOM2 = "delAtom";
-	private static final String SET_ATOM = "setAtom";
-	private static final String DEL_BOND2 = "delBond";
-	private static final String DEL_ATOM = JME.DEL_ATOM2;
-//	private static final String MARK = "mark";
-	private static final String AUTO_NUMBER = "autonumber";
-	private static final String SD_FSTACK = "SDFstack";
-	private static final String REDO = "redo";
-	private static final String UNDO = "undo";
-	private static final String READ_MOL_FILE = "readMolFile";
-	private static final String READ_RXN_FILE = "readRXNFile";
-	private static final String READ_JME = "readJME";
-	private static final String READ_SMILES = "readSMILES";
-	private static final String READ_SMIRKS = "readSMIRKS";
-	private static final String READ_OCLCODE = "readOCLCode";
-	private static final String READ_MULTI_SDF = "readMultiSDF";
-
-	private static final String CLEAR = "clear";
-	private static final String RESET = "reset";
-
-	/* for recording events to external program */
-	private static final String ADD_GROUP = "addGroup";
-	private static final String ADD_TEMPLATE = "addTemplate";
-	private static final String ADD_ATOM = "addAtom";
-	private static final String ADD_RING = "addRing";
-	private static final String ADD_BOND = "addBond";
-	private static final String ADD_CHAIN = "addChain";
-	private static final String UN_MARK_BOND = "unMarkBond";
-	private static final String MARK_BOND = "markBond";
-	private static final String SET_QUERY_BOND = "setQueryBond";
-	private static final String ADD_RING_BOND = "addRingBond";
-	private static final String SET_BOND_TRIPLE = "setBondTriple";
-	private static final String SET_BOND_SINGLE = "setBondSingle";
-	private static final String SET_BOND_COORDINATION = "setBondCoordination";
-	private static final String UNSET_BOND_COORDINATION = "unSetBondCoordination";
-	private static final String SET_BOND_DOUBLE = "setBondDouble";
-	private static final String SET_BOND_STEREO = "setBondStereo";
-	private static final String DEL_BOND_GROUP = "delBondGroup";
-	private static final String DEL_BOND = JME.DEL_BOND2;
-
-	private static final String MOVE_ATOM = "moveAtom";
-	private static final String CHANGE_CHIRAL = "changeChiral";
-	static final String CHANGE_ATOM_MAP = "changeAtomMap";
-	static final String CHANGE_MANY_ATOM_MAP = "changeManyAtomMap";
-	static final String DELETE_HYDROGENS = "deleteHydrogens";
-	static final String COMPUTE_2D = "compute2D";
-	static final String DELETE_ATOM_MAPS = "deleteAtomMaps";
-
-	protected static final String SET_ATOM_ADDITIONAL_DATA = "setAtomAdditionalData";
-	protected static final String SET_BOND_ADDITIONAL_DATA = "setBondAdditionalData";
-
-	static final String CHANGE_REACTION_ROLE = "changeReactionRole";
-	private static final String REACTION_COPY = "reactionCopy";
-
-	// editor state
-	int action;
-
-	TouchedMol lastTouchedMol = new TouchedMol();
-
-	TouchedMol newTouchedMol = new TouchedMol();
-
-	int reactionParts[][]; // computed with getReactionParts()
-
-	int active_an;
-	static boolean isStandAloneApplication = false; // by default the program starts as an applet
-	// static String separator =
-	// System.getProperties().getProperty("line.separator");
-	static String separator = "\n";
+	protected final Options options = new Options();
 
 	// customization
 	static final String version = "2014-06-28";
 	// static final String startInfoText = "JSME Molecular Editor by Peter Ertl and
 	// Bruno Bienfait";
-	static final String startInfoText = "Molecular Editor by Peter Ertl and Bruno Bienfait"; // JSME or JME selected
-																								// according to the run
-																								// time environment
+	static final String startInfoText = "Molecular Editor by Peter Ertl and Bruno Bienfait";
+	// JSME or JME selected according to the run-time environment
 	static final String copyright[] = { "Copyright (c) 2014-2023, Peter Ertl, Bruno Bienfait, and Robert Hanson.",
 			"All rights reserved." };
 	// Note: the copyright is too long for the info()
-	int copyRigthmallTextFontSize = 8; // used in the info box for copyright
-	Font copyRigthSmallTextFont = new Font(null, 0, copyRigthmallTextFontSize);
 
-	// public String helpUrl = "http://peter-ertl.com/jsme/2013_03/help.html";
-	public String helpUrl = "https://jsme-editor.github.io/help.html";
-	public String websiteUrl = "https://jsme-editor.github.io/";
+	// used for parsing input
+	public static final String NumberParsingErrorMsg = "Number parsing";
+	public static final String NotEnoughDataMsgError = "Not enough data";
+
+	protected String parserImpl = "jme.OclParser";
+
+	protected static final String OCL_ID_CODE_LABEL = "OCL ID code" /* + " to the clipboard" */;
+	protected static final String UN_MARK_ATOM = "unMarkAtom";
+	protected static final String MARK_ATOM = "markAtom";
+	protected static final String ADD_ATOM_QUERY = "addAtomQuery";
+	protected static final String CHARGE_ATOM_MINUS = "chargeAtom-";
+	protected static final String CHARGE_ATOM_PLUS = "chargeAtom+";
+	protected static final String CHARGE_ATOM0 = "chargeAtom0";
+	protected static final String DEL_ATOM2 = "delAtom";
+	protected static final String SET_ATOM = "setAtom";
+	protected static final String DEL_BOND2 = "delBond";
+	protected static final String DEL_ATOM = DEL_ATOM2;
+//	protected static final String MARK = "mark";
+	protected static final String AUTO_NUMBER = "autonumber";
+	protected static final String SD_FSTACK = "SDFstack";
+	protected static final String REDO = "redo";
+	protected static final String UNDO = "undo";
+	protected static final String READ_MOL_FILE = "readMolFile";
+	protected static final String READ_RXN_FILE = "readRXNFile";
+	protected static final String READ_JME = "readJME";
+	protected static final String READ_SMILES = "readSMILES";
+	protected static final String READ_SMIRKS = "readSMIRKS";
+	protected static final String READ_OCLCODE = "readOCLCode";
+	protected static final String READ_MULTI_SDF = "readMultiSDF";
+
+	protected static final String CLEAR = "clear";
+	protected static final String RESET = "reset";
+
+	/* for recording events to external program */
+	protected static final String ADD_GROUP = "addGroup";
+	protected static final String ADD_TEMPLATE = "addTemplate";
+	protected static final String ADD_ATOM = "addAtom";
+	protected static final String ADD_RING = "addRing";
+	protected static final String ADD_BOND = "addBond";
+	protected static final String ADD_CHAIN = "addChain";
+	protected static final String UN_MARK_BOND = "unMarkBond";
+	protected static final String MARK_BOND = "markBond";
+	protected static final String SET_QUERY_BOND = "setQueryBond";
+	protected static final String ADD_RING_BOND = "addRingBond";
+	protected static final String SET_BOND_TRIPLE = "setBondTriple";
+	protected static final String SET_BOND_SINGLE = "setBondSingle";
+	protected static final String SET_BOND_COORDINATION = "setBondCoordination";
+	protected static final String UNSET_BOND_COORDINATION = "unSetBondCoordination";
+	protected static final String SET_BOND_DOUBLE = "setBondDouble";
+	protected static final String SET_BOND_STEREO = "setBondStereo";
+	protected static final String DEL_BOND_GROUP = "delBondGroup";
+	protected static final String DEL_BOND = DEL_BOND2;
+
+	protected static final String MOVE_ATOM = "moveAtom";
+	protected static final String CHANGE_CHIRAL = "changeChiral";
+	protected static final String CHANGE_ATOM_MAP = "changeAtomMap";
+	protected static final String CHANGE_MANY_ATOM_MAP = "changeManyAtomMap";
+	protected static final String DELETE_HYDROGENS = "deleteHydrogens";
+	protected static final String COMPUTE_2D = "compute2D";
+	protected static final String DELETE_ATOM_MAPS = "deleteAtomMaps";
+
+	protected static final String SET_ATOM_ADDITIONAL_DATA = "setAtomAdditionalData";
+	protected static final String SET_BOND_ADDITIONAL_DATA = "setBondAdditionalData";
+
+	protected static final String CHANGE_REACTION_ROLE = "changeReactionRole";
+	protected static final String REACTION_COPY = "reactionCopy";
+
+	protected final static String separator = "\n";
+
+	protected static boolean isStandAloneApplication = false; // by default the program starts as an applet
+
+	protected static final double standardMenuCellSize = 24; // the original value
+	protected static final double rightBorderNewLook = 1.0;
+	protected static final double rightBorderOldLook = 3; // older look needs more space because of it has a shadow
+
+	final static String helpUrl = "https://jsme-editor.github.io/help.html";
+	final static String websiteUrl = "https://jsme-editor.github.io/";
+	final static int copyRigthmallTextFontSize = 8; // used in the info box for copyright
+	final static Font copyRigthSmallTextFont = new Font(null, 0, copyRigthmallTextFontSize);
+
+	public static enum SupportedFileFormat {
+		JME, SMILES, MOL, MOL_V3000, JMOL, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC
+	}
+
+	// should extend CopyOnClipboard
+	// - not possible in Java ??
+	// BH -- What's the question here?
+
+	protected static enum CopyPasteAction {
+		JME, SMILES, MOL, MOL_V3000, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC,
+		SEARCH_INCHI_KEY, PASTE;
+
+		public SupportedFileFormat getFormat() {
+			return SupportedFileFormat.valueOf(toString());
+		}
+	}
+
+	// editor state
+	int action;
+
+	TouchedMol lastTouchedMol = new TouchedMol();
+	TouchedMol newTouchedMol = new TouchedMol();
+
+	int reactionParts[][]; // computed with getReactionParts()
+	int active_an;
 
 	protected String infoText = null;
 	String customDefaultInfoText = ""; // may be changed by the JS call
 
-	// BB: renamed sd to a more meaningful name
-	// int sd = 24;
-	final double standardMenuCellSize = 24; // the original value
 	double menuCellSize = standardMenuCellSize; // should be a multiple of 2 and 3, is set 0 in depict mode
-	boolean newLook = false;
-
-	final double rightBorderNewLook = 1.0;
-	final double rightBorderOldLook = 3; // older look needs more space because of it has a shadow
 
 	int arrowWidth = 24 * 2;
 	ReactionArrow reactionArrow = new ReactionArrow(36 * 2);
@@ -197,22 +211,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	Color bgColor = Color.lightGray;
 	Color brightColor = bgColor.brighter();
 	Color leftMenuAtomColor = null;
-
-	public static enum SupportedFileFormat {
-		JME, SMILES, MOL, MOL_V3000, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC
-	}
-
-	// should extend CopyOnClipboard - not possible in Java, stupid programming
-	// language
-	protected static enum CopyPasteAction {
-		JME, SMILES, MOL, MOL_V3000, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC,
-
-		SEARCH_INCHI_KEY, PASTE;
-
-		public SupportedFileFormat getFormat() {
-			return SupportedFileFormat.valueOf(this.toString());
-		}
-	}
 
 	// File format for Ctrl C
 	protected SupportedFileFormat clipboardFormat = SupportedFileFormat.MOL;
@@ -231,155 +229,34 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	Font menuCellFontBold; // for the atom symbols
 	Font menuCellFontSmaller;
 	Font atomDrawingAreaFont, dialogFont;
+	Font atomMapDrawingAreaFont;
 	FontMetrics menuCellFontMet, menuCellFontBoldMet, menuCellFontSmallerMet;
 	FontMetrics atomDrawingAreaFontMet;
-
-	Font atomMapDrawingAreaFont;
 	FontMetrics atomMapDrawingAreaFontMet;
 
 	int fontSize = 13; // with a value != 12, the stringWidth errors are minimized in JS
 	float atomMolecularDrawingAreaFontSize = fontSize; // BB
 
 	String defaultFontFamily = "Helvetica"; // looks good everywhere
-	// BB if null: use the system default font - looks nice also in Java
-	// String defaultFontFamily = "sansserif"; //Java: Helvetica is discouraged in
-	// Java 1.1 and should be replaced by sansserif
-	// String defaultFontFamily = "Sans-Serif"; //CSS
 
 	protected boolean appletHasBeenResized = false;
 	Rectangle2D.Double previousScaledScreenArea = null;
 
-	/**
-	 * the menu cell border differs in new and old look
-	 * 
-	 * @return
-	 */
-	int menuCellBorder() {
-		return newLook ? 1 : 0;
-		// will be changed to 0 when !newLook
-	}
-
 	protected float molecularAreaLineWidth = (float) 1.0;
-
-	public float getMolecularAreaLineWidth() {
-		return molecularAreaLineWidth;
-	}
-
-	/**
-	 * Line width in pixel
-	 * 
-	 * @param molecularAreaLineWidth
-	 */
-	public void setMolecularAreaLineWidth(float molecularAreaLineWidth) {
-		this.molecularAreaLineWidth = molecularAreaLineWidth;
-		this.drawMolecularAreaRightNow();
-
-	}
 
 	public boolean molecularAreaAntiAlias = true;
 
-	public boolean isMolecularAreaAntiAlias() {
-		return molecularAreaAntiAlias;
-	}
-
-	/**
-	 * Set antialias for the molecular drawing area
-	 * 
-	 * @param molecularAreaAntiAlias
-	 */
-	public void setMolecularAreaAntiAlias(boolean molecularAreaAntiAlias) {
-		this.molecularAreaAntiAlias = molecularAreaAntiAlias;
-		this.drawMolecularAreaRightNow();
-	}
-
-	/**
-	 * This method is used only in a batch mode test suite in order to have an
-	 * instance of JME that has a this.dimension that is not null
-	 * 
-	 * @param width
-	 * @param height
-	 */
-	public void setDirectSizeForTesting(int width, int height) {
-		setDimension(width, height);
-		updateMyMolecularAreaSize();
-	}
-
-	/**
-	 * Used for the test suite
-	 * 
-	 * @param width
-	 * @param height
-	 */
-	public JME setDimension(int width, int height) {
-		if (this.dimension == null) {
-			this.dimension = new Dimension();
-		}
-		this.dimension.setSize(width, height);
-		return this;
-	}
+	boolean depict = false;
 
 	// tieto parametere sa naplnaju v init (aby sa vynulovali pri starte)
 	// boolean bwMode = false;
-	boolean runsmi = false; // traba to, alebo sa automaticky setne v param smi
-	// ??
-	String depictcgi = null;
-	String depictservlet = null;
-
+	
 	SmilesCreationParameters smilesPars = new SmilesCreationParameters();
-	public MoleculeHandlingParameters moleculeHandlingParameters = new MoleculeHandlingParameters();
-
-	protected boolean canonize = true;;
-	boolean stereo = true;
-
-	boolean multipart = true; // vzdy aj pri reaction
-	boolean xJButton = true;
-	boolean paste = true; // BB: allow pasting structures, should be disabled in depict mode
-	boolean rJButton = false;
-	boolean query = false;
-	protected boolean reaction = false;
-	// boolean autoez = true;
-
-	// unused options
-	// boolean writesmi = false;
-	// boolean writemi = false;
-	// boolean writemol = false;
-
-	boolean jmeh = false; // used in jSME
-	// boolean valenceState = true;
-
-	// boolean number = false; // moved to molecular handlig parameters
-	// boolean mark = false;
-	boolean markOnly1 = false; // only one atom at a time can be marked
-	boolean pseudoMark = false; // marking does not happen - used only to trigger event
-	boolean starAtomOnly = false;
-	boolean starBondOnly = false;
-	boolean starNothing = false;
-
-	boolean markerMenu = false; // popup menu to select marker color
-
-	boolean autonumber = false;
-	private boolean depict = false;
-	boolean toggleDepictEdit = false; // BB
-	boolean depictActionEnabled = false; // BB allow editing in depict mode
-	boolean depictBorder = false;
-	// public boolean keepHydrogens = true;
-	// boolean removeOnlyCHydrogens = false;
-
-	boolean addNewPart = false; // when reading a or pasting a mol: add it or replace everything in the canvas
+	public MoleculeHandlingParameters params = new MoleculeHandlingParameters();
 
 	boolean pasteFromSDFstack = false;
 
-	boolean exportInchi = true;
-	boolean exportInchiKey = true;
-	boolean searchInchiKey = true;
-	boolean exportInchiAuxInfo = true;
-	boolean useOclIdCode = false; // OpenChemLib option: useOclIDCode
-	boolean exportSVG = true;
-
-	boolean contextMenuEnabledOption = true;
-
-	boolean fullScreenIconOption = false;
-	protected boolean exportRXNmergeOption = false;
+	boolean jmeh = false; // used in jSME
 
 	Color canvasBg = Color.white;
 	// Color starColor = Color.cyan;
@@ -391,14 +268,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// String atomColors = null; // atom coloring
 	String atomBgColors = null; // background coloring
 	final static double defaultAtomBGcircleRelativeSize = 0.8;
-	final static double atomBGcircleRelativeSize = defaultAtomBGcircleRelativeSize;
 	final static double defaultBondBGrectRelativeSize = 0.5;
-	final static double bondBGrectRelativeSize = defaultBondBGrectRelativeSize;
+
 
 	public final static double defaultMolecularAreaScale = 1.0;
 
-	protected double molecularAreaScale = defaultMolecularAreaScale; // ked scaling viacero moleculeParts, alebo
-																		// reaction
+	protected double molecularAreaScalePixelsPerCoord = defaultMolecularAreaScale; // ked scaling viacero moleculeParts,
+																					// alebo
+	// reaction
 	protected final double minmolecularAreaScale = 0.3;
 	protected final double maxMolecularAreaScale = 10;
 
@@ -408,35 +285,22 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	final static boolean scalingIsPerformedByGraphicsEngine = true; // BB, gives nicer looking depiction
 
-	boolean fgMenuOption = true;
 	boolean nocenter = false;
-	boolean polarnitro = false;
 	boolean showAtomNumbers = false; // only when starting with a molecule
 	// scaling pri depict, nacitanie molekul (jme + mol)
 
-	boolean showAtomMoveJButton = true; // BB
-	// boolean mdlV2000ChiralFlag = false; //for v2000 note: v300 has also a chiral
-	// flag
-	protected boolean useOpenChemLib = true; // for SMILES input
-
-	boolean showDragAndDropIconInDepictMode = true; // BB
-	boolean showFullScreenIconInDepictMode = true; // BB
-
-	boolean allowZooming = true;
-	boolean allowGUIzooming = true;
 	boolean allowFullScreenToggle = true;
 
 	// files na nacitanie (2002.06)
-	String jmeString = null;
-	public String molString = null; // why is this variable declared here? Because it is used in init() and start()
-	String genericChemicalInputFromInit = null;
+
+	// Java applet code but can also be retrieved in JavaScript application
 
 	// pouziva v double bufferingu
 	protected Dimension dimension;
 
 	protected PreciseImage molecularAreaImage;
-	int molecularAreaWidth;
-	int molecularAreaHeight;
+	int molecularAreaPixelWidth;
+	int molecularAreaPixelHeight;
 
 	// these images are not used in depict mode
 	PreciseImage topMenuImage, leftMenuImage;
@@ -468,23 +332,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	public ColorManager colorManager = new ColorManager();
 
-	public String getPasteJLabel() {
-		return pasteJLabel;
-	}
-
-	/**
-	 * Customization of the paste label
-	 * 
-	 * @param pasteJLabel
-	 */
-	public void setPasteJLabel(String pasteJLabel) {
-		this.pasteJLabel = pasteJLabel;
-		// rebuild the menu each time the pasteJLabel is changed
-		this.copyPasteJPopupMenuMol = this.createCopyPasteJPopupMenu(false);
-	}
-
 	// actions 2 riadky s ACTIONX a atomy s ACTIONA
-	static int LEFT_MENU_NUMBER_OF_CELLS = 10; // meni sa podla rxJButton
+	static int LEFT_MENU_NUMBER_OF_CELLS = 10; // meni sa podla rxButton
 	static final int LEFT_MENU_NUMBER_OF_CELLS_WITHOUT_X_R = 9;
 	// cislo action urcuje aj polohu buttonu
 	// empty buttons (a ACTION_END v aplete) su vyradene v mousePressed()
@@ -663,45 +512,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			AN_F, ACTION_AN_CL, AN_CL, ACTION_AN_BR, AN_BR, ACTION_AN_I, AN_I, ACTION_AN_S, AN_S, ACTION_AN_P, AN_P,
 			ACTION_AN_H, AN_H, ACTION_AN_X, AN_X, ACTION_AN_R, AN_R, };
 
-	// coud have used a HAshMap, but the code to initialize a hashmap is about the
-	// same - JS is much better here for simple dict
-	protected int mapActionToAtomNumber(int action, int notFound) {
-		int result = notFound;
-
-		if (action >= ACTION_AN_R) {
-			int delta = action - ACTION_AN_R;
-			result = AN_R + delta;
-		} else {
-			for (int i = 0; i < actionToAtomNumberArray.length; i += 2) {
-				if (actionToAtomNumberArray[i] == action) {
-					result = actionToAtomNumberArray[i + 1];
-					break;
-				}
-			}
-			// patch related to determineNumberLeftMenuNumberOfCell
-			if (result == AN_X) {
-				if (!this.xJButton && this.rJButton) { // X button has been removed and replaced by R button
-					result = AN_R;
-				}
-			}
-
-		}
-		return result;
-	}
-
-	protected int determineNumberLeftMenuNumberOfCell() {
-		int result = LEFT_MENU_NUMBER_OF_CELLS_WITHOUT_X_R;
-		if (this.rJButton) {
-			result++;
-		}
-		if (this.xJButton) {
-			result++;
-		}
-
-		return result;
-
-	}
-
 	static final Color color[] = new Color[AN_R_LAST + 1];
 	static final String zlabel[] = new String[AN_R_LAST + 1];
 
@@ -714,6 +524,19 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	static final int LA_ROTATE = 7; // BB used for rotation on touch event
 	static final int LA_SCALE = 8; // BB used for scaling on touch event
 	static final int LA_FAILED = 9; // failed to create bond or ring
+
+	final static protected Dimension nonFullScreenSize = new Dimension();
+
+	final static protected double fullScreenScale = 3;
+
+	public static final int maxFontSize = 100;
+
+	public static Font[] atomDrawingAreaFontCache = new Font[maxFontSize];
+	public static FontMetrics[] atomDrawingAreaFontMetCache = new FontMetrics[maxFontSize];
+
+	public static Font[] atomMapDrawingAreaFontCache = new Font[maxFontSize];
+	public static FontMetrics[] atomMapDrawingAreaFontMetCache = new FontMetrics[maxFontSize];
+
 	boolean newMolecule = false; // enable to start new molecule
 	int xold, yold; // position of mousePressed, updated in mouseDragged
 	boolean afterClear = false; // info pre undo
@@ -781,7 +604,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	final static double precision;
 	final static String programName; // JSME or JME
 
-	private static final double mouseWheelFactor = 10; // BH 2023 - now this works on my computer.
+	protected static final double mouseWheelFactor = 10; // BH 2023 - now this works on my computer.
 
 	static {
 
@@ -824,25 +647,176 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			"-CF3", "-CCl3", "-NO2", "-SO2-NH2", "-NH-SO2-Me", "-NMe2", "-C#N", "-C#CH", "-C#C-Me" };
 
 	JPopupMenu functionalGroupPopumemu;
-	private Point functionalGroupJPopupMenuPosition;
+	protected Point functionalGroupJPopupMenuPosition;
 	Point markerJPopupMenuPosition;
-	private Point fixedCopyPasteJPopupMenuPosition;
-	private long lastRotation;
-	private boolean bondRubberBanding = false;
+	protected Point fixedCopyPasteJPopupMenuPosition;
+	protected long lastRotation;
+	protected boolean bondRubberBanding = false;
 	protected PasteAction pasteAction;
-	private boolean mouseDownWasUsed;
-	private boolean saveCurrentState = false; // when true means the current state of the chemical structures must be
+	protected boolean mouseDownWasUsed;
+	protected boolean saveCurrentState = false; // when true means the current state of the chemical structures must be
 												// saved in the undo state manager
 
 	protected String searchInchiKeyMenuJLabel = "Search chemical structure (through InChIKey)";
-	private boolean alignMoleculesHasBeenPerformedByReadingStructure;
+	protected boolean alignMoleculesHasBeenPerformedByReadingStructure;
 	// protected Rectangle2D.Double reactionArrowBoundingBox;
-	private JFrame myFrame;
-	private boolean application;
+	protected JFrame myFrame;
+	protected boolean application;
 
-	// used for parsing input
-	public static final String NumberParsingErrorMsg = "Number parsing";
-	public static final String NotEnoughDataMsgError = "Not enough data";
+	protected boolean embedded;
+
+	protected boolean isPostInitialized = false;
+
+	protected boolean headless;
+
+	public JME() {
+		this(null, false);
+	}
+
+	public JME(JFrame frame) {
+		this(frame, false);
+	}
+
+	// ----------------------------------------------------------------------------
+	/**
+	 * Frame entry point; optionally embedded
+	 * 
+	 * @param frame    optional frame
+	 * @param embedded optionally embedded
+	 */
+	public JME(JFrame frame, boolean embedded) {
+		this.embedded = embedded;
+		activeMol = new JMEmol(this, params);
+		lastTouchedMol.mol = activeMol;
+		newTouchedMol.mol = activeMol;
+		moleculePartsList.add(activeMol);
+		inspectorEvent = new InspectorEvent(this);
+
+		// this.alert("isTouchSupported: " + isTouchSupported);
+		// reactionArrowBoundingBox = new Box();
+		setFrame(frame);
+		initialize();
+
+	}
+
+	public void setFrame(JFrame frame) {
+		if (frame == null)
+			return;
+		myFrame = frame;
+		isStandAloneApplication = true;
+		frame.setName("JME"); // for embedding in <div id="testApplet-JME-div">
+		frame.add("Center", this);
+		frame.addKeyListener(this);
+		addMouseListener(this);
+		addMouseMotionListener(this);
+		new FileDropper(this);
+		application = true;
+	}
+
+	// ----------------------------------------------------------------------------
+	public void initialize() {
+		params.keepSameCoordinatesForOutput = false;
+		params.internalBondScalingForInput = true;
+		params.showAtomMapNumberWithBackgroundColor = false;
+
+		Container parent = this.getParent();
+		if (parent != null) {
+			parent.addMouseWheelListener(this); // works
+		}
+		// Show the copyright stuff at the bottom of the page when the applet starts
+		info(programName + " " + startInfoText);
+
+		dimension = getSize(); // will be 0,0 in Java and JavaScript;
+
+		setLayout(null);
+
+		// NS3 ma error vo font metrics (nedava ascent)
+		// fontSize = 8;
+
+		if (menuCellFont == null) { // kvoli IE, ktory aj pri Back vola init
+			menuCellFont = new Font(defaultFontFamily, Font.PLAIN, fontSize);
+			menuCellFontMet = getFontMetrics(menuCellFont);
+		}
+		if (menuCellFontBold == null) { // kvoli IE, ktory aj pri Back vola init
+			menuCellFontBold = new Font(defaultFontFamily, Font.BOLD, fontSize);
+			menuCellFontBoldMet = getFontMetrics(menuCellFontBold);
+		}
+
+		// int fs = fontSize-1;
+		int smallerFontSize = fontSize - 2; // OK for the Java VM
+
+		if (menuCellFontSmaller == null) {
+			menuCellFontSmaller = new Font(defaultFontFamily, Font.PLAIN, smallerFontSize);
+			menuCellFontSmallerMet = getFontMetrics(menuCellFontSmaller);
+		}
+
+		// BB: independent font size for the dialog boxes
+		if (this.dialogFont == null) {
+			// BB It is not necesssary to specify a font, the default one looks good
+			this.dialogFont = null;
+			// this.dialogFont = new Font(null, Font.PLAIN, this.dialogFontSize);
+		}
+
+		// BB: independant font size for the atoms in the molecular area
+		// if(this.atomDrawingAreaFont == null) {
+
+		initatomDrawingAreaFont(this.atomMolecularDrawingAreaFontSize);
+
+		LEFT_MENU_NUMBER_OF_CELLS = this.determineNumberLeftMenuNumberOfCell();
+		// showHydrogens = true;
+
+		options.getAppletOptions();
+
+		action = ACTION_BOND_SINGLE; // musi to tu but, inak nic
+
+		validate();
+
+		// BB
+		if (this.canMultipleUndo) {
+			this.molChangeManager = new ChangeManager<SavedState>();
+			this.postSave(); // no effects because mol is not part of the array molparts
+			// and because it has no atoms
+		}
+
+	}
+
+	public void start() {
+		dimension = getSize();
+		// no repaint because the applet viewer will call repaint() after start()
+		// this was changed because the molecule is always loaded with a GWT.runasync
+		boolean repaint = true;
+		if (options.jmeString != null) {
+			readMolecule(options.jmeString, repaint);
+			// co s colring multipart a reactions ???
+			// only 1 coloring scheme (atoms || bg) may be applied
+			if (atomBgColors != null && activeMol != null)
+				activeMol.setAtomColors(atomBgColors, 0);
+			postSave(); // June 2021
+		} else if (options.molString != null) {
+			readMolFile(options.molString, repaint);
+			postSave(); // June 2021
+		} else if (options.genericChemicalInputFromInit != null && options.useOpenChemLib) {
+
+			// with a local or global instance of RunAsyncCallback, then code split does not
+			// work
+			// this.read_MOL_SDF_RXN(smilesString, null); // works also
+
+			// async conversion with open chemlib
+			// redraiwng the molecular area will be performed by the async call
+			// after the OCL code is loaded and the smiles converted to MOL
+
+			// the function calling this function will call paint in parallel,
+			setMustRedrawMolecularArea(false);
+			// DOES NOT WORK test_depict_many_smiles_in_table.html
+			// this.handleReadGenericInput(genericChemicalInputFromInit, null, repaint,
+			// false); // will call paint to redraw the
+			// June 2021: last argument set to true to endure undo stack state is added
+			//
+			// molecular area after the smiles
+			handleReadGenericInput(options.genericChemicalInputFromInit, null, repaint, true);
+			// will call paint to redraw the has been decoded
+		}
+	}
 
 	public static String makeErrorMessage(Exception e) {
 		String errorMsg = null;
@@ -863,23 +837,140 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
+	/**
+	 * the menu cell border differs in new and old look
+	 * 
+	 * @return
+	 */
+	int menuCellBorder() {
+		return options.newLook ? 1 : 0;
+	}
+
+	public float getMolecularAreaLineWidth() {
+		return molecularAreaLineWidth;
+	}
+
+	/**
+	 * Line width in pixel
+	 * 
+	 * @param molecularAreaLineWidth
+	 */
+	public void setMolecularAreaLineWidth(float molecularAreaLineWidth) {
+		this.molecularAreaLineWidth = molecularAreaLineWidth;
+		this.drawMolecularAreaRightNow();
+
+	}
+
+	public boolean isMolecularAreaAntiAlias() {
+		return molecularAreaAntiAlias;
+	}
+
+	/**
+	 * Set antialias for the molecular drawing area
+	 * 
+	 * @param molecularAreaAntiAlias
+	 */
+	public void setMolecularAreaAntiAlias(boolean molecularAreaAntiAlias) {
+		this.molecularAreaAntiAlias = molecularAreaAntiAlias;
+		this.drawMolecularAreaRightNow();
+	}
+
+	/**
+	 * This method is used only in a batch mode test suite in order to have an
+	 * instance of JME that has a this.dimension that is not null
+	 * 
+	 * @param width
+	 * @param height
+	 */
+	public void setDirectSizeForTesting(int width, int height) {
+		setDimension(width, height);
+		updateMyMolecularAreaSize();
+	}
+
+	/**
+	 * Used for the test suite
+	 * 
+	 * @param width
+	 * @param height
+	 */
+	public JME setDimension(int width, int height) {
+		if (this.dimension == null) {
+			this.dimension = new Dimension();
+		}
+		this.dimension.setSize(width, height);
+		return this;
+	}
+
+	public String getPasteJLabel() {
+		return pasteJLabel;
+	}
+
+	/**
+	 * Customization of the paste label
+	 * 
+	 * @param pasteJLabel
+	 */
+	public void setPasteJLabel(String pasteJLabel) {
+		this.pasteJLabel = pasteJLabel;
+		// rebuild the menu each time the pasteJLabel is changed
+		copyPasteJPopupMenuMol = createCopyPasteJPopupMenu(false);
+	}
+
+	// coud have used a HAshMap, but the code to initialize a hashmap is about the
+	// same - JS is much better here for simple dict
+	protected int mapActionToAtomNumber(int action, int notFound) {
+		int result = notFound;
+
+		if (action >= ACTION_AN_R) {
+			int delta = action - ACTION_AN_R;
+			result = AN_R + delta;
+		} else {
+			for (int i = 0; i < actionToAtomNumberArray.length; i += 2) {
+				if (actionToAtomNumberArray[i] == action) {
+					result = actionToAtomNumberArray[i + 1];
+					break;
+				}
+			}
+			// patch related to determineNumberLeftMenuNumberOfCell
+			if (result == AN_X) {
+				if (!options.xButton && options.rButton) { // X button has been removed and replaced by R button
+					result = AN_R;
+				}
+			}
+
+		}
+		return result;
+	}
+
+	protected int determineNumberLeftMenuNumberOfCell() {
+		int result = LEFT_MENU_NUMBER_OF_CELLS_WITHOUT_X_R;
+		if (options.rButton) {
+			result++;
+		}
+		if (options.xButton) {
+			result++;
+		}
+		return result;
+
+	}
+
 	public int numberOfMolecules() {
 		return this.moleculePartsList.size();
 	}
 
-	// private int lastTouchedMoleculePart;
+	// protected int lastTouchedMoleculePart;
 
 	public double getMolecularAreaScale() {
-		return molecularAreaScale;
+		return molecularAreaScalePixelsPerCoord;
 	}
 
 	// used by mouse wheel event in reaction mode
 	public void setMolecularAreaScale(double newScale) {
 		// should we limit scaling if one molecule becomes invisible?
-		if (newScale != this.molecularAreaScale) {
-			Rectangle2D.Double dim1 = this.getMolecularAreaBoundingBoxCoordinate();
-			this.molecularAreaScale = newScale;
-			Rectangle2D.Double dim2 = this.getMolecularAreaBoundingBoxCoordinate();
+		if (newScale != this.molecularAreaScalePixelsPerCoord) {
+			Rectangle2D.Double dim1 = this.getMolecularAreaBoundingBoxCoordinate00();
+			this.molecularAreaScalePixelsPerCoord = newScale;
+			Rectangle2D.Double dim2 = this.getMolecularAreaBoundingBoxCoordinate00();
 			recenterMoleculesAfterMolecularAreaChange(dim1, dim2);
 			this.redrawMolecularAreaOnly();
 		}
@@ -915,24 +1006,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	public boolean getNewJButtonStatus() {
 		return this.newMolecule;
-	}
-
-	// ----------------------------------------------------------------------------
-	public JME() {
-		// this.moleculeHandlingParameters.singleMarkerColorIndex =
-		// DefaultMarkerColorIndex;
-
-		activeMol = new JMEmol(this, this.moleculeHandlingParameters);
-
-		lastTouchedMol.mol = activeMol;
-		newTouchedMol.mol = activeMol;
-		// moleculeParts[1] = mol;
-		moleculePartsList.add(activeMol);
-		;
-		inspectorEvent = new InspectorEvent(this);
-
-		// this.alert("isTouchSupported: " + isTouchSupported);
-		// reactionArrowBoundingBox = new Box();
 	}
 
 	// -----------------------------------------------------------------------------
@@ -982,121 +1055,87 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			molOrReactionForPasting = molOrReaction;
 		}
 
-		if (useOpenChemLib) {
+		if (options.useOpenChemLib) {
 			molOrReactionForPasting += " or " + smilesOrSmirks;
-			if (!isReaction && this.useOclIdCode) {
-				molOrReactionForPasting += " or " + JME.OCL_ID_CODE_LABEL;
+			if (!isReaction && options.useOclIdCode) {
+				molOrReactionForPasting += " or " + OCL_ID_CODE_LABEL;
 			}
 		}
 
 		// COPY SMILES
-		JMenuItem mi = new JMenuItem("Copy " /* + what */ + "as " + smilesOrSmirks /* + " to the clipboard" */);
-		mi.setActionCommand(CopyPasteAction.SMILES.toString());
-		popup.add(mi);
-		mi.setEnabled(!hasAtom);
-		mi.addActionListener(this);
-
+		addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + smilesOrSmirks /* + " to the clipboard" */, CopyPasteAction.SMILES);
 		// COPY MOL
-		mi = new JMenuItem("Copy " /* + what */ + "as " + molOrReaction /* + " to the clipboard" */);
-		mi.setActionCommand(CopyPasteAction.MOL.toString());
-		mi.addActionListener(this);
-		popup.add(mi);
+		addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + molOrReaction /* + " to the clipboard" */, CopyPasteAction.MOL);
 
 		// COPY V3000 MOL
 		if (!isReaction) {
-			mi = new JMenuItem("Copy " /* + what */ + "as " + molOrReaction + " V3000" /* + " to the clipboard" */);
-			mi.setActionCommand(CopyPasteAction.MOL_V3000.toString());
-			mi.addActionListener(this);
-			popup.add(mi);
+			addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + molOrReaction + " V3000" /* + " to the clipboard" */, CopyPasteAction.MOL_V3000);
 
 			// handling Inchi: only available for JSME - use the inchi-js
 			if (this.canComputeInchi()) {
-				if (this.exportInchi) {
-					mi = new JMenuItem("Copy " /* + what */ + "as " + "InChI" /* + " to the clipboard" */);
-					mi.setActionCommand(CopyPasteAction.INCHI.toString());
-					mi.addActionListener(this);
-					mi.setEnabled(!hasAtom);
-					popup.add(mi);
-
+				if (options.exportInchi) {
+					addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "InChI" /* + " to the clipboard" */, CopyPasteAction.INCHI);
 				}
 
-				if (this.exportInchiKey) {
-					mi = new JMenuItem("Copy " /* + what */ + "as " + "InChI key" /* + " to the clipboard" */);
-					mi.setActionCommand(CopyPasteAction.INCHI_KEY.toString());
-					mi.addActionListener(this);
-					mi.setEnabled(!hasAtom);
-					popup.add(mi);
+				if (options.exportInchiKey) {
+					addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "InChI key" /* + " to the clipboard" */, CopyPasteAction.INCHI_KEY);
 
 				}
-				if (this.searchInchiKey) {
-					mi = new JMenuItem(this.searchInchiKeyMenuJLabel);
-					mi.setActionCommand(CopyPasteAction.SEARCH_INCHI_KEY.toString());
-					mi.addActionListener(this);
-					mi.setEnabled(!hasAtom);
-					popup.add(mi);
-
+				if (options.searchInchiKey) {
+					addMenuItem(popup, hasAtom, this.searchInchiKeyMenuJLabel,					CopyPasteAction.SEARCH_INCHI_KEY);
 				}
-				if (this.exportInchiAuxInfo) {
-					mi = new JMenuItem("Copy " /* + what */ + "as " + "InChI auxinfo" /* + " to the clipboard" */);
-					mi.setActionCommand(CopyPasteAction.INCHI_AUXINFO.toString());
-					mi.addActionListener(this);
-					mi.setEnabled(!hasAtom);
-					popup.add(mi);
-
+				if (options.exportInchiAuxInfo) {
+					addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "InChI auxinfo" /* + " to the clipboard" */, CopyPasteAction.INCHI_AUXINFO);
 				}
 			}
 
 		}
 
 		// COPY JME
-		mi = new JMenuItem("Copy " /* + what */ + "as " + "JME" /* + " to the clipboard" */);
-		mi.setActionCommand(CopyPasteAction.JME.toString());
-		mi.addActionListener(this);
-		popup.add(mi);
-
-		if (this.useOpenChemLib && this.exportSVG && !isReaction) {
-			mi = new JMenuItem("Copy " /* + what */ + "as " + "OCL Scalar Vector Graphics");
-			mi.setActionCommand(CopyPasteAction.SVG.toString());
-			mi.addActionListener(this);
-			popup.add(mi);
+		addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "JME" /* + " to the clipboard" */, CopyPasteAction.JME);
+		if (options.useOpenChemLib && options.exportSVG && !isReaction) {
+			addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "OCL Scalar Vector Graphics", CopyPasteAction.SVG);
 
 		}
 
 		// on IE7, one would get VML instead of SVG - nobody is using IE7 now
-		if (isJavaScript && this.exportSVG) {
-			mi = new JMenuItem("Copy " /* + what */ + "as " + "raw Scalar Vector Graphics");
-			mi.setActionCommand(CopyPasteAction.RAW_STRING_GRAPHIC.toString());
-			mi.addActionListener(this);
-			popup.add(mi);
+		if (isJavaScript && options.exportSVG) {
+			addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "raw Scalar Vector Graphics", CopyPasteAction.RAW_STRING_GRAPHIC);
 
 		}
 
-		if (this.useOpenChemLib && this.useOclIdCode && !isReaction) {
-			mi = new JMenuItem("Copy " /* + what */ + "as " + JME.OCL_ID_CODE_LABEL);
-			mi.setActionCommand(CopyPasteAction.OCLCODE.toString());
-			mi.addActionListener(this);
-			mi.setEnabled(!hasAtom);
-			popup.add(mi);
-
+		if (options.useOpenChemLib && options.useOclIdCode && !isReaction) {
+			addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + OCL_ID_CODE_LABEL, CopyPasteAction.OCLCODE);
 		}
+		
+		subclassAddToCopyMenu(popup, hasAtom);
+		
+		
 		// PASTE
-		if (this.paste) {
+		if (options.paste) {
 			popup.addSeparator();
 			String localPasteJLabel = this.getPasteJLabel();
 			if (localPasteJLabel == null) {
 				localPasteJLabel = "Paste " + molOrReactionForPasting; // default, no customization
 			}
-			mi = new JMenuItem(localPasteJLabel);
-
-			mi.setActionCommand(CopyPasteAction.PASTE.toString());
-			mi.addActionListener(this);
-			popup.add(mi);
+			addMenuItem(popup, true, localPasteJLabel, CopyPasteAction.PASTE);
 
 		}
 		this.add(popup); // set the parent the popup
 
 		return popup;
 
+	}
+
+	protected void addMenuItem(JPopupMenu popup, boolean enabled, String text, Object cmd) {
+		JMenuItem mi = new JMenuItem(text);
+		mi.setActionCommand(cmd.toString());
+		mi.addActionListener(this);
+		mi.setEnabled(!enabled);
+		popup.add(mi);
+	}
+
+	protected void subclassAddToCopyMenu(JPopupMenu popup, boolean hasAtom) {
 	}
 
 	/**
@@ -1122,15 +1161,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * 
 	 * @return
 	 */
-
-//	boolean ismarkerMultiColorActive() {
-//		return this.moleculeHandlingParameters.markerMultiColor;
-//	}
-
 	protected JPopupMenu createMolJPopupMenu(JMEmol mol, int eventX, int eventY) {
 		JPopupMenu popup = new JPopupMenu();
 
-		boolean showAtomMappingToolsInMenu = this.moleculeHandlingParameters.number || autonumber || reaction;
+		boolean showAtomMappingToolsInMenu = this.params.number || options.autonumber || options.reaction;
 		JMenuItem setUnsetChiralFlagJMenuItem;
 		if (mol.getChiralFlag()) {
 			setUnsetChiralFlagJMenuItem = new JMenuItem(unSetChiralFlagAction);
@@ -1154,7 +1188,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 		if (showAtomMappingToolsInMenu && mol.touchedAtom > 0) {
 			JMenuItem atomInspectoJMenuItem = new JMenuItem(
-					this.moleculeHandlingParameters.mark ? changeAtomMarkAction : changeAtomMapAction);
+					this.params.mark ? changeAtomMarkAction : changeAtomMapAction);
 			atomInspectoJMenuItem.addActionListener(this.inspectorEvent);
 
 			popup.add(atomInspectoJMenuItem);
@@ -1169,7 +1203,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 
 		// add a 2D computation only if Openchemlib is enabled
-		if (useOpenChemLib) {
+		if (options.useOpenChemLib) {
 			JMenuItem compute2DJMenuItem = new JMenuItem(compute2DcoordinatesMoleculeAction);
 			popup.add(compute2DJMenuItem);
 			compute2DJMenuItem.addActionListener(this);
@@ -1213,24 +1247,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 			}
 		}
-		bondInspectoJMenuItem.setLabel(label);
+		bondInspectoJMenuItem.setText(label);
 		popup.add(bondInspectoJMenuItem);
 
 		return popup;
 
-	}
-
-	// ----------------------------------------------------------------------------
-
-	public void setFrame(JFrame frame) {
-		myFrame = frame;
-		frame.setName("JME"); // for embedding in <div id="testApplet-JME-div">
-		frame.add("Center", this);
-		frame.addKeyListener(this);
-		addMouseListener(this);
-		addMouseMotionListener(this);
-		new FileDropper(this);
-		application = true;
 	}
 
 	@Override
@@ -1324,186 +1345,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// --------------------------------------------------------------------------
 	public void activateQuery() {
 		// v JME menu nastavi na query (ak bolo medzitym ine)
-		if (action != JME.ACTION_QRY) {
+		if (action != ACTION_QRY) {
 			action = ACTION_QRY;
 			repaint();
 		}
-	}
-
-	// ----------------------------------------------------------------------------
-	public void initialize() {
-		moleculeHandlingParameters.keepSameCoordinatesForOutput = false;
-		moleculeHandlingParameters.internalBondScalingForInput = true;
-
-		moleculeHandlingParameters.showAtomMapNumberWithBackgroundColor = false;
-
-		Container parent = this.getParent();
-		if (parent != null) {
-			parent.addMouseWheelListener(this); // works
-		}
-		// parent.addMouseListener(this); //has no effects in Java in Applet or
-		// Application run mode
-
-		// tu su veci co suvisia s grafikou
-
-		// addMouseListener(this);
-		// addMouseMotionListener(this);
-		// addKeyListener(this);
-
-		// BB
-		// this.copyPasteJPopupMenuMol = this.createCopyPasteJPopupMenu(false);
-		// this.copyPasteJPopupMenuReaction = this.createCopyPasteJPopupMenu(true);
-
-		// Show the copyright stuff at the bottom of the page when the applet starts
-		info(programName + " " + startInfoText);
-
-		dimension = getSize(); // will be 0,0 in Java and JavaScript;
-
-		setLayout(null);
-
-		// NS3 ma error vo font metrics (nedava ascent)
-		// fontSize = 8;
-
-		if (menuCellFont == null) { // kvoli IE, ktory aj pri Back vola init
-			menuCellFont = new Font(defaultFontFamily, Font.PLAIN, fontSize);
-			menuCellFontMet = getFontMetrics(menuCellFont);
-		}
-		if (menuCellFontBold == null) { // kvoli IE, ktory aj pri Back vola init
-			menuCellFontBold = new Font(defaultFontFamily, Font.BOLD, fontSize);
-			menuCellFontBoldMet = getFontMetrics(menuCellFontBold);
-		}
-
-		// int fs = fontSize-1;
-		int smallerFontSize = fontSize - 2; // OK for the Java VM
-
-		if (menuCellFontSmaller == null) {
-			menuCellFontSmaller = new Font(defaultFontFamily, Font.PLAIN, smallerFontSize);
-			menuCellFontSmallerMet = getFontMetrics(menuCellFontSmaller);
-		}
-
-		// BB: independent font size for the dialog boxes
-		if (this.dialogFont == null) {
-			// BB It is not necesssary to specify a font, the default one looks good
-			this.dialogFont = null;
-			// this.dialogFont = new Font(null, Font.PLAIN, this.dialogFontSize);
-		}
-
-		// BB: independant font size for the atoms in the molecular area
-		// if(this.atomDrawingAreaFont == null) {
-
-		initatomDrawingAreaFont(this.atomMolecularDrawingAreaFontSize);
-
-		// este aj tu aby sa vzdy iniciovali pre reload
-		// ??? urobit to lepsie
-		query = false;
-		reaction = false;
-		// autoez = true;
-		stereo = true;
-		canonize = true;
-		xJButton = true;
-		rJButton = false;
-		LEFT_MENU_NUMBER_OF_CELLS = this.determineNumberLeftMenuNumberOfCell();
-		// showHydrogens = true;
-
-//		if (!isStandAloneApplication) {
-//			try { // chytanie exception kvoli startu z ineho appletu
-//				String options = getParameter("options");
-//				if (options != null)
-//					options(options, false);
-//				String jme = getParameter("jme");
-//				if (jme != null)
-//					jmeString = jme;
-//				String molf = getParameter("mol");
-//				if (molf != null)
-//					molString = molf;
-//				String chem = getParameter("chem");
-//				if (chem != null)
-//					genericChemicalInputFromInit = chem;
-//
-//				String s = getParameter("smiles");
-//				if (s != null)
-//					genericChemicalInputFromInit = s;
-//
-//				String dc = getParameter("depictcgi");
-//				if (dc != null) {
-//					depictcgi = dc;
-//					runsmi = true;
-//				} // sets runsmi, pred smi
-//					// v parametroch depictcgi PRED smiles, upravit ????
-//
-//				String mt = getParameter("text");
-//				if (mt != null) {
-//					molText = mt;
-//					repaint();
-//				}
-////				atomColors = getParameter("atomcolors"); // only 1 of these 2
-//				atomBgColors = getParameter("atombg");
-//				String bc = getParameter("depictbg");
-//				if (bc != null && isDepict())
-//					canvasBg = parseHexColor(bc);
-//
-//				String guiColor = getParameter("guicolor");
-//				if (guiColor != null) {
-//					this.setUserInterfaceBackgroundColor(guiColor);
-//				}
-//
-//				String guiAtomColor = getParameter("guiAtomColor");
-//				if (guiAtomColor != null) {
-//					this.setLeftMenuAtomColor(guiAtomColor);
-//				}
-//
-////				String starColorPar = getParameter("markerIconColor");
-////				if (starColorPar != null) {
-////					this.setStarColor(starColorPar);
-////
-////				}
-//
-//				String atomCircleRelativeSizeString = getParameter("atombgsize");
-//				if (atomCircleRelativeSizeString != null) {
-//					atomBGcircleRelativeSize = Double.valueOf(atomCircleRelativeSizeString);
-//					if (atomBGcircleRelativeSize < 0)
-//						atomBGcircleRelativeSize = defaultAtomBGcircleRelativeSize;
-//				}
-//				String bondRectangleRelativeSizeString = getParameter("bondbgsize");
-//				if (bondRectangleRelativeSizeString != null) {
-//					bondBGrectRelativeSize = Double.valueOf(bondRectangleRelativeSizeString);
-//					if (bondBGrectRelativeSize < 0)
-//						bondBGrectRelativeSize = defaultBondBGrectRelativeSize;
-//				}
-//
-//				if (showAtomNumbers)
-//					showAtomNumbers();
-//
-//				String jsFunction = getParameter("notify_structural_change_js_function");
-//				this.setNotifyStructuralChangeJSfunction(jsFunction);
-//				
-//				this.handleAddiitonalParameters();
-//
-//			} catch (Exception e) {
-//				System.err.println("JME:  parameters error");
-//			}
-//		}
-
-		action = ACTION_BOND_SINGLE; // musi to tu but, inak nic
-
-		// get gif icons
-		// Toolkit toolkit = Toolkit.getDefaultToolkit();
-		// infoImage =
-		// toolkit.getImage(getClass().getResource("jmeimages/info.gif"));
-
-		// negraficka inicializacia
-		// atomicData();
-
-		// 2002.06
-		validate();
-
-		// BB
-		if (this.canMultipleUndo) {
-			this.molChangeManager = new ChangeManager<SavedState>();
-			this.postSave(); // no effects because mol is not part of the array molparts
-			// and because it has no atoms
-		}
-
 	}
 
 	/*
@@ -1513,18 +1358,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected void handleAddiitonalParameters() {
 
 	}
-
-	// the cache is useful for JSME when there are many instance in depict mode for
-	// performance reason
-	// stringWidht is expensive, the JSAppplet implementation has a cache inside
-	// each font metric instance
-	public static final int maxFontSize = 100;
-
-	public static Font[] atomDrawingAreaFontCache = new Font[maxFontSize];
-	public static FontMetrics[] atomDrawingAreaFontMetCache = new FontMetrics[maxFontSize];
-
-	public static Font[] atomMapDrawingAreaFontCache = new Font[maxFontSize];
-	public static FontMetrics[] atomMapDrawingAreaFontMetCache = new FontMetrics[maxFontSize];
 
 	public void initatomDrawingAreaFont(float realFs) {
 		int fs = Math.round(realFs);
@@ -1561,14 +1394,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
-	public void setAtomDrawingAreaFontSize(float fs) {
-		if (this.atomMolecularDrawingAreaFontSize != fs && fs > 0 && fs < maxFontSize) {
-			this.atomMolecularDrawingAreaFontSize = fs;
-			initatomDrawingAreaFont(fs);
-			this.drawMolecularAreaRightNow();
-		}
-	}
-
 	public SupportedFileFormat getCopyToClipboardFormat() {
 		return this.clipboardFormat;
 	}
@@ -1578,75 +1403,17 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	// ----------------------------------------------------------------------------
-	private Color parseHexColor(String hex) {
+	protected Color parseHexColor(String hex) {
 		return this.colorManager.parseHexColor(hex);
 	}
-
-	// ----------------------------------------------------------------------------
-//	@Override
-	public void start() {
-		// System.err.println("start");
-		// cita molekuly (uz by malo poznat dimension)
-		// addNotify(); // ??? nekompatibilne z mipc
-		// dimension = getSize(); //already done in init()
-		dimension = getSize();
-
-		// no repaint because the applet viewer will call repaint() after start()
-		// this was changed because the molecule is always loaded with a GWT.runasync
-		boolean repaint = true;
-
-		// this.postSave(); //June 2021
-
-		if (jmeString != null) {
-			readMolecule(jmeString, repaint);
-			// co s coloring multipart a reactions ???
-			// only 1 coloring scheme (atoms || bg) may be applied
-			if (atomBgColors != null && activeMol != null)
-				activeMol.setAtomColors(atomBgColors, 0);
-//			if (atomColors != null && activeMol != null)
-//				activeMol.setAtomColors(atomColors, false);
-			this.postSave(); // June 2021
-
-		} else if (molString != null) {
-			readMolFile(molString, repaint); // coloring tam //no repaint because the applet viewer will call repaint()
-												// after start()
-			this.postSave(); // June 2021
-
-		}
-		// else if (smiles != null) readSmiles(smiles);
-		// toto musi byt after vytvotrenie mol, aby bolo dimenzovane
-
-		else if (genericChemicalInputFromInit != null && this.useOpenChemLib) {
-
-			// with a local or global instance of RunAsyncCallback, then code split does not
-			// work
-			// this.read_MOL_SDF_RXN(smilesString, null); // works also
-
-			// async conversion with open chemlib
-			// redraiwng the molecular area will be performed by the async call
-			// after the OCL code is loaded and the smiles converted to MOL
-			this.setMustRedrawMolecularArea(false); // the function calling this function will call paint in parallel,
-													// DOES NOT WORK test_depict_many_smiles_in_table.html
-			// this.handleReadGenericInput(genericChemicalInputFromInit, null, repaint,
-			// false); // will call paint to redraw the
-			// June 2021: last argument set to true to endure undo stack state is added //
-			// molecular area after the smiles
-			this.handleReadGenericInput(genericChemicalInputFromInit, null, repaint, true); // will call paint to redraw
-																							// the
-			// has been decoded
-		}
-
-	}
-
-	private boolean isPostInitialized = false;
 
 	/**
 	 * Perform postinitalization after the editor is completely initialized SMILES
 	 * has been read and is ready to be edited
-	 * 
+	 *
 	 * @return
 	 */
-	private void postInitializeIfNeeded() {
+	protected void postInitializeIfNeeded() {
 		if (!this.isPostInitialized) {
 			this.isPostInitialized = true; // aboid infinite loop
 			this.postInitialize();
@@ -1718,10 +1485,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 */
 	protected int updateReactionRoles() {
 
-		moleculePartsList.isReaction = reaction;
+		moleculePartsList.isReaction = options.reaction;
 		int firstChangedIndex = -1;
 
-		if (reaction) {
+		if (options.reaction) {
 			for (JMEmol mol : moleculePartsList) {
 
 				int previousRole = mol.getReactionRole();
@@ -1765,10 +1532,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// ?????
 
 	public String nonisomericSmiles() {
-		boolean originalStereo = stereo;
-		stereo = false;
+		boolean originalStereo = options.stereo;
+		options.stereo = false;
 		String smiles = Smiles();
-		stereo = originalStereo;
+		options.stereo = originalStereo;
 		// BB: I commented the line below
 		// repaint(); // aby ked je chyba v smilesi, aby sa objavilo info
 
@@ -1780,12 +1547,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		this.updateReactionRoles();
 
-		smilesPars.stereo = stereo;
-		smilesPars.polarnitro = polarnitro;
+		smilesPars.stereo = options.stereo;
+		smilesPars.polarnitro = options.polarnitro;
 		// System.err.println("smilesPars.canonize: " +smilesPars.canonize);
 		// System.err.println("# molecules: " + moleculeParts.size());
 		// System.err.println("# atoms: " + moleculeParts.get(0).natoms);
-		smilesPars.canonize = canonize;
+		smilesPars.canonize = options.canonize;
 
 		String smiles = moleculePartsList.generateSmilesOrSmirks(smilesPars);
 
@@ -1794,7 +1561,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	/*
-	 * String Smiles() { String s; if (reaction) s = partSmiles(1) + ">" +
+	 * String Smiles() { String s; if (options.reaction) s = partSmiles(1) + ">" +
 	 * partSmiles(2) + ">" + partSmiles(3); else { s = partSmiles(0); if (s.length()
 	 * > 0) { molStack.addElement(new JMEmol(mol)); // adding molecule to // stack
 	 * // skoci na koniec s molsack pointer stackPointer = molStack.size() - 1; } }
@@ -1802,15 +1569,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * 
 	 * //
 	 * ----------------------------------------------------------------------------
-	 * String partSmiles(int pp) { // vracia multipart smiles, ak pp != 0 (reaction)
-	 * iba pre tu part // neskor pridat sort jednotlivych smilesov (alfanumeric)
-	 * String s = ""; for (int m = 1; m <= numberofMoleculeParts; m++) { if (pp > 0)
-	 * { int p = moleculeParts[m].reactionPart(); if (p != pp) continue; } //String
-	 * smiles = moleculeParts[m].createSmilesWithSideEffect();//BB: original SMILES
-	 * String smiles = moleculeParts[m].createSmiles(); //BB: make a copy of the mol
-	 * and do createSmilesWithSideEffect on it if (smiles.length() > 0) { if
-	 * (s.length() > 0) s += "."; s += smiles; // ta molekula moze byt empty } }
-	 * return s; }
+	 * String partSmiles(int pp) { // vracia multipart smiles, ak pp != 0
+	 * (options.reaction) iba pre tu part // neskor pridat sort jednotlivych
+	 * smilesov (alfanumeric) String s = ""; for (int m = 1; m <=
+	 * numberofMoleculeParts; m++) { if (pp > 0) { int p =
+	 * moleculeParts[m].reactionPart(); if (p != pp) continue; } //String smiles =
+	 * moleculeParts[m].createSmilesWithSideEffect();//BB: original SMILES String
+	 * smiles = moleculeParts[m].createSmiles(); //BB: make a copy of the mol and do
+	 * createSmilesWithSideEffect on it if (smiles.length() > 0) { if (s.length() >
+	 * 0) s += "."; s += smiles; // ta molekula moze byt empty } } return s; }
 	 */
 	// ----------------------------------------------------------------------------
 	public void reset(boolean repaint) {
@@ -1825,12 +1592,17 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// BB
 		resetMolecularAreaScale();
 
-		this.recordAfterStructureChangedEvent(JME.RESET);
+		this.recordAfterStructureChangedEvent(RESET);
 		// notifyStructuralChangeToJS(); //recordAfterStructureChangedEvent performs
 		// notifyStructuralChangeToJS
 		if (repaint)
 			repaint();
 
+	}
+
+	public void repaint() {
+		if (!headless)
+			super.repaint();
 	}
 
 	public void reset() {
@@ -1839,9 +1611,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	public void resetMolecularAreaScale() {
 		if (this.isFullScreen()) {
-			molecularAreaScale = fullScreenScale;
+			molecularAreaScalePixelsPerCoord = fullScreenScale;
 		} else {
-			molecularAreaScale = 1.; // ??? ked depict viac molekul po sebe
+			molecularAreaScalePixelsPerCoord = 1.; // ??? ked depict viac molekul po sebe
 		}
 	}
 
@@ -1849,7 +1621,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// numberofMoleculeParts = 0;
 		// JMEmol.maxMark = 0;
 		// actualMoleculePartIndex = 0;
-		activeMol = new JMEmol(this, this.moleculeHandlingParameters); // treba
+		activeMol = new JMEmol(this, this.params); // treba
 		activeMol.maxMark = 0;
 
 		moleculePartsList.removeAll();
@@ -1883,7 +1655,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			activeMol = this.findClosestMol(scaleDrawingToScreen(activeMol.centerX()),
 					scaleDrawingToScreen(activeMol.centerY()));
 		} else {
-			activeMol = new JMEmol(this, this.moleculeHandlingParameters);
+			activeMol = new JMEmol(this, this.params);
 			activeMol.maxMark = 0;
 			moleculePartsList.add(activeMol);
 		}
@@ -1906,7 +1678,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //		}
 
 		if (recordEvent) {
-			this.recordAfterStructureChangedEvent(JME.CLEAR);
+			this.recordAfterStructureChangedEvent(CLEAR);
 			// this.notifyStructuralChangeToJS(); //recordAfterStructureChangedEvent calls
 			// notifyStructuralChangeToJS
 		}
@@ -1926,14 +1698,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		return result;
 		/*
-		 * String s = ""; if (reaction) s = partJme(1) + ">" + partJme(2) + ">" +
-		 * partJme(3); else s = partJme(0); return s;
+		 * String s = ""; if (options.reaction) s = partJme(1) + ">" + partJme(2) + ">"
+		 * + partJme(3); else s = partJme(0); return s;
 		 */
 	}
 
 	// ----------------------------------------------------------------------------
 //	String partJme(int pp) { // what is pp?
-//		// vracia multipart jme, ak pp != 0 (reaction) iba pre tu part
+//		// vracia multipart jme, ak pp != 0 (options.reaction) iba pre tu part
 //		// neskor pridat sort jednotlivych smilesov (alfanumeric)
 //		String s = "";
 //		for (JMEmol mol: moleculePartsList) {
@@ -2087,12 +1859,25 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		// duplicated code, a pointer to a function would solve the problem?
 		JMEmolList inputMolList = new JMEmolList();
-		boolean success = inputMolList.readJMEstringInput(molecule, this.moleculeHandlingParameters);
+		boolean success = inputMolList.readJMEstringInput(molecule, this.params);
 		if (success && !inputMolList.isReallyEmpty()) {
 			this.processIncomingMolecules(inputMolList, repaint);
 		}
 		return success;
 	}
+
+	
+	protected boolean handleReadJmolAdaptorInput(Object[] iterators, boolean repaint) {
+
+		// duplicated code, a pointer to a function would solve the problem?
+		JMEmolList inputMolList = new JMEmolList();
+		boolean success = inputMolList.readJmolAdaptorInput(iterators, this.params);
+		if (success && !inputMolList.isReallyEmpty()) {
+			this.processIncomingMolecules(inputMolList, repaint);
+		}
+		return success;
+	}
+
 
 	public void showError(String errorMessage) {
 		this.showInfo("ERROR - " + errorMessage);
@@ -2111,7 +1896,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// this.moleculeHandlingParameters.mark = true; // BB to avoid a side effect
 		// linked to atom mapping (marked atom)
 		try {
-			templateMolecule = new JMEmol(this, t, true, pars);
+			templateMolecule = new JMEmol(this, t, SupportedFileFormat.JME, pars);
 			templateMolecule.internalBondLengthScaling(); // June 2020: JMEmol does not do it automatically. SHould be a
 															// parameter rom readJMEstringInput?
 		} catch (Exception e) {
@@ -2190,7 +1975,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// internally scaled
 		// such that its average bond length is equal the RBOND
 
-		double scaleToFit = this.molecularAreaScale;
+		double scaleToFit = this.molecularAreaScalePixelsPerCoord;
 
 		double margin = JMEmol.RBOND;
 
@@ -2319,15 +2104,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		double scalex = 1., scaley = 1.;
 
 		// compute the size of the available display box for the molecular area
-		Rectangle2D.Double widhtAndHeight;
+		Rectangle2D.Double widthAndHeight;
 		if (isDepict()) // in depict mode, the scale will be recomputed, therefore we use the original
 						// size
-			widhtAndHeight = this.getMolecularAreaBoundingBox();
+			widthAndHeight = this.getMolecularAreaBoundingBox();
 		else
-			widhtAndHeight = this.getMolecularAreaBoundingBoxCoordinate();
+			widthAndHeight = this.getMolecularAreaBoundingBoxCoordinate00();
 
-		int xsize = (int) widhtAndHeight.width;
-		int ysize = (int) widhtAndHeight.height;
+		int xsize = (int) widthAndHeight.width;
+		int ysize = (int) widthAndHeight.height;
 
 		if (reactionRole == JMEmol.ReactionRole.REACTANT || reactionRole == JMEmol.ReactionRole.PRODUCT)
 			xsize = (xsize - arrowWidth) / 2;
@@ -2341,7 +2126,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		double space = 0.;
 		if (isDepict()) { // cize == 1.
-			molecularAreaScale = Math.min(scalex, scaley); // inak dS = 1.
+			molecularAreaScalePixelsPerCoord = Math.min(scalex, scaley); // inak dS = 1.
 			space = RBOND * xsize / sumx;
 			if (reactionRole == JMEmol.ReactionRole.AGENT)
 				space = RBOND * ysize / sumy;
@@ -2372,7 +2157,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (isDepict()) { // pri depicte zmensuje
 				// assert(false);
 				if (!scalingIsPerformedByGraphicsEngine) {
-					moleculePartsList.get(i).scaleXY(molecularAreaScale);
+					moleculePartsList.get(i).scaleXY(molecularAreaScalePixelsPerCoord);
 				}
 				moleculePartsList.get(i).center(); // Once again, now reduced
 			}
@@ -2485,7 +2270,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		for (JMEmol mol : molList) {
 			results.add((Graphical2DObject) mol);
 		}
-		if (reaction) {
+		if (options.reaction) {
 			results.add((Graphical2DObject) reactionArrow);
 		}
 
@@ -2508,7 +2293,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public String molFile(boolean isV3000) {
-		return this.molFileOrRxn(null, true, isV3000, exportRXNmergeOption);
+		return this.molFileOrRxn(null, true, isV3000, options.exportRXNmergeOption);
 	}
 
 	public String molFile(MolFileOrRxnParameters pars) {
@@ -2524,15 +2309,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
-	public String molFileOrRxn(final String header_, final boolean stampDate_, final boolean isV3000_,
-			boolean mergeReationComponents) {
+	public String molFileOrRxn(String header_, boolean stampDate_, boolean isV3000_, boolean mergeReationComponents) {
 
 		MolFileOrRxnParameters pars = new MolFileOrRxnParameters() {
 			{
 				header = header_; // 1st line of the MOL
 				stampDate = stampDate_;
 				isV3000 = isV3000_;
-				mergeReationComponents = exportRXNmergeOption;
+				mergeReationComponents = options.exportRXNmergeOption;
 			}
 		};
 
@@ -2545,7 +2329,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //		}
 //
 //		String s = "";
-//		if (reaction) {
+//		if (options.reaction) {
 //			int nReactants;
 //			int nProducts;
 //			int nAgents;
@@ -2646,7 +2430,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param s
 	 * @param sucessAndFailureHandler
 	 */
-	public void handleReadGenericInput(final String s, final RunAsyncCallback sucessAndFailureHandler) {
+	public void handleReadGenericInput(String s, RunAsyncCallback sucessAndFailureHandler) {
 		handleReadGenericInput(s, sucessAndFailureHandler, true, true);
 	}
 
@@ -2656,17 +2440,20 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param s
 	 */
 
-	public void handleReadGenericInput(String s, final RunAsyncCallback sucessAndFailureHandler, final boolean repaint,
-			final boolean recordEvent) {
+	public void handleReadGenericInput(String s, RunAsyncCallback sucessAndFailureHandler, boolean repaint,
+			boolean recordEvent) {
 
-		final ChemicalFormatDetector cfd = new ChemicalFormatDetector(s);
-		String error = null;
-		boolean runAsync = false;
 		if (s == null || s.trim().length() == 0) {
 			return;
 		}
-		this.afterStructureChangeEvent.setOrigin_API(); // will not overwrite if already set for instance if the call is
-														// coming from the GUI
+
+		ChemicalFormatDetector cfd = new ChemicalFormatDetector(s);
+		String error = null;
+		boolean runAsync = false;
+
+		this.afterStructureChangeEvent.setOrigin_API();
+		// will not overwrite if already set for instance if the call is
+		// coming from the GUI
 
 		clearInfo(); // clear previous error message if any
 		String afterStructureChangedEvent = null;
@@ -2709,93 +2496,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				break;
 			}
 
-			if (this.useOpenChemLib) {
+			if (options.useOpenChemLib) {
 				runAsync = true;
 				// code splitting used to run OpenChemlib code
 				JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
 					@Override
 					public void onSuccess() {
-						String error = null;
-						String convertedmolFile = null;
-						String afterStructureChangedEvent = null;
-
-						if (cfd.author == ChemicalFormatDetector.Author.MDL
-								&& cfd.minorChemicalFormat == ChemicalFormatDetector.MinorChemicalFormat.V3000) {
-							try {
-								convertedmolFile = JME.this.v3000toV2000MOL(cfd.chemicalString);
-								if (convertedmolFile == null) {
-									throw new Exception("V3000 read failed.");
-								}
-								afterStructureChangedEvent = READ_MOL_FILE;
-								JME.this.sdfPastedMessage.innnerString = "V3000 conversion provided by OpenChemLib";
-							} catch (Exception e) {
-								error = e.getMessage();
-							}
-						} else {
-							if (cfd.author == ChemicalFormatDetector.Author.DAYLIGHT) {
-								try {
-									convertedmolFile = JME.this.SMILESorSMIRKStoMolOrRXN(cfd.chemicalString);
-									if (cfd.majorChemicalFormat == MajorChemicalFormat.SMIRKS)
-										afterStructureChangedEvent = READ_SMIRKS;
-									else if (cfd.majorChemicalFormat == MajorChemicalFormat.SMILES)
-										afterStructureChangedEvent = READ_SMILES;
-
-									JME.this.sdfPastedMessage.innnerString = "SMILES conversion provided by OpenChemLib";
-
-								} catch (Exception e) {
-									error = "SMILES parsing error:" + e.getMessage();
-								}
-							} else {
-								error = "Invalid or unsupported input";
-								if (JME.this.useOclIdCode && cfd.couldBeOclIdCode()) {
-									// try to parse OCL if not SMILES
-									// ChemicalFormatDetector can not detect OCLcode
-									try {
-										convertedmolFile = JME.this.OclCodeToMOL(cfd.chemicalString);
-										afterStructureChangedEvent = READ_OCLCODE;
-										error = null;
-									} catch (Exception e) {
-
-									}
-								}
-							}
-						}
-
-						boolean success = false;
-						if (convertedmolFile != null && error == null) {
-							try {
-								success = JME.this.handleReadMolFileRXN(convertedmolFile, false);
-								if (success && recordEvent) {
-									assert (afterStructureChangedEvent != null);
-									JME.this.recordAfterStructureChangedEvent(afterStructureChangedEvent);
-
-								}
-							} catch (Exception e) {
-								error = "Invalid converted molfile";
-							}
-						}
-						setMustRedrawMolecularArea(success);
-
-						if (sucessAndFailureHandler != null) {
-							if (success) {
-								sucessAndFailureHandler.onSuccess();
-							} else {
-								assert (error != null);
-								sucessAndFailureHandler.onFailure(new Exception(error));
-							}
-						} else {
-							if (error != null) {
-								JME.this.showError(error);
-							}
-
-						}
-						if (repaint) {
-							repaint();
-							// drawMolecularAreaRightNow(); //does not work if called from start(),
-							// molecularAreaImage is not initialized
-						}
-
+						oclSuccess(cfd, sucessAndFailureHandler, recordEvent, repaint);
 					}
 				});
 
@@ -2822,7 +2530,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				}
 			} else {
 				if (error != null) {
-					JME.this.showError(error);
+					showError(error);
 				}
 
 			}
@@ -2831,6 +2539,90 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				repaint();
 
 			}
+		}
+
+	}
+
+	protected void oclSuccess(ChemicalFormatDetector cfd, RunAsyncCallback sucessAndFailureHandler, boolean recordEvent,
+			boolean repaint) {
+		String error = null;
+		String convertedmolFile = null;
+		String afterStructureChangedEvent = null;
+
+		if (cfd.author == ChemicalFormatDetector.Author.MDL
+				&& cfd.minorChemicalFormat == ChemicalFormatDetector.MinorChemicalFormat.V3000) {
+			try {
+				convertedmolFile = v3000toV2000MOL(cfd.chemicalString);
+				if (convertedmolFile == null) {
+					throw new Exception("V3000 read failed.");
+				}
+				afterStructureChangedEvent = READ_MOL_FILE;
+				sdfPastedMessage.innnerString = "V3000 conversion provided by OpenChemLib";
+			} catch (Exception e) {
+				error = e.getMessage();
+			}
+		} else {
+			if (cfd.author == ChemicalFormatDetector.Author.DAYLIGHT) {
+				try {
+					convertedmolFile = SMILESorSMIRKStoMolOrRXN(cfd.chemicalString);
+					if (cfd.majorChemicalFormat == MajorChemicalFormat.SMIRKS)
+						afterStructureChangedEvent = READ_SMIRKS;
+					else if (cfd.majorChemicalFormat == MajorChemicalFormat.SMILES)
+						afterStructureChangedEvent = READ_SMILES;
+
+					sdfPastedMessage.innnerString = "SMILES conversion provided by OpenChemLib";
+
+				} catch (Exception e) {
+					error = "SMILES parsing error:" + e.getMessage();
+				}
+			} else {
+				error = "Invalid or unsupported input";
+				if (options.useOclIdCode && cfd.couldBeOclIdCode()) {
+					// try to parse OCL if not SMILES
+					// ChemicalFormatDetector can not detect OCLcode
+					try {
+						convertedmolFile = OclCodeToMOL(cfd.chemicalString);
+						afterStructureChangedEvent = READ_OCLCODE;
+						error = null;
+					} catch (Exception e) {
+
+					}
+				}
+			}
+		}
+
+		boolean success = false;
+		if (convertedmolFile != null && error == null) {
+			try {
+				success = handleReadMolFileRXN(convertedmolFile, false);
+				if (success && recordEvent) {
+					assert (afterStructureChangedEvent != null);
+					recordAfterStructureChangedEvent(afterStructureChangedEvent);
+
+				}
+			} catch (Exception e) {
+				error = "Invalid converted molfile";
+			}
+		}
+		setMustRedrawMolecularArea(success);
+
+		if (sucessAndFailureHandler != null) {
+			if (success) {
+				sucessAndFailureHandler.onSuccess();
+			} else {
+				assert (error != null);
+				sucessAndFailureHandler.onFailure(new Exception(error));
+			}
+		} else {
+			if (error != null) {
+				showError(error);
+			}
+
+		}
+		if (repaint) {
+			repaint();
+			// drawMolecularAreaRightNow(); //does not work if called from start(),
+			// molecularAreaImage is not initialized
 		}
 
 	}
@@ -2961,7 +2753,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 */
 	public boolean readSmirks(String smirks) throws Exception {
 
-		String convertedmolFile = JME.this.SMILESorSMIRKStoMolOrRXN(smirks);
+		String convertedmolFile = SMILESorSMIRKStoMolOrRXN(smirks);
 
 		this.handleReadMolFileRXN(convertedmolFile, false);
 
@@ -2979,11 +2771,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return newParser().v3000toV2000MOL(v3000Mol);
 	}
 
-	private Parser newParser() {
+	protected Parser newParser() {
 		return (Parser) getInterface(parserImpl);
 	}
 
-	private Parser getInterface(String name) {
+	protected Parser getInterface(String name) {
 		try {
 			Class<?> x = Class.forName(name);
 			return (Parser) (x == null ? null : x.newInstance());
@@ -3021,73 +2813,72 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	boolean canBeAddedToExistingMultipartOrReaction() {
-		return ((reaction || multipart) && addNewPart) || newMolecule; // newMolecule is true if NEW button is pushed
+		return ((options.reaction || options.multipart) && options.addNewPart) || newMolecule;
+		// newMolecule is true if NEW button is pushed
 	}
 
-	void processIncomingMolecules(final JMEmolList newMolecules, final boolean repaint) {
+	void processIncomingMolecules(JMEmolList newMolecules, boolean repaint) {
 
 		if (!newMolecules.isReallyEmpty()) {
 
-			if (this.moleculeHandlingParameters.internalBondScalingForInput) {
+			if (this.params.internalBondScalingForInput) {
 				newMolecules.internalBondLengthScaling();
 			}
-
-			// Runasync is needed because of 2D computation with openchmlid if the input
-			// has no 2D or is 3D
-			// Removed because too much added complexity: all calling functions must provide
-			// an async callback
-			// it would be anyway useless because most of the application stsrts with a
-			// molecule in the editor
-//			GWT.runAsync(new JSME_RunAsyncCallback() {
-//				
-//				@Override
-//				public void onSuccess() {
-			JME.this.processIncomingMolecules(newMolecules);
-			if (JME.this.newMolecule) {
-				JME.this.newMolecule = false; // addition performed, cancel NEW option
-				JME.this.mustReDrawTopMenu = true;
+			activeMol = processIncomingMolecules(newMolecules);
+			if (newMolecule) {
+				newMolecule = false; // addition performed, cancel NEW option
+				mustReDrawTopMenu = true;
 			}
-			if (repaint) {
-				JME.this.drawMolecularAreaRightNow();
-				if (JME.this.mustReDrawTopMenu) {
-					JME.this.drawTopMenu(getGraphics());
+			if (repaint && !headless) {
+				drawMolecularAreaRightNow();
+				if (mustReDrawTopMenu) {
+					drawTopMenu(getGraphics());
 				}
 
 			}
 
 		}
 
-//			});
-//			
-//		}
-
 	}
 
-	// caller should check isReallyEmpty() first
-	void processIncomingMolecules(final JMEmolList newMolecules) {
+	/**
+	 * For all molecules:
+	 * 
+	 * 1) assign the JME field
+	 * 
+	 * 2) recompute aromaticity
+	 * 
+	 * 3) compute 2D coord if they are missing
+	 * 
+	 * 4) scale, color, and add it to the list of mols
+	 * 
+	 * @param newMolecules
+	 * @return the new mol
+	 */
+	 JMEmol processIncomingMolecules(JMEmolList newMolecules) {
 
 		if (newMolecules.isReallyEmpty()) {
-			return;
+			return activeMol;
 		}
 
 		// New Jan 2019
 		for (int i = 0; i < newMolecules.size(); i++) {
-			JMEmol each = newMolecules.get(i);
-			each.jme = this;
+			JMEmol mol = newMolecules.get(i);
+			mol.jme = this;
 
 			//// HERE USE OCL LIB !!!!!!
-			each = newMolecules.reComputeBondOrderIfAromaticBondType(each);
+			mol = newMolecules.reComputeBondOrderIfAromaticBondType(mol);
 
-			if (each != null) {
-				newMolecules.set(i, each);
+			if (mol != null) {
+				newMolecules.set(i, mol);
 			}
 
 			//// HERE USE OCL LIB !!!!!!
 			// Bug: ensemble does not work correctly
 			// Feb 2020
-			each = newMolecules.compute2DcoordinatesIfMissing(each);
-			if (each != null) {
-				newMolecules.set(i, each);
+			mol = newMolecules.compute2DcoordinatesIfMissing(mol);
+			if (mol != null) {
+				newMolecules.set(i, mol);
 			}
 
 		}
@@ -3095,8 +2886,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		newMolecules.scaleInternalBondMolList();
 
 		if (newMolecules.isReaction()) {
-			reaction = true;
-			multipart = true;
+			options.reaction = true;
+			options.multipart = true;
 
 			double spacing = JMEmol.RBOND;
 			Graphical2DObjectGroup<Graphical2DObjectGroup<Graphical2DObject>> groups = new Graphical2DObjectGroup<Graphical2DObjectGroup<Graphical2DObject>>();
@@ -3117,7 +2908,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 					// reaction agents on top and below the arrow
 					int pos = (int) ((0.5 * group.size()) + 0.5);
-					group.add(pos, JME.this.reactionArrow);
+					group.add(pos, reactionArrow);
 					group.distributePositions(Axis.Y, spacing, false);
 					group.alignCenter(Axis.X);// this is centering along Y axis
 
@@ -3135,7 +2926,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// move the agent group such that it is aligned with the center of the two other
 			// groups
 			assert (agentGroup != null && agentGroup.size() >= 1); // the agent group contains the arrow
-			agentGroup.move(Axis.Y, agentGroup.centerY() - JME.this.reactionArrow.centerY());
+			agentGroup.move(Axis.Y, agentGroup.centerY() - reactionArrow.centerY());
 
 			// new June 2017: split the reaction components if needed after the alignment is
 			// done
@@ -3149,14 +2940,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			moleculePartsList.addAll(newMolecules);
 
 			// For reaction, it is better to scale down if this a big reaction
-			JME.this.molecularAreaScale = JME.this
-					.scaleAndCenterForDepictMode(JME.this.graphicalObjectList(JME.this.moleculePartsList));
+			molecularAreaScalePixelsPerCoord = this.scaleAndCenterForDepictMode(graphicalObjectList(moleculePartsList));
 
 		} else {
 
 			if (isDepict() || pasteFromSDFstack) { // BB let the incoming structure determine the editor mode when in
 													// depict mode
-				reaction = false;
+				options.reaction = false;
 				// multipart = false;
 			}
 			boolean addedToExistingMultipartOrReaction = canBeAddedToExistingMultipartOrReaction();
@@ -3166,12 +2956,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				resetMolecularAreaScale(); // could be an option
 			}
 
-			{
-				double scale = isDepict() ? 1.0 : molecularAreaScale; // in depict mode, the scale will be recomputed
-																		// afterwards
-				centerAllMoleculesAsAgroup(JME.this.graphicalObjectList(newMolecules), JME.this.dimension, menuScale,
-						scale);
-			}
+			double scale = isDepict() ? 1.0 : molecularAreaScalePixelsPerCoord; // in depict mode, the scale will be
+																				// recomputed
+			// afterwards
+			centerAllMoleculesAsAgroup(graphicalObjectList(newMolecules), dimension, menuScale, scale);
 
 			if (!isDepict()) { // solve the cross fragment issue with atom highlighting based on atom indices
 								// (CT3 chemotyper-like display)
@@ -3183,8 +2971,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 			if (isDepict()) {
 				// if the molecules are too big to fit => recompute the scale
-				JME.this.molecularAreaScale = JME.this
-						.scaleAndCenterForDepictMode(JME.this.graphicalObjectList(JME.this.moleculePartsList));
+				molecularAreaScalePixelsPerCoord = scaleAndCenterForDepictMode(graphicalObjectList(moleculePartsList));
 			}
 
 		}
@@ -3192,28 +2979,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// coloring tu, inak pri multiupart problemy
 		moleculePartsList.setAtomBackGroundColors(atomBgColors);
 		assert (moleculePartsList.size() > 0);
-		activeMol = newMolecules.first();
-
+		return newMolecules.first();
 	}
-
-	/*
-	 * the complex stuff
-	 */
-//	double alignScaleCenter(Graphical2DObjectGroup<Graphical2DObject> graphicalObjecList) {
-//		double newMolecularAreaScale = this.molecularAreaScale;
-//		if (! reaction) {
-//			if (! isDepict()) {
-//				centerAllMoleculesAsAgroup(graphicalObjecList, this.dimension, menuScale, molecularAreaScale);
-//			} else {
-//				// depict mode
-//				newMolecularAreaScale = this.scaleAndCenterForDepictMode(graphicalObjecList);
-//
-//			}
-//		
-//		}
-//		
-//		return newMolecularAreaScale;
-//	}
 
 	/**
 	 * generate an afterStructureChangedEvent
@@ -3224,7 +2991,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	boolean handleReadMolFileRXN(String s, boolean repaint) {
 
 		JMEmolList inputMolList = new JMEmolList();
-		boolean success = inputMolList.readMDLstringInput(s, this.moleculeHandlingParameters);
+		boolean success = inputMolList.readMDLstringInput(s, this.params);
 		if (success && !inputMolList.isReallyEmpty()) {
 			this.processIncomingMolecules(inputMolList, repaint);
 		}
@@ -3300,7 +3067,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	protected String menuXShortcuts = null;
-	// protected final String markerMultiColorOptionJLabel = "markerMultiColor";
 
 	/**
 	 * Specify custom keyboard shortcuts letters for the X menu box. These new
@@ -3326,443 +3092,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return this.menuXShortcuts;
 	}
 
-	// --------------------------------------------------------------------------
-	public void options(String parameters) {
-		// this.options(parameters, true);
-		this.options(parameters, false); // Changed June 2021: options() cand ecide if repaint is needed
-
-	}
-
-	public void options(String parameters, boolean repaint) {
-		Boolean optionTest;
-		parameters = parameters.toLowerCase();
-
-		repaint = true; // June 2021, otherwise need to rework and test all options
-
-		if ((optionTest = parseOption(parameters, "rbutton")) != null) {
-			rJButton = optionTest;
-			this.mustReDrawLeftMenu = true;
-		}
-
-		// show implicit H
-		if ((optionTest = parseOption(parameters, "hydrogens")) != null) {
-			if (moleculeHandlingParameters.hydrogenHandlingParameters.showHs != optionTest) {
-				moleculeHandlingParameters.hydrogenHandlingParameters.showHs = optionTest;
-				this.mustReDrawMolecularArea();
-			}
-
-		}
-
-		if ((optionTest = parseOption(parameters, "polarnitro")) != null)
-			polarnitro = optionTest;
-
-		if ((optionTest = parseOption(parameters, "valenceState")) != null) {
-
-			if (this.moleculeHandlingParameters.computeValenceState != optionTest) {
-				this.moleculeHandlingParameters.computeValenceState = optionTest; // April 2019
-				this.mustReDrawMolecularArea();
-
-				// should we update all atom internals e.g. charge, nh, ...?
-				// this.mustReDrawMolecularArea();
-				// repaint = true;
-			}
-
-		}
-
-		if (parameters.indexOf("keephs") > -1) {
-			// keepHydrogens = true;
-			// removeOnlyCHydrogens = false;
-			this.moleculeHandlingParameters.hydrogenHandlingParameters.removeHs = false;
-		}
-		if (parameters.indexOf("removehs") > -1) {
-			this.moleculeHandlingParameters.hydrogenHandlingParameters.removeHs = true;
-			this.moleculeHandlingParameters.hydrogenHandlingParameters.removeOnlyCHs = false;
-
-			// keepHydrogens = false;
-			// removeOnlyCHydrogens = false;
-		}
-
-		if (parameters.indexOf("removehsc") > -1) {
-			// keepHydrogens = false;
-			// removeOnlyCHydrogens = true;
-			this.moleculeHandlingParameters.hydrogenHandlingParameters.removeHs = true;
-			this.moleculeHandlingParameters.hydrogenHandlingParameters.removeOnlyCHs = true;
-
-		}
-
-		if ((optionTest = parseOption(parameters, "query")) != null)
-			if (query != optionTest) {
-				query = optionTest;
-				repaint = true;
-			}
-
-		if ((optionTest = parseOption(parameters, "reaction")) != null) {
-			if (reaction != optionTest) {
-				setMustRedrawMolecularArea(true); // reaction arrow change : redrawing needed
-				repaint = true;
-			}
-			if (!reaction) {
-				this.reactionArrow.hasBeenPlaced = false;
-			}
-			reaction = optionTest;
-		}
-
-		if ((optionTest = parseOption(parameters, "autoez")) != null) {
-			// autoez = optionTest;
-			this.smilesPars.autoez = optionTest;
-		}
-
-		if ((optionTest = parseOption(parameters, "stereo")) != null)
-			stereo = optionTest;
-
-		if ((optionTest = parseOption(parameters, "canonize")) != null)
-			canonize = optionTest;
-
-		if ((optionTest = parseOption(parameters, "multipart")) != null)
-			if (multipart != optionTest) {
-				multipart = optionTest;
-				repaint = true;
-			}
-
-		// New: handling the negative option
-		if (optionTest = parseOption(parameters, "autonumber") != null) {
-			if (autonumber != optionTest) {
-				autonumber = optionTest;
-				if (autonumber) {
-					options("number");
-					return;
-				}
-			}
-		}
-		if (optionTest = parseOption(parameters, "number") != null) {
-			if (this.moleculeHandlingParameters.number != optionTest)
-				this.mustReDrawTopMenu = true;
-
-			this.moleculeHandlingParameters.number = optionTest;
-			if (!this.moleculeHandlingParameters.number)
-				autonumber = false;
-			else {
-				if (this.moleculeHandlingParameters.mark)
-					this.mustRedrawEverything(); // if star option is selected later
-				this.moleculeHandlingParameters.mark = false;
-			}
-		}
-
-		if (optionTest = parseOption(parameters, "showAtomMapNumberWithBackgroundColor") != null) {
-			this.moleculeHandlingParameters.showAtomMapNumberWithBackgroundColor = optionTest;
-		}
-
-		if ((optionTest = parseOption(parameters, "newlook")) != null) {
-			newLook = optionTest;
-			resetAllGraphics();
-		}
-		if ((optionTest = parseOption(parameters, "oldlook")) != null) {
-			newLook = !optionTest;
-			resetAllGraphics();
-		}
-
-		if ((optionTest = parseSynonymOptions(parameters, "star", "marker")) != null) {
-			if (moleculeHandlingParameters.mark != optionTest) {
-				this.moleculeHandlingParameters.number = moleculeHandlingParameters.mark = optionTest; // why number?
-				// activeMarkerColorIndex = moleculeHandlingParameters.mark ? 0 : -1; //WIP
-				this.mustRedrawEverything();
-				if (!optionTest) // if star is off, so is star1
-					markOnly1 = false;
-
-			}
-
-		}
-		if ((optionTest = parseSynonymOptions(parameters, "star1", "marker1")) != null) {
-			if (markOnly1 != optionTest) {
-				markOnly1 = optionTest;
-				if (optionTest) {
-					this.moleculeHandlingParameters.number = moleculeHandlingParameters.mark = optionTest; // why
-																											// number?
-				} else {
-
-				}
-				this.mustRedrawEverything();
-
-			}
-
-		}
-
-		if ((optionTest = parseOption(parameters, "markerMenu")) != null) {
-			markerMenu = optionTest;
-		}
-
-//		if ((optionTest = parseSynonymOptions(parameters, markerMultiColorOptionJLabel )) != null) {
-//			if (this.moleculeHandlingParameters.markerMultiColor != optionTest) {
-//				this.moleculeHandlingParameters.markerMultiColor = optionTest;
-//				
-//				this.mustRedrawEverything();
-//
-//			}
-//
-//		}
-
-		// atom marking will not happen, but an event will be triggered
-		if ((optionTest = parseOption(parameters, "pseudoMark")) != null) {
-			pseudoMark = optionTest;
-		}
-
-		if ((optionTest = parseOption(parameters, "markAtomOnly")) != null) {
-			starAtomOnly = optionTest;
-			if (starAtomOnly) {
-				starBondOnly = false;
-				if (starNothing) {
-					repaint = true;
-				}
-				starNothing = false;
-			}
-		}
-		if ((optionTest = parseOption(parameters, "markBondOnly")) != null) {
-			starBondOnly = optionTest;
-			if (starBondOnly) {
-				starAtomOnly = false;
-				if (starNothing) {
-					repaint = true;
-				}
-				starNothing = false;
-			}
-		}
-
-		if ((optionTest = parseOption(parameters, "markNothing")) != null) {
-			if (starNothing != optionTest) {
-				repaint = true;
-				starNothing = optionTest;
-			}
-		}
-
-		if ((optionTest = parseOption(parameters, "fgmenu")) != null) {
-			fgMenuOption = optionTest;
-			this.mustReDrawTopMenu = true;
-		}
-
-		if ((optionTest = parseOption(parameters, "toggle")) != null)
-			toggleDepictEdit = optionTest;
-
-		// BB
-		if ((optionTest = parseOption(parameters, "depictaction")) != null) {
-			depictActionEnabled = optionTest;
-			if (optionTest)
-				parameters += " depict";
-		}
-
-		optionTest = parseOption(parameters, "depict");
-		if (optionTest != null) {
-			if (optionTest && isDepict() == false) {
-				setDepict(true);
-				menuCellSize = 0;
-				molecularAreaImage = null; // pre prechode z depict je ta primala
-				// toto len pre norm moleculeParts, nie pre reaction !!!
-				// alignMolecules(1, numberofMoleculeParts, 0); //will be done during the
-				// repaint
-				paste = false; // BB March 2014 : default does not accept paste anymore
-
-				// October 2019
-				if (this.moleculePartsList.size() > 0) {
-					// this is done when reading the input file
-					// JMEmol.scaleInternalBondMolList(this.moleculeParts,
-					// this.numberofMoleculeParts);
-					// JMEmol.centerMolList(this, this.moleculeParts, this.numberofMoleculeParts);
-					molecularAreaScale = this.scaleAndCenterForDepictMode(this.graphicalObjectList());
-				}
-				this.resetAllGraphics();
-			}
-			// BB CHeck if nodepictaction is used
-			if (!optionTest && isDepict() == true) {
-				setDepict(false);
-				// molecularAreaScale = 1; // inak kresli mensi font
-				resetMolecularAreaScale();
-
-				// october 2019 - depict bug fix
-
-				// musi male molekuly vratit na povodnu velkost
-				// for (int i = 1; i <= numberofMoleculeParts; i++) {
-				// moleculeParts[i].scaling();
-				// moleculeParts[i].center(); // este raz, teraz uz zmensene
-				// }
-
-				// JMEmol.centerMolList(this, this.moleculeParts, this.numberofMoleculeParts);
-
-				// BB moved above - fixed a bug
-				// depictScale = 1; // inak kresli mensi font
-				// normal font (ak bola mensia molekula) sa nastavi v
-				// drawMolecularArea
-				menuCellSize = standardMenuCellSize;
-				if (activeMol != null) {
-					// mol.needRecentering = true; // october 2019 bug
-				}
-
-				paste = true; // BB March 2014 :
-				// paste option will be set below
-				this.resetAllGraphics();
-
-			}
-		}
-
-		if ((optionTest = parseOption(parameters, "showDragAndDropIconInDepictMode")) != null)
-			showDragAndDropIconInDepictMode = optionTest;
-		// older naming of the same option
-		if ((optionTest = parseOption(parameters, "showDragAndDropSymbolInDepictMode")) != null)
-			showDragAndDropIconInDepictMode = optionTest;
-
-		if ((optionTest = parseOption(parameters, "addNewPart")) != null)
-			addNewPart = optionTest;
-
-		if ((optionTest = parseOption(parameters, "exportInchi")) != null)
-			exportInchi = optionTest;
-		if ((optionTest = parseOption(parameters, "exportInchiKey")) != null)
-			exportInchiKey = optionTest;
-		if ((optionTest = parseOption(parameters, "exportInchiAuxInfo")) != null)
-			exportInchiAuxInfo = optionTest;
-		if ((optionTest = parseOption(parameters, "searchInchiKey")) != null)
-			searchInchiKey = optionTest;
-		if ((optionTest = parseOption(parameters, "exportSVG")) != null)
-			exportSVG = optionTest;
-
-		if ((optionTest = parseOption(parameters, "exportRXNmerge")) != null)
-			exportRXNmergeOption = optionTest;
-
-		if ((optionTest = parseOption(parameters, "contextMenu")) != null)
-			contextMenuEnabledOption = optionTest;
-		if ((optionTest = parseOption(parameters, "fullScreenIcon")) != null)
-			fullScreenIconOption = optionTest;
-		if ((optionTest = parseOption(parameters, "showFullScreenIconInDepictMode")) != null)
-			showFullScreenIconInDepictMode = optionTest;
-
-		if ((optionTest = parseOption(parameters, "useOclIDCode")) != null)
-			useOclIdCode = optionTest;
-
-		if ((optionTest = parseOption(parameters, "xbutton")) != null) {
-			if (xJButton != optionTest) {
-				xJButton = optionTest;
-				repaint = true;
-			}
-
-		}
-		if ((optionTest = parseOption(parameters, "paste")) != null)
-			if (paste != optionTest) {
-				paste = optionTest;
-			}
-
-		if ((optionTest = parseOption(parameters, "border")) != null)
-			if (depictBorder != optionTest) {
-				depictBorder = optionTest;
-				repaint = true;
-				this.mustRedrawEverything();
-			}
-
-		// undocumented options
-//		if (parameters.indexOf("writesmi") > -1)
-//			writesmi = true;
-//		if (parameters.indexOf("writemi") > -1)
-//			writemi = true;
-//		if (parameters.indexOf("writemol") > -1)
-//			writemol = true;
-		if (parameters.indexOf("nocenter") > -1)
-			nocenter = true;
-		if (parameters.indexOf("jmeh") > -1)
-			jmeh = true;
-		if (parameters.indexOf("showan") > -1)
-
-			showAtomNumbers = true;
-		// System.out.println(rJButton+"
-		// "+moleculeHandlingParameters.hydrogenHandlingParameters.showHs+" "+query+"
-		// "+autoez+"
-		// "+stereo+" "+canonize+" "+reaction);
-
-		// BB
-		if ((optionTest = parseOption(parameters, "atommovebutton")) != null)
-			showAtomMoveJButton = optionTest;
-		if ((optionTest = parseOption(parameters, "useopenchemlib")) != null)
-			useOpenChemLib = optionTest;
-		if ((optionTest = parseOption(parameters, "zoom")) != null)
-			allowGUIzooming = allowZooming = optionTest;
-
-		// new Feb 2022
-		if ((optionTest = parseOption(parameters, "zoomgui")) != null)
-			allowGUIzooming = optionTest && allowZooming;
-
-		// zladi options - ake dalsie ???
-		if (reaction) {
-			// BB: if a reaction is read, then the numbering should be autonumber and not
-			// number. This should be checked by Peter.
-			// With autonumber, one can assign different atom map numbers
-			// number = true;
-			autonumber = true;
-			multipart = true;
-		}
-		if (!isDepict())
-			depictBorder = false;
-		// positions and actions for X and Rx buttons
-		// nove X a R action musia byt > 300
-//		if (rJButton)
-//			LEFT_MENU_NUMBER_OF_CELLS++;
-		LEFT_MENU_NUMBER_OF_CELLS = this.determineNumberLeftMenuNumberOfCell();
-
-		this.resetJPopupMenu(); // the pop menu contains entries and labels that night need to be removed or
-								// added or changed
-
-		// if star is disabled , then go back to default action
-		if (action == ACTION_MARK && (moleculeHandlingParameters.mark == false || starNothing)) {
-			action = ACTION_BOND_SINGLE;
-			repaint = true;
-		}
-
-		if (repaint || mustRedrawNSomething()) {
-			this.mustRedrawEverything();
-			repaint();
-		}
-	}
-
-	/**
-	 * use boundaries for the search
-	 * 
-	 * @param parameters
-	 * @param option
-	 * @param negativePrefix
-	 * @return null if option not found
-	 */
-	protected Boolean parseOption(String parameters, String option, String negativePrefix) {
-		boolean pos = Pattern.compile("\\b" + option + "\\b", Pattern.CASE_INSENSITIVE).matcher(parameters).find();
-		boolean neg = Pattern.compile("\\b" + negativePrefix + option + "\\b", Pattern.CASE_INSENSITIVE)
-				.matcher(parameters).find();
-
-		if (pos && neg) {
-			this.log("check option " + option);
-			return null;
-		}
-
-		if (pos)
-			return true;
-		if (neg)
-			return false;
-
-		return null;
-
+	protected void setRemoveHsC() {
+		this.params.hydrogenHandlingParameters.removeHs = true;
+		this.params.hydrogenHandlingParameters.removeOnlyCHs = true;
 	}
 
 	// TODO: rdefine in JME2
 	public void log(String string) {
 		System.err.println(string);
-	}
-
-	protected Boolean parseOption(String parameters, String option) {
-		return parseOption(parameters, option, "no");
-	}
-
-	// useful for options with multiple names - for instance star option has been
-	// renamed to marker
-	protected Boolean parseSynonymOptions(String parameters, String... options) {
-		for (String eachOption : options) {
-			Boolean found = this.parseOption(parameters, eachOption);
-			if (found != null) {
-				return found;
-			}
-		}
-		return null;
 	}
 
 	protected void resetAllGraphics() {
@@ -3792,12 +3129,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return
 	 */
 	protected boolean ignoreBonds() {
-		return ((starNothing || starAtomOnly) && action == ACTION_MARK) || action == ACTION_MOVE_AT
+		return ((options.starNothing || options.starAtomOnly) && action == ACTION_MARK) || action == ACTION_MOVE_AT
 				|| action == ACTION_CHAIN || action == ACTION_SPIRO || action == ACTION_CHARGE
 				|| (action >= ACTION_GROUP_MIN && action <= ACTION_AN_R_LAST
 
-						|| (action == ACTION_MARK && !moleculeHandlingParameters.mark) // case for 123 button - atom
-																						// mapping June 2020
+						|| (action == ACTION_MARK && !params.mark) // case for 123 button - atom
+																	// mapping June 2020
 
 				);
 	}
@@ -3808,7 +3145,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return
 	 */
 	protected boolean ignoreAtoms() {
-		return (/* action == ACTION_STEREO || */ ((starNothing || starBondOnly) && action == ACTION_MARK));
+		return (/* action == ACTION_STEREO || */
+		((options.starNothing || options.starBondOnly) && action == ACTION_MARK));
 	}
 
 	// --------------------------------------------------------------------------
@@ -3846,8 +3184,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		Rectangle2D.Double molecularAreaBoundingBox = getMolecularAreaBoundingBoxPixel(appletDimension, menuScale);
 
-		this.molecularAreaWidth = (int) molecularAreaBoundingBox.width;
-		this.molecularAreaHeight = (int) molecularAreaBoundingBox.height;
+		this.molecularAreaPixelWidth = (int) molecularAreaBoundingBox.width;
+		this.molecularAreaPixelHeight = (int) molecularAreaBoundingBox.height;
 
 	}
 
@@ -3886,15 +3224,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	protected Box getMolecularAreaBoundingBoxCoordinate(Dimension appletDimension, double menuScale,
-			double molecularAreaScale) {
+			double pixelsPerCoord) {
 		Box bbox = getMolecularAreaBoundingBoxPixel(appletDimension, menuScale);
 
-		assert (molecularAreaScale > 0);
+		assert (pixelsPerCoord > 0);
 
 		bbox.x = 0;
 		bbox.y = 0;
-		bbox.width /= molecularAreaScale;
-		bbox.height /= molecularAreaScale;
+		bbox.width /= pixelsPerCoord;
+		bbox.height /= pixelsPerCoord;
 
 		return bbox;
 
@@ -3904,8 +3242,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * Return the width and height of the molecular area with scaling
 	 * 
 	 */
-	protected Box getMolecularAreaBoundingBoxCoordinate() {
-		return getMolecularAreaBoundingBoxCoordinate(this.dimension, this.menuScale, this.molecularAreaScale);
+	protected Box getMolecularAreaBoundingBoxCoordinate00() {
+		return getMolecularAreaBoundingBoxCoordinate(this.dimension, this.menuScale,
+				this.molecularAreaScalePixelsPerCoord);
 	}
 
 	// ----------------------------------------------------------------------------
@@ -3921,11 +3260,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		assert (dimension != null); // dimension was initialized by init()()
 		if (molecularAreaImage == null) {
 			initOrResize = true;
-			assert (molecularAreaImage == null);
-
 		} else {
-			assert (molecularAreaImage != null);
-
 			Dimension newDimension = getSize();
 
 			// find out if the size of the applet has changed
@@ -3945,8 +3280,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //					+ this.molecularAreaHeight);
 
 			// compute or resize the graphics
-			molecularAreaImage = createOrResizePreciseImage(molecularAreaImage, this.molecularAreaWidth,
-					this.molecularAreaHeight);
+			molecularAreaImage = createOrResizePreciseImage(molecularAreaImage, this.molecularAreaPixelWidth,
+					this.molecularAreaPixelHeight);
 
 			if (!isDepict()) {
 				// update the menu's and the info area
@@ -3958,21 +3293,21 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				// leftMenu = createOrResizeImage(leftMenu, menuCellSize, imageh);
 				this.leftMenuImage = createOrResizePreciseImage(this.leftMenuImage, this.leftMenuWidth(), imageh);
 
-				infoAreaImage = createOrResizePreciseImage(infoAreaImage, this.molecularAreaWidth + rightBorder(),
+				infoAreaImage = createOrResizePreciseImage(infoAreaImage, this.molecularAreaPixelWidth + rightBorder(),
 						infoAreaHeight());
 
 				rightBorderImage = createOrResizePreciseImage(rightBorderImage, rightBorder(),
-						this.molecularAreaHeight);
+						this.molecularAreaPixelHeight);
 
 				// New october 2019
 				// JMEmol.centerMolList(this, this.moleculeParts, this.numberofMoleculeParts);
 
 			} else {
 				// depict mode
-				double oldMolecularAreaScale = this.molecularAreaScale;
+				double oldMolecularAreaScale = this.molecularAreaScalePixelsPerCoord;
 
 				// will recompute the molecular area scale
-				this.molecularAreaScale = this.scaleAndCenterForDepictMode(this.graphicalObjectList());
+				this.molecularAreaScalePixelsPerCoord = this.scaleAndCenterForDepictMode(this.graphicalObjectList());
 
 				// October 2019: No molecule alignment : wee keep the layout of the original
 				// molecules
@@ -3983,7 +3318,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				// JMEmol.centerMolList(this, this.moleculeParts, this.numberofMoleculeParts);
 
 				log("update() in depict mode: oldMolecularAreaScale = " + oldMolecularAreaScale
-						+ " new   molecularAreaScale = " + molecularAreaScale);
+						+ " new   molecularAreaScale = " + molecularAreaScalePixelsPerCoord);
 
 				assert topMenuImage == null;
 				assert leftMenuImage == null;
@@ -3993,7 +3328,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 
 		// draw the parts
-		drawMolecularArea(g2d);
+		drawMolecularArea(g2d, null);
 
 		// draw the parts
 		if (!isDepict()) {
@@ -4132,7 +3467,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	PreciseGraphicsAWT getScaledGraphicsOfPreciseImage(PreciseImage pi, double scale, Rectangle2D.Double screenArea) {
 		PreciseGraphicsAWT og;
-		if (this.scalingIsPerformedByGraphicsEngine) {
+		if (scalingIsPerformedByGraphicsEngine) {
 			og = pi.getGraphics(scale);
 		} else {
 			og = pi.getGraphics(1.0); // never used!!?
@@ -4148,7 +3483,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		this.setMustRedrawMolecularArea(true);
 		if (molecularAreaImage != null) { // must be initialized
 			Graphics g = getGraphics().create();
-			drawMolecularArea(g);
+			drawMolecularArea(g, null);
 			g.dispose();
 			this.setMustRedrawMolecularArea(false);
 		} else {
@@ -4158,41 +3493,64 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	// ----------------------------------------------------------------------------
-	void drawMolecularArea(Graphics g) {
+	/**
+	 * Draw the molecule either to this panel's graphics or to the specified image.
+	 * 
+	 * When drawing to an image, use the coordOffsets.
+	 * 
+	 * @param g
+	 * @param margin
+	 */
+	BufferedImage drawMolecularArea(Graphics g, Point margins) {
 
 		// BB
-		if (!this.mustReDrawMolecularArea) {
-			return;
+		BufferedImage img = null;
+		Point coordOffset = null;
+		boolean needRecenter = activeMol.needRecentering;
+		if (g == null) {
+			jme.Box coordBox = activeMol.computeBoundingBoxWithAtomLabels(null);
+			double f = molecularAreaScalePixelsPerCoord;
+			img = new BufferedImage((int) (coordBox.getWidth() * f) + margins.x * 2,
+					(int) (coordBox.getHeight() * f) + margins.y * 2, BufferedImage.TYPE_INT_ARGB);
+			activeMol.needRecentering = false;
+			coordOffset = new Point((int) (margins.x / f - coordBox.x), (int) (margins.y / f - coordBox.y));
+		} else if (g != null && !this.mustReDrawMolecularArea) {
+			return null;
 		}
 
 		// new sept 2016
 		// FIXme: should not be done here
-		if (this.moleculeHandlingParameters.computeValenceState) {
+		if (this.params.computeValenceState) {
 			if (this.afterStructureChangeEvent != null && this.afterStructureChangeEvent.action != null) {
-				if (this.afterStructureChangeEvent.action != JME.UNDO
-						&& this.afterStructureChangeEvent.action != JME.REDO) {
+				if (this.afterStructureChangeEvent.action != UNDO && this.afterStructureChangeEvent.action != REDO) {
 					for (JMEmol mol : moleculePartsList) {
-						mol.cleanAfterChanged(this.polarnitro);
+						mol.cleanAfterChanged(options.polarnitro);
 					}
 				}
 			}
 		}
 
-		// screen area in pixel
-		Rectangle2D.Double molecularScreenArea = new Rectangle2D.Double(leftMenuWidth(), topMenuHeight(),
-				this.molecularAreaWidth, this.molecularAreaHeight);
+		double imgWidth = (img != null ? img.getWidth() : molecularAreaPixelWidth);
+		double imgHeight = (img != null ? img.getHeight() : molecularAreaPixelHeight);
 
-		PreciseGraphicsAWT og = this.getScaledGraphicsOfPreciseImage(molecularAreaImage, molecularAreaScale,
+		// screen area in pixel
+		Rectangle2D.Double molecularScreenArea = new Rectangle2D.Double(leftMenuWidth(), topMenuHeight(), imgWidth,
+				imgHeight);
+
+		PreciseGraphicsAWT og = this.getScaledGraphicsOfPreciseImage(
+				(img == null ? molecularAreaImage : new PreciseImage(img)), molecularAreaScalePixelsPerCoord,
 				molecularScreenArea);
 
-		double imgWidth = this.molecularAreaWidth;
-		double imgHeight = this.molecularAreaHeight;
 		og.setColor(canvasBg);
 
-		imgWidth /= this.molecularAreaScale;
-		imgHeight /= this.molecularAreaScale;
+		double coordWidth = imgWidth / this.molecularAreaScalePixelsPerCoord;
+		double coordHeight = imgHeight / this.molecularAreaScalePixelsPerCoord;
 
-		og.fillRect(0, 0, imgWidth, imgHeight);
+		og.fillRect(0, 0, coordWidth, coordHeight);
+
+		if (coordOffset != null) {
+			og.translate(coordOffset.x, coordOffset.y);
+		}
 
 		// BB custom antialias and line width for the molecular drawing area
 		Object valueAntiAlias = molecularAreaAntiAlias ? RenderingHints.VALUE_ANTIALIAS_ON
@@ -4201,22 +3559,28 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		og.setStroke(new BasicStroke(molecularAreaLineWidth));
 
-		if (fullScreenEnterOrExit || (this.appletHasBeenResized && previousScaledScreenArea != null)) {
+		if (img == null && (fullScreenEnterOrExit || (this.appletHasBeenResized && previousScaledScreenArea != null))) {
 			Graphical2DObjectGroup<Graphical2DObject> graphicalObjecList = this.graphicalObjectList();
-			centerAllMoleculesAsAgroup(graphicalObjecList, this.dimension, menuScale, molecularAreaScale);
+			centerAllMoleculesAsAgroup(graphicalObjecList, this.dimension, menuScale, molecularAreaScalePixelsPerCoord);
 			fullScreenEnterOrExit = false;
 		}
 
 		for (JMEmol mol : moleculePartsList) {
 			mol.draw(og);
 		}
+
+		if (img != null) {
+			activeMol.needRecentering = needRecenter;
+			return img;
+		}
+
 		if (previousScaledScreenArea == null)
 			previousScaledScreenArea = new Rectangle2D.Double();
-		previousScaledScreenArea.width = imgWidth;
-		previousScaledScreenArea.height = imgHeight;
+		previousScaledScreenArea.width = coordWidth;
+		previousScaledScreenArea.height = coordHeight;
 
 		// arrow
-		if (reaction) {
+		if (options.reaction) {
 			// if the reaction arrow is not initialized
 			if (!this.reactionArrow.hasBeenPlaced) { // FIXME: to be removed?
 				this.reactionArrow.XY(imgWidth / 2, imgHeight / 2);
@@ -4224,7 +3588,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			this.reactionArrow.draw(og);
 		}
 
-		// molText
+		// molText and DnD icon
 		if (isDepict()) { // kvoli molText, ale aj depict dalsej molekuly
 			// musi robit novy font, lebo v depict moze byt zmeneny
 			menuCellFont = new Font(defaultFontFamily, Font.PLAIN, fontSize);
@@ -4237,13 +3601,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				og.setFont(menuCellFont);
 				og.drawString(molText, xstart, ystart);
 			}
-		}
 
-		// draw the DnD icon
-		if (isDepict()) {
-			if (showDragAndDropIconInDepictMode)
+			// draw the DnD icon
+			if (options.showDragAndDropIconInDepictMode)
 				// DnD icom is made smaller than the non depict one
-				this.drawDragAndDropIcon(og, smallerIconsForDepictMode / this.molecularAreaScale);
+				this.drawDragAndDropIcon(og, smallerIconsForDepictMode / this.molecularAreaScalePixelsPerCoord);
 			else
 				this.dragAndDropIcon = null;
 
@@ -4277,13 +3639,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				repaint();
 			}
 		}
-
+		return null;
 	}
 
 	public void centerAllMoleculesAsAgroup(Graphical2DObjectGroup<Graphical2DObject> graphicalObjecList,
-			Dimension appletDimension, double menuScale, double molecularAreaScale) {
+			Dimension appletDimension, double menuScale, double molecularAreaScalePixelsPerCoord) {
 
-//		if (reaction)
+		if (appletDimension == null)
+			return;
+//		if (options.reaction)
 //			return; // not implemented yet
 		// this.appletHasBeenResized = false;
 
@@ -4292,7 +3656,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			return;
 		// molecule coordinate
 		Rectangle2D.Double appletMolBoundingBox = this.getMolecularAreaBoundingBoxCoordinate(appletDimension, menuScale,
-				molecularAreaScale);
+				molecularAreaScalePixelsPerCoord);
 		double dx = appletMolBoundingBox.getCenterX() - chemicalDrawingBoundingBox.getCenterX();
 		double dy = appletMolBoundingBox.getCenterY() - chemicalDrawingBoundingBox.getCenterY();
 
@@ -4308,13 +3672,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			return;
 
 		Rectangle2D.Double screenArea = new Rectangle2D.Double(dimension.width - rightBorder(), topMenuHeight(),
-				rightBorder(), molecularAreaHeight);
+				rightBorder(), molecularAreaPixelHeight);
 		PreciseGraphicsAWT og = this.getScaledGraphicsOfPreciseImage(rightBorderImage, menuScale, screenArea);
 
 		double imgWidth = rightBorder(1);
 		// double imgHeight = (double)this.molecularAreaHeight/this.depictScale;
 		double imgHeight = screenArea.height / this.menuScale;
-		if (newLook) {
+		if (options.newLook) {
 			og.setColor(Color.darkGray);
 			// og.drawLine(imgWidth - 1, 0, imgWidth - 1, imgHeight - 1);//right line
 			// og.drawLine(0, 0, 0, imgHeight);//right line
@@ -4350,7 +3714,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		og.setColor(bgColor);
 		og.fillRect(0, 0, imgWidth, imgHeight);
 
-		if (newLook) {
+		if (options.newLook) {
 			// og.setColor(Color.darkGray);
 			og.setColor(bgColor.darker());
 			double s = (menuCellSize + menuCellBorder()) * TOP_MENU_NUMBER_OF_CELLS;
@@ -4403,7 +3767,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		og.setColor(bgColor);
 		og.fillRect(0, 0, imgWidth, imgHeight);
 
-		if (newLook) {
+		if (options.newLook) {
 			og.setColor(Color.darkGray);
 
 			double y = LEFT_MENU_NUMBER_OF_CELLS * (menuCellSize + menuCellBorder()) + 3;
@@ -4459,7 +3823,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		og.setColor(bgColor);
 		og.fillRect(0, 0, imgWidth, imgHeight);
 
-		if (newLook) {
+		if (options.newLook) {
 			og.setColor(Color.darkGray);
 			og.drawRect(-10, 0, imgWidth - 1 + 10, imgHeight - 1); // -10: used for masking the left border
 		} else {
@@ -4484,7 +3848,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 								 */
 			// TODO: the java implemenrtation does not support drag and drop
 			this.drawDragAndDropIcon(og, 1.0);
-			if (fullScreenIconOption && isFullScreenSupported())
+			if (options.fullScreenIconOption && isFullScreenSupported())
 				this.drawFullScreenIcon(og, 1.0, this.dragAndDropIcon);
 			else
 				this.fullScreenIcon = null;
@@ -4499,9 +3863,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		g.drawImage(infoAreaImage.getImage(), (int) screenArea.x, (int) screenArea.y, this);
 
 	}
-
-	protected Dimension nonFullScreenSize = new Dimension();
-	final protected double fullScreenScale = 3;
 
 	/*
 	 * to be redefined in JSME
@@ -4521,11 +3882,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// save current dimension
 			nonFullScreenSize.setSize(this.dimension.width, this.dimension.height);
 			newDim = Toolkit.getDefaultToolkit().getScreenSize();
-			molecularAreaScale = Math.min(molecularAreaScale * fullScreenScale, maxMolecularAreaScale);
+			molecularAreaScalePixelsPerCoord = Math.min(molecularAreaScalePixelsPerCoord * fullScreenScale,
+					maxMolecularAreaScale);
 			menuScale = Math.min(menuScale * fullScreenScale, maxMenuScale);
 
 		} else {
-			molecularAreaScale = Math.max(molecularAreaScale / fullScreenScale, minmolecularAreaScale);
+			molecularAreaScalePixelsPerCoord = Math.max(molecularAreaScalePixelsPerCoord / fullScreenScale,
+					minmolecularAreaScale);
 			menuScale = Math.max(menuScale / fullScreenScale, minMenuScale);
 			newDim = nonFullScreenSize;
 
@@ -4566,7 +3929,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				// idea: double click would do a complete cleaning of the undo and redo stack
 				// this.molChangeManager.clear(); //delete all undo's
 				// this.sdfStack.clear(); //delete all entries from the SDF stack
-				// this.recordAfterStructureChangedEvent(JME.CLEAR); //already performed by
+				// this.recordAfterStructureChangedEvent(CLEAR); //already performed by
 				// clear()n
 
 				// reset the red highlight correctly
@@ -4606,7 +3969,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					break; // no molecule in undo stack
 
 				this.retoreState(this.molChangeManager.undo());
-				this.recordAfterStructureChangedEvent(JME.UNDO);
+				this.recordAfterStructureChangedEvent(UNDO);
 				this.willPostSave(false);
 
 				setMustRedrawMolecularArea(true);
@@ -4639,7 +4002,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					if (!this.molChangeManager.canRedo())
 						break; // no molecule in undo stack
 					this.retoreState(this.molChangeManager.redo());
-					this.recordAfterStructureChangedEvent(JME.REDO);
+					this.recordAfterStructureChangedEvent(REDO);
 					this.willPostSave(false);
 
 					setMustRedrawMolecularArea(true);
@@ -4694,7 +4057,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					if (this.infoText.equals("")) { // no error mesage from readMolFile
 						info("MOL n. " + this.sdfStack.getCurrentDisplayIndex() + " of " + this.sdfStack.size());
 						structureChangePerformed = true;
-						this.recordAfterStructureChangedEvent(JME.SD_FSTACK);
+						this.recordAfterStructureChangedEvent(SD_FSTACK);
 						this.willPostSave(false);
 					}
 
@@ -4725,13 +4088,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				action = actionOld; // ak nie je bond alebo ring, malo by
 
 				// there is no structure change!!!! this is just a menu click
-				// this.recordAfterStructureChangedEvent(JME.CLEAR);
+				// this.recordAfterStructureChangedEvent(CLEAR);
 
 				// resetnut
 				break;
 
 			case ACTION_MARK:
-				if (this.markerMenu) {
+				if (options.markerMenu) {
 					action = actionOld;
 					this.showJPopupMenuRealtiveToScaledMainMenu(this.createFBackgroundColorPopumemu(),
 							this.markerJPopupMenuPosition.x, markerJPopupMenuPosition.y);
@@ -4740,7 +4103,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				}
 				// BB
 				// setMustRedrawMolecular(true);
-				if (autonumber) {
+				if (options.autonumber) {
 					// autonumber added in 2009.09
 					if (mouseShift) { // automark all atoms, zrusi stare mark
 						mouseShift = false; // aby pridavalo cisla
@@ -4748,7 +4111,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 						// added Oct 2015 - not tested
 						setMustRedrawMolecularArea(true);
-						this.recordAfterStructureChangedEvent(JME.AUTO_NUMBER);
+						this.recordAfterStructureChangedEvent(AUTO_NUMBER);
 						structureChangePerformed = true;
 
 						action = actionOld;
@@ -4757,7 +4120,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				// set na action_mark
 				keyboradInputMark = 1; // starts from 1 ????????????????/
 				// there is no structure change , only menu selection 123?
-				// this.recordAfterStructureChangedEvent(JME.MARK);
+				// this.recordAfterStructureChangedEvent(MARK);
 
 				break;
 
@@ -4787,7 +4150,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				// posunie ju na spravne miesto
 				// int dx = (int) ((dimension.width - menuCellSize) / 2 - cad.getCenterX());
 				// //center[0]);
-				Rectangle.Double molArea = this.getMolecularAreaBoundingBoxCoordinate();
+				Rectangle.Double molArea = this.getMolecularAreaBoundingBoxCoordinate00();
 				double dx = molArea.getCenterX() - cad.getCenterX(); // dx can be negative or positive
 //				for (int i = 1; i <= mol.natoms; i++)
 //					mol.x[i] += dx * 2;
@@ -4799,7 +4162,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				// moleculeParts[++numberofMoleculeParts] = activeMol;
 				// actualMoleculePartIndex = numberofMoleculeParts;
 				moleculePartsList.add(activeMol);
-				this.recordAfterStructureChangedEvent(JME.REACTION_COPY);
+				this.recordAfterStructureChangedEvent(REACTION_COPY);
 
 				structureChangePerformed = true;
 				// added Jan 2016
@@ -4831,7 +4194,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			case ACTION_CHARGE:
 				// BB
 				if (activeMol.touchedAtom > 0 && activeMol.changeCharge(activeMol.touchedAtom, 0)) {
-					this.recordAtomEvent(JME.CHARGE_ATOM0); // same code as in mouseDown event
+					this.recordAtomEvent(CHARGE_ATOM0); // same code as in mouseDown event
 					structureChangePerformed = true;
 				}
 				break;
@@ -4918,10 +4281,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					activeMol.atoms[activeMol.touchedAtom].nh = 0;
 
 					// this.postSave();
-					// this.recordAtomEvent(JME.SET_ATOM + active_an); // active_an is an arbitrary
+					// this.recordAtomEvent(SET_ATOM + active_an); // active_an is an arbitrary
 					// number, should be
 					// changed to the string of the atom type
-					this.recordAtomEvent(JME.SET_ATOM); // useless since the JSME_Event has the atom number
+					this.recordAtomEvent(SET_ATOM); // useless since the JSME_Event has the atom number
 
 					// BB Sept 2015: changed the touched atom but do not change the menu
 					// action = actionOld;
@@ -4936,9 +4299,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					String xx = MultiBox.atomicSymbol.getText();
 					activeMol.setAtom(activeMol.touchedAtom, xx);
 					// this.postSave();
-					// this.recordAtomEvent(JME.SET_ATOM + active_an);// useless since the
+					// this.recordAtomEvent(SET_ATOM + active_an);// useless since the
 					// JSME_Event has the atom number
-					this.recordAtomEvent(JME.SET_ATOM);
+					this.recordAtomEvent(SET_ATOM);
 					structureChangePerformed = true;
 
 				}
@@ -4966,7 +4329,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				lastAction = LA_RING; // in addRing may be set to 0
 				activeMol.addRing();
 				structureChangePerformed = true;
-				this.recordBondEvent(JME.ADD_RING_BOND);
+				this.recordBondEvent(ADD_RING_BOND);
 			}
 
 			// BB Oct 2015: add bond & change bond without switch to double bond bond tool
@@ -4978,21 +4341,21 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 									// instead of moving the molecule
 					// mol.preSave();
 					activeMol.addBond();
-					this.recordBondEvent(JME.ADD_BOND);
+					this.recordBondEvent(ADD_BOND);
 					structureChangePerformed = true;
 				} else { // mol.touchedBond > 0
 					// code cpoied from mouseDown DUPLiCATED !!!! TODO
 					int bondType = JMEmol.SINGLE;
-					String eventType = JME.SET_BOND_SINGLE;
+					String eventType = SET_BOND_SINGLE;
 					boolean changed; // BB
 					switch (action) {
 					case ACTION_BOND_DOUBLE:
 						bondType = JMEmol.DOUBLE;
-						eventType = JME.SET_BOND_DOUBLE;
+						eventType = SET_BOND_DOUBLE;
 						break;
 					case ACTION_BOND_TRIPLE:
 						bondType = JMEmol.TRIPLE;
-						eventType = JME.SET_BOND_TRIPLE;
+						eventType = SET_BOND_TRIPLE;
 					}
 					changed = bondType != activeMol.bonds[activeMol.touchedBond].bondType;
 					if (changed) {
@@ -5055,15 +4418,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// mol.preSave(); //TODO REMOVE
 			if (activeMol.touchedAtom > 0) {
 				activeMol.deleteAtom(activeMol.touchedAtom);
-				this.recordAtomEvent(JME.DEL_ATOM);
+				this.recordAtomEvent(DEL_ATOM);
 				activeMol.touchedAtom = 0;
 			} else {
 				activeMol.deleteBond(activeMol.touchedBond);
-				this.recordAtomEvent(JME.DEL_BOND);
+				this.recordAtomEvent(DEL_BOND);
 				activeMol.touchedBond = 0;
 
 			}
-			activeMol.cleanAfterChanged(this.polarnitro); // to add Hs
+			activeMol.cleanAfterChanged(options.polarnitro); // to add Hs
 
 			// if an atom or a bond is deleted, then create new molecule if needed
 			moleculePartsList.splitFragments(true); // true: remove any empty molecule
@@ -5204,7 +4567,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (xpos == 1 && ypos > 2)
 			ystart -= (2 * menuCellSize); // relative coordinates in leftMenu
 		g.setColor(bgColor);
-		if (newLook) {
+		if (options.newLook) {
 			if (square == action) {
 				g.setColor(bgColor.darker());
 				// System.out.println("xstart=" + xstart + " ystart=" + ypos);
@@ -5263,7 +4626,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						ystart + menuCellSize - marginFromCellBorder);
 
 				double y = ystart + menuCellSize - marginFromCellBorder;
-				double dotLength = ((double) this.menuCellSize) / this.standardMenuCellSize;
+				double dotLength = ((double) this.menuCellSize) / standardMenuCellSize;
 				g.drawLine(xMiddle - dotLength, y, xMiddle - 2 * dotLength, y);
 				g.drawLine(xMiddle + dotLength, y, xMiddle + 2 * dotLength, y);
 
@@ -5326,7 +4689,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 			case ACTION_MOVE_AT:
 
-				if (this.showAtomMoveJButton) {
+				if (options.showAtomMoveJButton) {
 					// Draw a blue rectangle centered in the cell
 					double reduction = (double) marginFromCellBorder / 2;
 					double squareSize = menuCellSize - 2 * marginFromCellBorder - 2 * reduction;
@@ -5463,8 +4826,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				break;
 			case ACTION_MARK: // handle both color marking and setting of atom map
 
-				if (!this.starNothing) {
-					if (moleculeHandlingParameters.mark) {
+				if (!options.starNothing) {
+					if (params.mark) {
 
 						// May 2015replaced by a circle
 
@@ -5564,7 +4927,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				break;
 
 			case ACTION_FG:
-				if (this.fgMenuOption) {
+				if (options.fgMenuOption) {
 					squareText(g, xstart, ystart, "FG");
 					this.functionalGroupJPopupMenuPosition = new Point((int) xstart, (int) ystart);
 				}
@@ -5999,16 +5362,16 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (ignoreDisabledActions) {
 			switch (action) {
 			case ACTION_REACP:
-				if (!this.reaction)
+				if (!options.reaction)
 					action = 0;
 				break;
 			case ACTION_FG:
-				if (!this.fgMenuOption)
+				if (!options.fgMenuOption)
 					action = 0;
 				break;
 
 			case ACTION_MARK:
-				if (starNothing) {
+				if (options.starNothing) {
 					action = 0;
 				}
 				break;
@@ -6022,29 +5385,29 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public void mouseWheelMoved(MouseWheelEvent e) {
 		double newScale;
 
-		if (!allowZooming)
+		if (!options.allowZooming)
 			return;
 
 		double notches = e.getPreciseWheelRotation() * mouseWheelFactor;
 		if (notches == 0)
 			return;
 
-		String message;
-		String newline = "\n";
-		if (notches < 0) {
-			message = "Mouse wheel moved UP " + -notches + " notch(es)" + newline;
-		} else {
-			message = "Mouse wheel moved DOWN " + notches + " notch(es)" + newline;
-		}
-		if (e.getScrollType() == MouseWheelEvent.WHEEL_UNIT_SCROLL) {
-			message += "    Scroll type: WHEEL_UNIT_SCROLL" + newline;
-			message += "    Scroll amount: " + e.getScrollAmount() + " unit increments per notch" + newline;
-			message += "    Units to scroll: " + e.getUnitsToScroll() + " unit increments" + newline;
-			message += "    Vertical unit increment: " + " pixels" + newline;
-		} else { // scroll type == MouseWheelEvent.WHEEL_BLOCK_SCROLL
-			message += "    Scroll type: WHEEL_BLOCK_SCROLL" + newline;
-			message += "    Vertical block increment: " + " pixels" + newline;
-		}
+//		String message;
+//		String newline = "\n";
+//		if (notches < 0) {
+//			message = "Mouse wheel moved UP " + -notches + " notch(es)" + newline;
+//		} else {
+//			message = "Mouse wheel moved DOWN " + notches + " notch(es)" + newline;
+//		}
+//		if (e.getScrollType() == MouseWheelEvent.WHEEL_UNIT_SCROLL) {
+//			message += "    Scroll type: WHEEL_UNIT_SCROLL" + newline;
+//			message += "    Scroll amount: " + e.getScrollAmount() + " unit increments per notch" + newline;
+//			message += "    Units to scroll: " + e.getUnitsToScroll() + " unit increments" + newline;
+//			message += "    Vertical unit increment: " + " pixels" + newline;
+//		} else { // scroll type == MouseWheelEvent.WHEEL_BLOCK_SCROLL
+//			message += "    Scroll type: WHEEL_BLOCK_SCROLL" + newline;
+//			message += "    Vertical block increment: " + " pixels" + newline;
+//		}
 		// System.out.println(message);
 
 		notches *= -1; // to give the same zoom direction as googlemaps
@@ -6053,19 +5416,23 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		int y = e.getY();
 		double sizeChange = (100.0 + 2 * notches) / 100;
 		if (isInMolecularArea(x, y)) {
-			newScale = this.molecularAreaScale * sizeChange;
+			newScale = this.molecularAreaScalePixelsPerCoord * sizeChange;
 
-			System.out.println(
-					"JME wheeling " + notches + " " + this.molecularAreaScale + " " + newScale + " " + sizeChange);
+			System.out.println("JME wheeling " + notches + " " + this.molecularAreaScalePixelsPerCoord + " " + newScale
+					+ " " + sizeChange);
 
-			if ((newScale > this.molecularAreaScale && newScale <= maxMolecularAreaScale) // size increased, but not too
-																							// much
-					|| (newScale < this.molecularAreaScale && newScale >= minmolecularAreaScale) // size decreased, but
-																									// not too much
+			if ((newScale > this.molecularAreaScalePixelsPerCoord && newScale <= maxMolecularAreaScale) // size
+																										// increased,
+																										// but not too
+					// much
+					|| (newScale < this.molecularAreaScalePixelsPerCoord && newScale >= minmolecularAreaScale) // size
+																												// decreased,
+																												// but
+			// not too much
 			) {
 				lastAction = LA_SCALE;
 
-				if (this.reaction) {
+				if (options.reaction) {
 					// do not move around object because the arrow will move out of center
 					// and it is difficult to recenter all objects
 					setMolecularAreaScale(newScale); // will call repaint()
@@ -6079,7 +5446,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 
 		} else {
-			if (allowGUIzooming) {
+			if (options.allowGUIzooming) {
 				newScale = this.menuScale * sizeChange;
 				if (newScale >= minMenuScale && newScale <= maxMenuScale) {
 					setMenuScale(newScale); // setMenuScale will do a repaint
@@ -6090,7 +5457,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public boolean isInMolecularArea(int x, int y) {
-		if (this.isDepict()) {
+		if (isDepict()) {
 			return true;
 		}
 
@@ -6116,9 +5483,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// mol.center(0.1); //should move progressively to center
 		// The center position varies with the scale !!!!!!! FIXME
 
-		Box previousAreaSize = getMolecularAreaBoundingBoxCoordinate();
-		this.molecularAreaScale = scale;
-		Box newAreaSize = getMolecularAreaBoundingBoxCoordinate();
+		Box previousAreaSize = getMolecularAreaBoundingBoxCoordinate00();
+		this.molecularAreaScalePixelsPerCoord = scale;
+		Box newAreaSize = getMolecularAreaBoundingBoxCoordinate00();
 
 		TouchedMol touchedMol = new TouchedMol();
 		// find the closest mol - use a large distance radius
@@ -6253,7 +5620,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// this.mouseDownWasUsed = false;
 		this.mouseDownWasUsed = false;
 		// BB popup menu for copy&paste
-		if (contextMenuEnabledOption && this.handleCopyPasteJPopupMenu(e, x, y)) {
+		if (options.contextMenuEnabledOption && this.handleCopyPasteJPopupMenu(e, x, y)) {
 			this.mouseDownWasUsed = true;
 			// FIXME
 			movePossible = false; // to avoid bug is my JSapplet lib with popup menu disabled, the mouseUp event
@@ -6309,7 +5676,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// Code written by BB
 			// Should this be moved to menuAction(action)?
 			if (action == ACTION_MOVE_AT) {
-				if (this.showAtomMoveJButton) {
+				if (options.showAtomMoveJButton) {
 					info("Move one atom");
 					repaint();
 				} else {
@@ -6320,19 +5687,19 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 
 			// BB: xbutton handling
-			if (!xJButton && action == ACTION_AN_X) {
+			if (!options.xButton && action == ACTION_AN_X) {
 				return eventNotUsed;
 			}
 
-			if (!query && action == ACTION_QRY)
+			if (!options.query && action == ACTION_QRY)
 				return eventNotUsed;
-			if (!stereo && action == ACTION_STEREO)
+			if (!options.stereo && action == ACTION_STEREO)
 				return eventNotUsed;
-			if (!multipart && action == ACTION_NEW)
+			if (!options.multipart && action == ACTION_NEW)
 				return eventNotUsed;
-			if (!(this.moleculeHandlingParameters.number || autonumber) && action == ACTION_MARK)
+			if (!(this.params.number || options.autonumber) && action == ACTION_MARK)
 				return eventNotUsed;
-			if (!reaction && action == ACTION_REACP)
+			if (!options.reaction && action == ACTION_REACP)
 				return eventNotUsed;
 			// if(action == ACTION_EMPTY_CELL){
 			// return eventNotUsed;
@@ -6380,7 +5747,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 																								// is set correctly in
 																								// case of a multi
 																								// structure
-					if (isDepict() && !depictActionEnabled) {
+					if (isDepict() && !options.depictActionEnabled) {
 						return true;
 					}
 				}
@@ -6391,7 +5758,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 																								// is set correctly in
 																								// case of a multi
 																								// structure
-					if (isDepict() && !depictActionEnabled) {
+					if (isDepict() && !options.depictActionEnabled) {
 						return true;
 					}
 
@@ -6411,7 +5778,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					this.actionDeleteTouchedAtomOrBond();
 //					mol.preSave();
 //					mol.deleteAtom(mol.touchedAtom);
-//					this.recordAtomEventAndPostSave(JME.DEL_ATOM2);
+//					this.recordAtomEventAndPostSave(DEL_ATOM2);
 //
 //					mol.touchedAtom = 0;
 
@@ -6419,14 +5786,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					return true; // do nothing
 				} else if (action == ACTION_CHARGE) {
 					if (activeMol.changeCharge(activeMol.touchedAtom, 0))
-						this.recordAtomEvent(JME.CHARGE_ATOM0);
+						this.recordAtomEvent(CHARGE_ATOM0);
 //this is never called from the JME gui since it has only a toggle button
 //				} else if (action == ACTION_CHARGE_PLUS) {
 //					if(mol.changeCharge(mol.touchedAtom, 1))
-//						this.recordAtomEventAndPostSave(JME.CHARGE_ATOM_PLUS);
+//						this.recordAtomEventAndPostSave(CHARGE_ATOM_PLUS);
 //				} else if (action == ACTION_CHARGE_MINUS) {
 //					if(mol.changeCharge(mol.touchedAtom, -1))
-//						this.recordAtomEventAndPostSave(JME.CHARGE_ATOM_MINUS);
+//						this.recordAtomEventAndPostSave(CHARGE_ATOM_MINUS);
 				} else if (action == ACTION_BOND_SINGLE || action == ACTION_BOND_DOUBLE || action == ACTION_BOND_TRIPLE
 						|| action == ACTION_STEREO || action == ACTION_CHAIN) {
 					lastAction = LA_BOND; // in addBond may be set to 0
@@ -6439,28 +5806,28 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						activeMol.chain[0] = activeMol.touchedAtom;
 						activeMol.touchedBond = 0; // 2005.02
 						// mol.avoidTouch(1);
-						// this.recordBondEvent(JME.ADD_BOND); //postpone until finished
+						// this.recordBondEvent(ADD_BOND); //postpone until finished
 						this.willPostSave(false); // for the CHAIN, save the state at mouseUp event
 
 					} else {
-						this.recordBondEvent(JME.ADD_BOND);
+						this.recordBondEvent(ADD_BOND);
 
 					}
 
 				} else if (action >= ACTION_RING_3 && action <= ACTION_RING_9) {
 					lastAction = LA_RING; // in addRing may be set to 0
 					activeMol.addRing();
-					this.recordAtomEvent(JME.ADD_RING);
+					this.recordAtomEvent(ADD_RING);
 
 				} else if (action == ACTION_TEMPLATE) {
 					// mol.addTemplate(template);
 					lastAction = LA_GROUP;
-					this.recordAtomEvent(JME.ADD_TEMPLATE);
+					this.recordAtomEvent(ADD_TEMPLATE);
 
 				} else if (action >= ACTION_GROUP_MIN && action < ACTION_GROUP_MAX) {
 
 					activeMol.addGroup(false);
-					this.recordAtomEvent(JME.ADD_GROUP);
+					this.recordAtomEvent(ADD_GROUP);
 
 					lastAction = LA_GROUP; // may be set to 0
 				} else if (action == ACTION_QRY) { // setting atom as query atom
@@ -6469,13 +5836,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					activeMol.setAtom(activeMol.touchedAtom, queryBox.getSmarts());
 					activeMol.isQuery = true; // 2013.09
 
-					this.recordAtomEvent(JME.ADD_ATOM_QUERY);
+					this.recordAtomEvent(ADD_ATOM_QUERY);
 
 				} else if (action == ACTION_MARK) { // either color marking or atom map
 
 					boolean marked;
 
-					if (!pseudoMark && !starNothing) {
+					if (!options.pseudoMark && !options.starNothing) {
 
 						int newMap = -1;
 						if (markFromKeyboardInput) {
@@ -6484,12 +5851,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 							markFromKeyboardInput = false;
 							clearInfo(); // reset the info message generated by updateMark()
 
-							if (this.moleculeHandlingParameters.mark) {
+							if (this.params.mark) {
 								this.activateMarkerColor(newMap);
 							}
 						}
 
-						if (moleculeHandlingParameters.mark) {
+						if (params.mark) {
 
 							marked = activeMol.markAtom(newMap > 0 ? newMap : activeMarkerColorIndex // set the color
 																										// index from a
@@ -6498,7 +5865,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 							);
 						} else {
 							if (newMap == -1) {
-								if (reaction) {
+								if (options.reaction) {
 									int reactionRole = activeMol.getReactionRole();
 									newMap = findMaxAtomMapOfMoleculeParts(moleculePartsList, reactionRole);
 								} else {
@@ -6515,15 +5882,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						}
 
 					} else {
-						marked = true; // equivalent to an atom click event but can be tracked using JME.MARK_ATOM
+						marked = true; // equivalent to an atom click event but can be tracked using MARK_ATOM
 					}
 					if (marked)
-						this.recordAtomEvent(JME.MARK_ATOM);
+						this.recordAtomEvent(MARK_ATOM);
 					else
 						// happens if newMap == -1
-						this.recordAtomEvent(JME.UN_MARK_ATOM);
+						this.recordAtomEvent(UN_MARK_ATOM);
 
-					if (pseudoMark) {
+					if (options.pseudoMark) {
 						this.willPostSave(false); // do not put on the undo stack
 					}
 
@@ -6547,10 +5914,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 							activeMol.setAtom(activeMol.touchedAtom, xx);
 
 						}
-						// this.recordAtomEvent(JME.SET_ATOM + active_an); // active_an is an arbitrary
+						// this.recordAtomEvent(SET_ATOM + active_an); // active_an is an arbitrary
 						// number, should be
 						// changed to the string of the atom type
-						this.recordAtomEvent(JME.SET_ATOM);
+						this.recordAtomEvent(SET_ATOM);
 					}
 				} else { // BB: nothing happened to the clicked atom
 					returnStatus = eventNotUsed;
@@ -6569,18 +5936,18 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 				} else if (action == ACTION_DELGROUP) {
 					activeMol.deleteAtomGroup();
-					activeMol.cleanAfterChanged(this.polarnitro);
-					this.recordBondEvent(JME.DEL_BOND_GROUP);
+					activeMol.cleanAfterChanged(options.polarnitro);
+					this.recordBondEvent(DEL_BOND_GROUP);
 					activeMol.touchedBond = 0;
 				} else if (action == ACTION_STEREO) {
 					activeMol.stereoBond(activeMol.touchedBond);
-					this.recordBondEvent(JME.SET_BOND_STEREO);
+					this.recordBondEvent(SET_BOND_STEREO);
 				} else if (action == ACTION_BOND_SINGLE || action == ACTION_CHAIN) { // ACTION_CHAIN should be removed?
 					if (activeMol.bonds[activeMol.touchedBond].bondType == JMEmol.SINGLE
 							&& activeMol.bonds[activeMol.touchedBond].stereo == 0) {// nie pre
 						// stereo
 						activeMol.bonds[activeMol.touchedBond].bondType = JMEmol.DOUBLE;
-						this.recordBondEvent(JME.SET_BOND_DOUBLE);
+						this.recordBondEvent(SET_BOND_DOUBLE);
 
 					} else {
 						activeMol.bonds[activeMol.touchedBond].bondType = JMEmol.SINGLE;
@@ -6588,7 +5955,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 																			// creating a
 						// problem with undo/redo
 
-						this.recordBondEvent(JME.SET_BOND_SINGLE);
+						this.recordBondEvent(SET_BOND_SINGLE);
 
 					}
 					activeMol.bonds[activeMol.touchedBond].stereo = 0; // zrusi stereo
@@ -6602,23 +5969,23 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					} else {
 						activeMol.bonds[activeMol.touchedBond].stereo = 0; // zrusi stereo
 					}
-					activeMol.cleanAfterChanged(this.polarnitro);
+					activeMol.cleanAfterChanged(options.polarnitro);
 
-					this.recordBondEvent(JME.SET_BOND_DOUBLE);
+					this.recordBondEvent(SET_BOND_DOUBLE);
 
 				} else if (action == ACTION_BOND_TRIPLE) {
 					activeMol.bonds[activeMol.touchedBond].bondType = JMEmol.TRIPLE;
 					activeMol.bonds[activeMol.touchedBond].stereo = 0; // zrusi stereo
-					activeMol.cleanAfterChanged(this.polarnitro);
+					activeMol.cleanAfterChanged(options.polarnitro);
 
-					this.recordBondEvent(JME.SET_BOND_TRIPLE);
+					this.recordBondEvent(SET_BOND_TRIPLE);
 
 				} else if (action >= ACTION_RING_3 && action <= ACTION_RING_9) {
 					// fusing ring to bond
 					lastAction = LA_RING; // in addRing may be set to 0
 					activeMol.addRing();
-					this.recordBondEvent(JME.ADD_RING_BOND);
-					activeMol.cleanAfterChanged(this.polarnitro); // FIXME: add to addRing
+					this.recordBondEvent(ADD_RING_BOND);
+					activeMol.cleanAfterChanged(options.polarnitro); // FIXME: add to addRing
 
 				} else if (action == ACTION_QRY) {
 					if (!queryBox.isBondQuery())
@@ -6634,7 +6001,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					 * ("!@".equals(bondQuery)) mol.stereob[mol.touchedBond] = JMEmol.QB_NONRING;
 					 */
 
-					this.recordBondEvent(JME.SET_QUERY_BOND);
+					this.recordBondEvent(SET_QUERY_BOND);
 
 				} else if (action == ACTION_MARK) {
 					// info("Only atoms may be marked !");
@@ -6644,19 +6011,18 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						boolean marked;
 
 						// some duplicated code logic with marking of atom
-						if (!pseudoMark) {
-
+						if (!options.pseudoMark) {
 							marked = activeMol.markBond(activeMarkerColorIndex);
 						} else {
 							marked = true;
 						}
 						// some duplicated code logic with marking of atom
 						if (marked)
-							this.recordBondEvent(JME.MARK_BOND);
+							this.recordBondEvent(MARK_BOND);
 						else
-							this.recordBondEvent(JME.UN_MARK_BOND);
+							this.recordBondEvent(UN_MARK_BOND);
 
-						if (pseudoMark) {
+						if (options.pseudoMark) {
 							this.willPostSave(false); // do not put on the undo stack
 						}
 
@@ -6679,7 +6045,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				moleculePartsList.removeEmptyMolecules(); // Jan 2019
 				// numberofMoleculeParts++;
 				// actualMoleculePartIndex = numberofMoleculeParts;
-				activeMol = new JMEmol(this, this.moleculeHandlingParameters);
+				activeMol = new JMEmol(this, this.params);
 				moleculePartsList.add(activeMol);
 
 				lastTouchedMol.mol = activeMol;
@@ -6715,10 +6081,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						activeMol.chain[0] = 1;
 						activeMol.chain[1] = 2;
 						activeMol.nchain = 1;
-						this.recordBondEvent(JME.ADD_CHAIN);
+						this.recordBondEvent(ADD_CHAIN);
 
 					} else {
-						this.recordBondEvent(JME.ADD_BOND);
+						this.recordBondEvent(ADD_BOND);
 
 					}
 				} else if (action >= ACTION_RING_3 && action <= ACTION_RING_9) {
@@ -6726,7 +6092,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					activeMol.yorg = screenToDrawingY(y);
 					lastAction = LA_RING;
 					activeMol.addRing();
-					this.recordAfterStructureChangedEvent(JME.ADD_RING);
+					this.recordAfterStructureChangedEvent(ADD_RING);
 				} else if (action > 300) { // adding 1st atom
 					activeMol.createAtom();
 					activeMol.AN(1, active_an);
@@ -6742,11 +6108,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 							xx = "X";
 						activeMol.setAtom(1, xx);
 					}
-					this.recordAtomEvent(JME.ADD_ATOM);
+					this.recordAtomEvent(ADD_ATOM);
 
 				} else if (action == ACTION_TEMPLATE) {
 					readMolecule(template);
-					this.recordAfterStructureChangedEvent(JME.ADD_TEMPLATE);
+					this.recordAfterStructureChangedEvent(ADD_TEMPLATE);
 
 				} else if (action >= ACTION_GROUP_MIN && action < ACTION_GROUP_MAX) {
 					// adding first atom (to which group will be connected)
@@ -6760,7 +6126,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					activeMol.touchedAtom = 1;
 					// adding group
 					activeMol.addGroup(true);
-					this.recordAfterStructureChangedEvent(JME.ADD_GROUP);
+					this.recordAfterStructureChangedEvent(ADD_GROUP);
 				} else {
 					System.err.println("error -report fall through bug !");
 				}
@@ -6843,45 +6209,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 				// lastTouchedMol was set during mouseDrag
 				if (lastTouchedMol.mol != null && activeMol != lastTouchedMol.mol) {
-
-					// merge the current mol and the other mol
-
-					activeMol.deleteAtom(activeMol.natoms);
-					// remove the last atom because it will be replaced by the atoms of the new mol
-					int atom1 = activeMol.touched_org; // first atom of the new bond to be created
-					int atom2 = lastTouchedMol.atomIndex + activeMol.natoms;// second atom of the new bond to be created
-
-					assert atom1 != activeMol.natoms + 1;
-
-					JMEmol otherMol = lastTouchedMol.mol;
-					JMEmol merged = new JMEmol(this, new JMEmol[] { activeMol, otherMol });
-					merged.atoms[0] = new Atom(); // needed by rubberbanding()
-
-					// bug: the user selected bond order is not taken into account
-					merged.createAndAddNewBond(atom1, atom2);
-
-					moleculePartsList.remove(otherMol);
-					moleculePartsList.replace(activeMol, merged);
-
-					//
-//					JMEmol[] newMoleculeParts = new JMEmol[moleculeParts.length];
-//					for(int p = 0, newP = 0; p < moleculeParts.length; p++) {
-//						if(moleculeParts[p] == activeMol) {
-//							newMoleculeParts[newP++] = merged; //replace mol with merged
-//						} else if (moleculeParts[p] == otherMol ) { //skip
-//							continue;
-//						} else {
-//							newMoleculeParts[newP++] = moleculeParts[p];
-//						}
-//						
-//					}
-//					
-//					moleculeParts = newMoleculeParts;
-//					numberofMoleculeParts --;
-
-					activeMol = merged;// replace mol with merged
-					lastTouchedMol.reset();
-
+					activeMol = mergeMols(lastTouchedMol, activeMol);				
 				} else {
 					// as before - no merge
 					// checkBond create or increase bond order
@@ -6925,7 +6253,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				// nevola sa vzdy ked treba !!!!!
 				// mol.cleanPolarBonds(); // nie je to privela action ??? nie az pri
 			}
-			if (lastAction == LA_MOVE && this.reaction) {
+			if (lastAction == LA_MOVE && options.reaction) {
 				// check if the reaction roles have changed
 				// int parts[][] = getReactionParts();
 				// if(reactionParts == null)
@@ -6971,11 +6299,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 
 		// handle toggle depict/edit
-		if (this.toggleDepictEdit && !this.mouseDownWasUsed && !eventUsed) {
+		if (options.toggleDepictEdit && !this.mouseDownWasUsed && !eventUsed) {
 			if (this.isDepict()) {
 				this.options("nodepict"); // menu is ready and paintedafter this call
 				// new Feb 2020
-				this.centerAllMoleculesAsAgroup(this.graphicalObjectList(), dimension, menuScale, molecularAreaScale);
+				this.centerAllMoleculesAsAgroup(this.graphicalObjectList(), dimension, menuScale,
+						molecularAreaScalePixelsPerCoord);
 				this.redrawMolecularAreaOnly();
 
 			} else {
@@ -6988,49 +6317,90 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return eventUsed;
 	}
 
+	protected JMEmol mergeMols(final TouchedMol last, final JMEmol active) {
+		// merge the current mol and the other mol
+
+		
+		active.deleteAtom(active.natoms);
+		// remove the last atom because it will be replaced by the atoms of the new mol
+		int atom1 = active.touched_org; // first atom of the new bond to be created
+		int atom2 = last.atomIndex + active.natoms;// second atom of the new bond to be created
+
+		assert atom1 != active.natoms + 1;
+
+		JMEmol otherMol = last.mol;
+		JMEmol merged = new JMEmol(this, new JMEmol[] { active, otherMol });
+		merged.atoms[0] = new Atom(); // needed by rubberbanding()
+
+		// bug: the user selected bond order is not taken into account
+		merged.createAndAddNewBond(atom1, atom2);
+
+		moleculePartsList.remove(otherMol);
+		moleculePartsList.replace(active, merged);
+
+		//
+//		JMEmol[] newMoleculeParts = new JMEmol[moleculeParts.length];
+//		for(int p = 0, newP = 0; p < moleculeParts.length; p++) {
+//			if(moleculeParts[p] == activeMol) {
+//				newMoleculeParts[newP++] = merged; //replace mol with merged
+//			} else if (moleculeParts[p] == otherMol ) { //skip
+//				continue;
+//			} else {
+//				newMoleculeParts[newP++] = moleculeParts[p];
+//			}
+//			
+//		}
+//		
+//		moleculeParts = newMoleculeParts;
+//		numberofMoleculeParts --;
+
+		last.reset();
+		return merged;
+	}
+
 	protected void willPostSave(boolean b) {
 		this.saveCurrentState = b;
 
 	}
 
 //	protected void updateReactionParts() {
-//		if (reaction)
+//		if (options.reaction)
 //			reactionParts = getReactionParts();
 //	}
 
-	/**
-	 * screen pixel to molecular drawing area coordinate
-	 * 
-	 * @param coord
-	 * @return
-	 */
-	@Deprecated
-	protected int scaleCoordinate_(int coord) {
-		double newCoord = scaleCoordinate_((double) coord);
-
-		return (int) Math.round(newCoord);
-	}
-
-	/**
-	 * screen coordinate to molecular drawing area coordinate
-	 * 
-	 * @param coord
-	 * @return
-	 */
-	@Deprecated
-	protected double scaleCoordinate_(double coord) {
-		if (this.scalingIsPerformedByGraphicsEngine) {
-			return coord / molecularAreaScale;
-		}
-		return coord;
-	}
+//	/**
+//	 * screen pixel to molecular drawing area coordinate
+//	 * 
+//	 * @param coord
+//	 * @return
+//	 */
+//	@Deprecated
+//	protected int scaleCoordinate_(int coord) {
+//		double newCoord = scaleCoordinate_((double) coord);
+//
+//		return (int) Math.round(newCoord);
+//	}
+//
+//	/**
+//	 * screen coordinate to molecular drawing area coordinate
+//	 * 
+//	 * @param coord
+//	 * @return
+//	 */
+//	@Deprecated
+//	protected double scaleCoordinate_(double coord) {
+//		if (this.scalingIsPerformedByGraphicsEngine) {
+//			return coord / molecularAreaScalePixelsPerCoord;
+//		}
+//		return coord;
+//	}
 
 	protected double scaleScreenToDrawing(int pos) {
-		return (double) pos / molecularAreaScale;
+		return (double) pos / molecularAreaScalePixelsPerCoord;
 	}
 
 	protected int scaleDrawingToScreen(double coord) {
-		return (int) Math.round(coord * molecularAreaScale);
+		return (int) Math.round(coord * molecularAreaScalePixelsPerCoord);
 	}
 
 	/**
@@ -7203,7 +6573,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 			// Do not move the molecule if the dragging start is not within the drawing area
 			if (!isOutsideDrawingArea(x, y)) {
-				Rectangle2D.Double boundingBox = this.getMolecularAreaBoundingBoxCoordinate();
+				Rectangle2D.Double boundingBox = this.getMolecularAreaBoundingBoxCoordinate00();
 				// activeMol.move(drawingAreaMoveX, drawingAreaMoveY, boundingBox);
 				activeGraphicalObject.move(drawingAreaMoveX, drawingAreaMoveY, boundingBox);
 
@@ -7219,24 +6589,31 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return true;
 	}
 
-	protected boolean isMoleculeCompletelyOutsideDrawingArea(JMEmol mol) {
-
-		if (mol.nAtoms() == 0)
-			return false;
-
-		for (Atom atom : mol.atoms) {
-
-			if (!isOutsideDrawingArea(drawingToScreenX(atom.x), drawingToScreenY(atom.y)))
-				return false;
-		}
-
-		return true;
-	}
-
+//	protected boolean isMoleculeCompletelyOutsideDrawingArea(JMEmol mol) {
+//
+//		if (mol.nAtoms() == 0)
+//			return false;
+//
+//		for (Atom atom : mol.atoms) {
+//
+//			if (!isOutsideDrawingArea(drawingToScreenX(atom.x), drawingToScreenY(atom.y)))
+//				return false;
+//		}
+//
+//		return true;
+//	}
+//
+	/**
+	 * for mouse actions
+	 * 
+	 * @param x
+	 * @param y
+	 * @return
+	 */
 	protected boolean isOutsideDrawingArea(int x, int y) {
 		x -= leftMenuWidth();
 		y -= topMenuHeight();
-		return (x < 0 || y < 0 || y > this.molecularAreaHeight || x > this.molecularAreaWidth);
+		return (x < 0 || y < 0 || y > this.molecularAreaPixelHeight || x > this.molecularAreaPixelWidth);
 
 	}
 
@@ -7276,7 +6653,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		double yCoord = screenToDrawingY(y);
 		double min = Double.MAX_VALUE;
 
-		if (reaction) {
+		if (options.reaction) {
 			min = this.reactionArrow.closestDistance(xCoord, yCoord);
 			found = this.reactionArrow;
 		}
@@ -7291,6 +6668,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return found;
 	}
 
+	/**
+	 * for mouse actions
+	 * 
+	 * @param x
+	 * @param y
+	 * @param result
+	 */
 	void findMolAndAtomOrBondInDrawingArea(int x, int y, TouchedMol result) {
 
 		if (this.isOutsideDrawingArea(x, y)) {
@@ -7356,7 +6740,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	static final int TOUCH_LIMIT = 50;
 
 	protected int getHumanInteractionTouchRadius() {
-		if (JME.isTouchSupported) {
+		if (isTouchSupported) {
 			return TOUCH_LIMIT + 300; // determined by trial and error on an iPad 4 by BB
 		}
 		return TOUCH_LIMIT + 120;
@@ -7369,8 +6753,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// is depictActionEnabled test needed here? if depictActionEnabled is used only
 		// for the toggle edit/depict, then no
 		if (isDepict() && !(this.canHandleAtomHighLightCallBack() || this.canHandleBondHighLightCallBack()
-				|| depictActionEnabled)) // notifyAtomHighLightJSfunction: Luc P request to show atom highlight in
-											// depict mode
+				|| options.depictActionEnabled)) // notifyAtomHighLightJSfunction: Luc P request to show atom highlight
+													// in
+			// depict mode
 			return true;
 		// int x = e.getX()-sd; int y = e.getY()-sd*2;
 
@@ -7558,7 +6943,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 
 		// public void keyPressed(KeyEvent e) {
-		if (isDepict() && !depictActionEnabled)
+		if (isDepict() && !options.depictActionEnabled)
 			return false;
 		clearInfo();
 
@@ -7580,7 +6965,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (this.menuXShortcuts.indexOf(shortcut) >= 0) {
 				// duplicated code
 				MultiBox.atomicSymbol.setText(Character.toString(shortcut));
-				this.xJButton = true;
+				options.xButton = true;
 				info(MultiBox.atomicSymbol.getText());
 				pressed = ACTION_AN_X;
 				active_an = AN_X;
@@ -7614,7 +6999,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		case 'g':
 		case 'G':
 			MultiBox.atomicSymbol.setText("*");
-			this.xJButton = true;
+			options.xButton = true;
 
 		case 'x':
 		case 'X':
@@ -7622,7 +7007,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				this.cutSelectedMoleculeForSystemClipBoard();
 				break;
 			}
-			if (this.xJButton) {
+			if (options.xButton) {
 				info(MultiBox.atomicSymbol.getText());
 				pressed = ACTION_AN_X;
 				active_an = AN_X;
@@ -7634,7 +7019,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 			// paste with Ctrl V
 			// does not work in Java in a browser due to java security policy
-			if (meta && this.paste) {
+			if (meta && options.paste) {
 				this.pasteMolFileFromClipboard();
 				break;
 			}
@@ -7681,7 +7066,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		case 'R':
 			info("-R");
 			pressed = ACTION_AN_R;
-			break; // if (rJButton) ?
+			break; // if (options.rButton) ?
 		case 't':
 		case 'T':
 			if (action == ACTION_AN_F) {
@@ -7903,10 +7288,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// --------------------------------------------------------------------------
 	// called when number key clicked and marking active
 	// updates actual mark which will be used for marking
-	private void updateMark(int n) {
+	protected void updateMark(int n) {
 		// need to know when new number and when combination of 2 presses i.e.
 		// 12
-		if (autonumber) {
+		if (options.autonumber) {
 			if (n == 0) {
 				keyboradInputMark = 0;
 				showInfo("click marked atom to delete map");
@@ -7938,12 +7323,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		String target = "atom";
 		String reset_action = "delete map";
 
-		if (this.moleculeHandlingParameters.mark) {
+		if (this.params.mark) {
 			reset_action = "remove background color";
 			action_type = "color index";
-			if (starAtomOnly) {
+			if (options.starAtomOnly) {
 
-			} else if (starBondOnly) {
+			} else if (options.starBondOnly) {
 				target = "bond";
 			} else {
 				target = "atom or bond";
@@ -7958,7 +7343,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			keyboradInputMark = 0;
 			showInfo("click marked " + target + " to " + reset_action);
 		} else {
-			if (this.moleculeHandlingParameters.mark) {
+			if (this.params.mark) {
 				this.activateMarkerColor(keyboradInputMark);
 			}
 			showInfo("Click " + target + " to set " + action_type + " to " + keyboradInputMark);
@@ -7975,6 +7360,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		mustRedrawNothing();
 
 		String cmd = evt.getActionCommand();
+		
+		if (subclassHandleMenuAction(cmd)) {
+			return;
+		}
 
 		ColorInfo colorInfo = this.colorManager.getColorInfoOfColorHash(cmd);
 		if (colorInfo != null) {
@@ -7996,7 +7385,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			this.copyJmeStringToClipboard();
 
 		} else if (cmd.equals(CopyPasteAction.PASTE.toString())) {
-			if (this.paste)
+			if (options.paste)
 				this.pasteMolFileFromClipboard();
 		} else if (cmd.equals(CopyPasteAction.INCHI.toString())) {
 			this.copyInchiToClipboard(CopyPasteAction.INCHI);
@@ -8117,42 +7506,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 				@Override
 				public void onSuccess() {
-					if (activeMol.nAtoms() > 1) {
-						int index = activeMolIndex();
-
-						double centerX = activeMol.centerX();
-						double centerY = activeMol.centerY();
-
-						// newActiveMol may or may not be activeMol
-						JMEmol newActiveMol = moleculePartsList.compute2Dcoordinates(activeMol);
-
-						if (newActiveMol != null) {
-							double dx = centerX - newActiveMol.centerX();
-							double dy = centerY - newActiveMol.centerY();
-							newActiveMol.moveXY(dx, dy);
-
-							moleculePartsList.set(index, newActiveMol);
-							recordMoleculePartEvent(COMPUTE_2D, index);
-							setMustRedrawMolecularArea(true);
-
-							JME.this.info("2D coordinates provided by OpenChemLib");
-
-							repaint();
-						} else {
-							JME.this.info("2D coordinates computation failed");
-
-						}
-					}
+					compute2DSuccess();
 				}
 
 			});
 
-		}
-
-		// BB : rotation coming from the touch handling
-		// problem: unwanted interaction with the rotation
-		// Chemdoodle rotation & scaling works nice
-		else if (cmd.equals("scale100")) { // used by touch devices
+		} else if (cmd.equals("scale100")) { // used by touch devices
+			// BB : rotation coming from the touch handling
+			// problem: unwanted interaction with the rotation
+			// Chemdoodle rotation & scaling works nice
 			if (false && this.moleculePartsList.size() == 1) {
 				long scale100 = evt.getWhen(); // I had to store the scale somewhere
 
@@ -8163,7 +7525,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					if (scale100 < 100) {
 						delta *= -1;
 					}
-					this.molecularAreaScale = scale100 / 100.0;
+					this.molecularAreaScalePixelsPerCoord = scale100 / 100.0;
 					// Todo : compute center of mol
 					// activeMol.scaling();
 					activeMol.center(); // TODO : translate back to previous center
@@ -8182,6 +7544,36 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			repaint();
 		}
 
+	}
+
+	protected boolean subclassHandleMenuAction(String cmd) {
+		return false;
+	}
+
+	protected void compute2DSuccess() {
+		if (activeMol.nAtoms() > 1) {
+			int index = activeMolIndex();
+
+			double centerX = activeMol.centerX();
+			double centerY = activeMol.centerY();
+
+			// newActiveMol may or may not be activeMol
+			JMEmol newActiveMol = moleculePartsList.compute2Dcoordinates(activeMol);
+
+			if (newActiveMol != null) {
+				double dx = centerX - newActiveMol.centerX();
+				double dy = centerY - newActiveMol.centerY();
+				newActiveMol.moveXY(dx, dy);
+
+				moleculePartsList.set(index, newActiveMol);
+				recordMoleculePartEvent(COMPUTE_2D, index);
+				setMustRedrawMolecularArea(true);
+				info("2D coordinates provided by OpenChemLib");
+				repaint();
+			} else {
+				info("2D coordinates computation failed");
+			}
+		}
 	}
 
 	/**
@@ -8343,6 +7735,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public void computeInchi(final SupportedFileFormat action, final RunWhenDataReadyCallback callBack) {
+
 	}
 
 	// BB
@@ -8426,7 +7819,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// used by drag and drop and system clipboard paste
 	public void pasteDirect(String molString, boolean originIsDrop) {
 		// if pasting is allowed
-		if (!this.paste) {
+		if (!options.paste) {
 			return;
 		}
 		if (molString != null && molString.length() > 0) {
@@ -8451,44 +7844,45 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			this.pasteAction = new PasteAction() {
 
 				@Override
-				public void paste(final String clipboardContent) {
-					// final String molecule = clipboardContent;
-
+				public void paste(String clipboardContent) {
 					if (clipboardContent != null) {
-
-						// customized paste
-						if (JME.this.getPrePasteJSfunction() != null) {
-							JSObject jsObject = JSObject.getWindow(JME.this);
-							jsObject.call(JME.this.getPrePasteJSfunction(), new String[] { clipboardContent });
-							return;
-						}
-
-						/// customized paste only for JSME
-						if (JME.this.handleBeforePasteEvent(clipboardContent)) { // if the callback is set
-							return;
-						}
-						JME.this.pasteGenericInput(clipboardContent, true, new RunAsyncCallback() {
-
-							@Override
-							public void onFailure(Throwable reason) {
-								// read_MOL_SDF_RXN has already handled the error
-							}
-
-							@Override
-							public void onSuccess() {
-								// callback to client
-								JME.this.handleAfterPasteEvent(clipboardContent);
-
-							}
-
-						});
+						handleClipboardPasteAction(clipboardContent);
 					}
-
 				}
 
 			};
 		}
 		return this.pasteAction;
+	}
+
+	protected void handleClipboardPasteAction(String clipboardContent) {
+
+		// customized paste
+		if (getPrePasteJSfunction() != null) {
+			JSObject jsObject = JSObject.getWindow(JME.this);
+			jsObject.call(getPrePasteJSfunction(), new String[] { clipboardContent });
+			return;
+		}
+
+		/// customized paste only for JSME
+		if (handleBeforePasteEvent(clipboardContent)) { // if the callback is set
+			return;
+		}
+		pasteGenericInput(clipboardContent, true, new RunAsyncCallback() {
+
+			@Override
+			public void onFailure(Throwable reason) {
+				// read_MOL_SDF_RXN has already handled the error
+			}
+
+			@Override
+			public void onSuccess() {
+				// callback to client
+				JME.this.handleAfterPasteEvent(clipboardContent);
+
+			}
+
+		});
 	}
 
 	class StringWrapper {
@@ -8506,7 +7900,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		this.afterStructureChangeEvent.setOrigin_API();
 
 		// todo: handle RDF
-		int countSDF = JME.this.sdfStack.addEntries(chemicalString);
+		int countSDF = sdfStack.addEntries(chemicalString);
 		if (countSDF > 0) {
 			// sdfPastedMessage = ". " + countSDF + " structures in stack .Use Page Up/Down
 			// for SDF access";
@@ -8540,9 +7934,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 		};
 		try {
-			JME.this.handleReadGenericInput(chemicalString, localSucessAndFailureHandle, false, recordEvent); // do not
-																												// repaint
-																												// because
+			handleReadGenericInput(chemicalString, localSucessAndFailureHandle, false, recordEvent); // do not
+																										// repaint
+																										// because
 			// localSucessAndFailureHandle
 			// does it
 		} catch (Exception e) {
@@ -8617,33 +8011,32 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected boolean isActionEnabled(int selectedAction) {
 
 		// treba, aby nekreslilo neaktivne buttons
-		if (selectedAction == ACTION_AN_R && !rJButton)
+		if (selectedAction == ACTION_AN_R && !options.rButton)
 			return false;
 
 		// if (square == ACTION_END && !isStandAloneApplication)
 		// return;
-		if (selectedAction == ACTION_QRY && !query)
+		if (selectedAction == ACTION_QRY && !options.query)
 			return false;
-		if (selectedAction == ACTION_STEREO && !stereo)
+		if (selectedAction == ACTION_STEREO && !options.stereo)
 			return false;
-		if (selectedAction == ACTION_NEW && !multipart)
+		if (selectedAction == ACTION_NEW && !options.multipart)
 			return false;
 
 		// WHEN marker option is set than, number is set but not automumber
-		if (selectedAction == ACTION_MARK && !(this.moleculeHandlingParameters.number || autonumber))
+		if (selectedAction == ACTION_MARK && !(this.params.number || options.autonumber))
 			return false;
-		if (selectedAction == ACTION_REACP && !reaction)
+		if (selectedAction == ACTION_REACP && !options.reaction)
 			return false;
 
 		// new code
 		switch (selectedAction) {
 		case ACTION_MARK:
-			return (!starNothing && moleculeHandlingParameters.mark) || this.moleculeHandlingParameters.number
-					|| autonumber;
+			return (!options.starNothing && params.mark) || this.params.number || options.autonumber;
 		case ACTION_MOVE_AT:
-			return showAtomMoveJButton;
+			return options.showAtomMoveJButton;
 		case ACTION_REACP:
-			return reaction;
+			return options.reaction;
 
 		}
 		return true;
@@ -8762,7 +8155,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// break;
 		}
 
-		if (this.uniColorMolecule != null && (action == ACTION_CLEAR || (this.reaction && action == ACTION_REACP))) {
+		if (this.uniColorMolecule != null && (action == ACTION_CLEAR || (options.reaction && action == ACTION_REACP))) {
 
 			this.uniColorMolecule.resetForceUniColor();
 			this.uniColorMolecule = null;
@@ -8844,10 +8237,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //			}
 //		}
 
-		state.reaction = this.reaction;
-		state.multipart = this.multipart;
+		state.reaction = options.reaction;
+		state.multipart = options.multipart;
 
-		state.depictScale = this.molecularAreaScale;
+		state.depictScale = this.molecularAreaScalePixelsPerCoord;
 		state.lastAction = this.lastAction;
 
 //		if(mustBeSaved) {
@@ -8900,14 +8293,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (state.activeMol != null) {
 			this.activeMol = state.activeMol;
 		} else {
-			this.activeMol = new JMEmol(this, this.moleculeHandlingParameters); // avoid a null pointer, for state saved
-																				// after a clear or reset
+			this.activeMol = new JMEmol(this, this.params); // avoid a null pointer, for state saved
+															// after a clear or reset
 		}
 
-		this.reaction = state.reaction;
-		this.multipart = state.multipart;
+		options.reaction = state.reaction;
+		options.multipart = state.multipart;
 
-		this.molecularAreaScale = state.depictScale;
+		this.molecularAreaScalePixelsPerCoord = state.depictScale;
 	}
 
 	public JPopupMenu getCopyPasteJPopupMenuMol() {
@@ -8963,7 +8356,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 				{
 					JPopupMenu pm;
-					if (reaction) {
+					if (options.reaction) {
 						pm = this.getCopyPasteJPopupMenuReaction();
 					} else {
 						pm = this.getCopyPasteJPopupMenuMol();
@@ -8979,9 +8372,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 
 			// the atom or bond highlight must disappear =-to be improved
-			Event ne = new Event(null, 0, 0);
-			this.mouseMove(ne, 1000000, 100000); // large number to be sure that no mouse over menu action would be
-													// detected
+//			Event ne = new Event(null, 0, 0);
+//			this.mouseMove(ne, 1000000, 100000); // large number to be sure that no mouse over menu action would be
+//													// detected
+			processMouseMotionEvent(new MouseEvent(this, MouseEvent.MOUSE_MOVED, 0, 0, 1000000, 100000, 0, false, 0));
 
 			return true;
 		}
@@ -9300,9 +8694,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (newMap <= 0) {
 			at.resetObjectMark();// Nov 2020 bug fix: set atom ap to 0 reset it
 		} else {
-			at.setMapOrMark(newMap, !this.moleculeHandlingParameters.mark); // Nov 2020 bug fix: !
+			at.setMapOrMark(newMap, !this.params.mark); // Nov 2020 bug fix: !
 		}
-		this.recordAtomEvent(JME.CHANGE_ATOM_MAP, atomIndex);
+		this.recordAtomEvent(CHANGE_ATOM_MAP, atomIndex);
 		// this.setAtomToHighLight(molIndex, atomIndex);
 		this.redrawMolecularAreaOnly();
 
@@ -9312,7 +8706,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		Atom at = mol.getAtom(atomIndex);
 		at.Q(newCharge);
 
-		this.recordAtomEvent(JME.CHARGE_ATOM0, atomIndex);
+		this.recordAtomEvent(CHARGE_ATOM0, atomIndex);
 		// this.setAtomToHighLight(molIndex, atomIndex);
 		this.redrawMolecularAreaOnly();
 
@@ -9431,10 +8825,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	double rightBorder(double scale) {
-		return this.isDepict() ? 0.0 : (newLook ? rightBorderNewLook : rightBorderOldLook) * scale; // the width of the
-																									// line on the right
-																									// of the molecular
-																									// area in edit mode
+		return this.isDepict() ? 0.0 : (options.newLook ? rightBorderNewLook : rightBorderOldLook) * scale; // the width
+																											// of the
+		// line on the right
+		// of the molecular
+		// area in edit mode
 	}
 
 	/*
@@ -9443,7 +8838,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * mode
 	 */
 	public int getDefaultInfoBarHeight() {
-		return (int) this.standardMenuCellSize;
+		return (int) standardMenuCellSize;
 	}
 
 	public void redrawMolecularAreaOnly() {
@@ -9791,17 +9186,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	/**
-	 * Return an array of RGB (0-255) values
-	 * 
-	 * @return int[n][3]
-	 */
-//	@Deprecated
-//	public int[][] getDefaultBackGroundColorPalette() {
-//		return this.colorManager.getBackGroundColorPalette();
-//		
-//	}
-
-	/**
 	 * Return the selected mol. If the index is not valid, show an error
 	 * 
 	 * @param molIndex - 1 based
@@ -9935,50 +9319,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return this.moleculePartsList.isReallyEmpty();
 	}
 
-	public static void main(String args[]) {
-		isStandAloneApplication = true;
-		JME jme = new JME();
-		JFrame frame = new JFrame("JME Molecular Editor");
-		jme.setFrame(frame);
-		// frame.resize(24*18,24*16); // urcuje dimensions pre aplikaciu
-		frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
-		frame.add("Center", jme);
-		// aplikaciu
-		jme.initialize();
-		if (args.length == 1)
-			jme.options(args[0]);
-		frame.setVisible(true);
-		// po frame.show, aby boli zname dimension
-		jme.start();
-
-		// reads molecule (from 2008.12)
-		String fileName = null;
-		for (int i = 0; i < args.length; i++) {
-			if (args[i].startsWith("-f")) {
-				fileName = args[++i];
-			} else if (args[i].startsWith("-o")) {
-				jme.options(args[++i]);
-			}
-		}
-		/*
-		 * if (fileName != null) { jme.dimension = jme.size(); jme.readFile(fileName); }
-		 */
-
-		// BB
-		// Add a window listener JDK 1.1 for closing the window using the X button of
-		// the window
-		// Note: BB removed the END button
-		frame.addWindowListener(new WindowAdapter() {
-			public void windowClosing(WindowEvent evt) {
-				System.exit(0);
-			}
-		});
-
-		// works
-		// frame.addMouseWheelListener(jme);
-
-	}
-
+	// ----------- added by Bob Hanson ------------ //
+	
 	@Override
 	public void propertyChange(PropertyChangeEvent evt) {
 		String name = evt.getPropertyName();
@@ -9993,7 +9335,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 	}
 
-	private void readDroppedData(Object newValue) {
+	protected void readDroppedData(Object newValue) {
 		String data = newValue.toString();
 		String trimmed = data.trim();
 		// BH 2023.1.18 Allowing for copying with a bit of whitespace for SMILES
@@ -10011,7 +9353,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
-	private void readSmiles(String data) {
+	protected void readSmiles(String data) {
 		try {
 			readMolFile(newParser().SMILEStoMOL(data));
 		} catch (Exception e) {
@@ -10019,7 +9361,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 	}
 
-	private void readDroppedTextFile(String fileName) {
+	protected void readDroppedTextFile(String fileName) {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		InputStream fis = null;
 		try {
@@ -10036,53 +9378,621 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		readDroppedData(new String(bos.toByteArray()));
 	}
 
+	
+	
+	
+	
+	public void options(String parameters) {
+		options.set(parameters);
+		mustRedrawEverything();
+		repaint();
+	}
+
+	class Options {
+
+		// unused options
+
+		// boolean writesmi = false;
+		// boolean writemi = false;
+		// boolean writemol = false;
+
+		// essentially final
+
+		/* final */ boolean addNewPart = false;
+		// when reading a or pasting a mol: add it or replace everything in the canvas
+		/* final */ boolean allowGUIzooming = true;
+		/* final */ boolean allowZooming = true;
+		/* final */ boolean autonumber = false;
+		/* final */ boolean contextMenuEnabledOption = true;
+		/* final */ boolean depictActionEnabled = false;
+		// BB allow editing in depict mode
+		/* final */ boolean depictBorder = false;
+		/* final */ boolean exportInchi = true;
+		/* final */ boolean exportInchiAuxInfo = true;
+		/* final */ boolean exportInchiKey = true;
+		/* final */ boolean exportRXNmergeOption = false;
+		/* final */ boolean exportSVG = true;
+		/* final */ boolean fgMenuOption = true;
+		/* final */ boolean fullScreenIconOption = false;
+		/* final */ boolean markerMenu = false;
+		// popup menu to select marker color
+		/* final */ boolean markOnly1 = false;
+		// only one atom at a time can be marked
+		/* final */ boolean newLook = false;
+		/* final */ boolean paste = true;
+		// BB: allow pasting structures, should be disabled in depict mode
+		/* final */ boolean polarnitro = false;
+		/* final */ boolean pseudoMark = false;
+		// marking does not happen - used only to trigger event
+		/* final */ boolean rButton = false;
+		/* final */ boolean searchInchiKey = true;
+		/* final */ boolean showAtomMoveJButton = true;
+		// BB
+		/* final */ boolean showDragAndDropIconInDepictMode = true;
+		// BB
+		/* final */ boolean showFullScreenIconInDepictMode = true;
+		// BB
+		/* final */ boolean starAtomOnly = false;
+		/* final */ boolean starBondOnly = false;
+		/* final */ boolean starNothing = false;
+		/* final */ boolean toggleDepictEdit = false;
+		// BB
+		/* final */ boolean useOclIdCode = false;
+		// OpenChemLib option: useOclIDCode
+		/* final */ boolean useOpenChemLib = true; // for SMILES input
+
+		// default only:
+		boolean canonize = true;
+		boolean multipart = true;
+		boolean query = false;
+		boolean reaction = false;
+		boolean stereo = true;
+		boolean xButton = true;
+
+		// Applet-style parameter options
+		
+		String jmeString = null;
+		String molString = null; // why is this variable declared here? Because it is used in init() and start()
+		String genericChemicalInputFromInit = null;
+		double atomBGcircleRelativeSize = defaultAtomBGcircleRelativeSize;
+		double bondBGrectRelativeSize = defaultBondBGrectRelativeSize;
+
+		boolean runsmi = false; 
+		//String depictcgi = null;
+		//String depictservlet = null;
+
+		private String parameters;
+
+		private Boolean parseOption(String option) {
+			return parseOption(option, "no");
+		}
+
+		public void getAppletOptions() {
+			boolean canGetAppletOptions = /** @j2sNative true || */
+					false;
+			if (!canGetAppletOptions)
+				return;
+			try {
+				String options = getParameter("options");
+				if (options != null)
+					set(options);
+				String p;
+				if ((p = getParameter("jme")) != null)
+					jmeString = p;
+				if ((p = getParameter("mol")) != null)
+					molString = p;
+				if ((p = getParameter("chem")) != null)
+					genericChemicalInputFromInit = p;
+				if ((p = getParameter("smiles")) != null)
+					genericChemicalInputFromInit = p;
+// BH not referenced
+//				if ((p = getParameter("depictcgi")) != null) {
+//					depictcgi = p;
+//					runsmi = true;
+//				}
+				if ((p = getParameter("text")) != null)
+					molText = p;
+				atomBgColors = getParameter("atombg");
+				if ((p = getParameter("depictbg")) != null)
+					canvasBg = parseHexColor(p);
+				if ((p = getParameter("guicolor")) != null)
+					setUserInterfaceBackgroundColor(p);
+				if ((p = getParameter("guiAtomColor")) != null)
+					setLeftMenuAtomColor(p);
+				if ((p = getParameter("atombgsize")) != null) {
+					double d = Double.valueOf(p);
+					atomBGcircleRelativeSize = (d < 0 ? defaultAtomBGcircleRelativeSize : d);
+				}
+				if ((p = getParameter("bondbgsize")) != null) {
+					double d = Double.valueOf(p);
+					bondBGrectRelativeSize = (d < 0 ? defaultBondBGrectRelativeSize : d);
+				}
+
+				if (showAtomNumbers)
+					showAtomNumbers();
+
+				String jsFunction = getParameter("notify_structural_change_js_function");
+				setNotifyStructuralChangeJSfunction(jsFunction);
+
+				handleAddiitonalParameters();
+
+			} catch (Exception e) {
+				System.err.println("JME:  parameters error");
+			}
+		}
+
+		public String getParameter(String p) {
+			// SwingJS sets the applet in the ThreadGroup
+			@SuppressWarnings("unused")
+			Object g = Thread.currentThread().getThreadGroup();
+			/**
+			 * @j2sNative
+			 * 
+			 * 			return g.getHtmlApplet$()._appletPanel.getParameter$S(p);
+			 * 
+			 */
+			{
+				// Java only
+				return null;
+			}
+		}
+
+		/**
+		 * use boundaries for the search
+		 * 
+		 * @param parameters
+		 * @param option
+		 * @param negativePrefix
+		 * @return null if option not found
+		 */
+		private Boolean parseOption(String option, String negativePrefix) {
+			boolean pos = (parameters.indexOf(" " + option + " ") >= 0);
+			boolean neg = (parameters.indexOf(" " + negativePrefix + option) >= 0);
+			if (pos && neg) {
+				log("check option " + option);
+				return null;
+			}
+			return (pos ? Boolean.TRUE : neg ? Boolean.FALSE : null);
+		}
+
+		// useful for options with multiple names - for instance star option has been
+		// renamed to marker
+		private Boolean parseSynonymOptions(String parameters, String... options) {
+			for (String eachOption : options) {
+				Boolean found = parseOption(eachOption);
+				if (found != null) {
+					return found;
+				}
+			}
+			return null;
+		}
+
+		/**
+		 * 
+		 * @param parameters
+		 * @return true if repaint is needed (always)
+		 */
+		public void set(String parameters) {
+
+			// boolean repaint = true;
+
+			Boolean o;
+			// definition of Regex "word boundary"
+			String p0 = parameters;
+			parameters = parameters.replaceAll("[^_0-9a-zA-Z]", ";");
+			boolean one = (p0.equals(parameters));
+			this.parameters = ";" + parameters.toLowerCase() + ";";
+
+			// BH note -- if more are added, make sure they are lowercase here
+
+			if ((o = parseOption("depict")) != null) {
+				setDepictOption(o.booleanValue());
+				if (one)
+					return;
+			}
+			if ((o = parseSynonymOptions(parameters, "star", "marker")) != null) {
+				if (params.mark != o) {
+					params.number = params.mark = o; // why number?
+					// activeMarkerColorIndex = moleculeHandlingParameters.mark ? 0 : -1; //WIP
+					mustRedrawEverything();
+					if (!o) // eif star is off, so is star1
+						markOnly1 = false;
+				}
+				if (one)
+					return;
+			}
+
+			if ((o = parseOption("rbutton")) != null) {
+				rButton = o;
+				mustReDrawLeftMenu = true;
+			}
+
+			// show implicit H
+			if ((o = parseOption("hydrogens")) != null) {
+				if (params.hydrogenHandlingParameters.showHs != o) {
+					params.hydrogenHandlingParameters.showHs = o;
+					mustReDrawMolecularArea();
+				}
+			}
+
+			if ((o = parseOption("polarnitro")) != null) {
+				polarnitro = o;
+			}
+
+			if ((o = parseOption("valencestate")) != null) {
+
+				if (params.computeValenceState != o) {
+					params.computeValenceState = o; // April 2019
+					mustReDrawMolecularArea();
+
+					// should we update all atom internals e.g. charge, nh, ...?
+					// mustReDrawMolecularArea();
+					// repaint = true;
+				}
+			}
+
+			if (parameters.indexOf("keephs") > -1) {
+				// keepHydrogens = true;
+				// removeOnlyCHydrogens = false;
+				params.hydrogenHandlingParameters.removeHs = false;
+			}
+			if (parameters.indexOf("removehs") > -1) {
+				params.hydrogenHandlingParameters.removeHs = true;
+				params.hydrogenHandlingParameters.removeOnlyCHs = false;
+			}
+
+			if (parameters.indexOf("removehsc") > -1) {
+				// keepHydrogens = false;
+				// removeOnlyCHydrogens = true;
+				setRemoveHsC();
+
+			}
+
+			if ((o = parseOption("query")) != null)
+				if (query != o) {
+					query = o;
+					// repaint = true;
+				}
+
+			if ((o = parseOption("reaction")) != null) {
+				if (reaction != o) {
+					setMustRedrawMolecularArea(true); // reaction arrow change : redrawing needed
+					// repaint = true;
+				}
+				if (!reaction) {
+					reactionArrow.hasBeenPlaced = false;
+				}
+				reaction = o;
+			}
+
+			if ((o = parseOption("autoez")) != null) {
+				// autoez = optionTest;
+				smilesPars.autoez = o;
+			}
+
+			if ((o = parseOption("stereo")) != null)
+				stereo = o;
+
+			if ((o = parseOption("canonize")) != null)
+				canonize = o;
+
+			if ((o = parseOption("multipart")) != null)
+				if (multipart != o) {
+					multipart = o;
+					// repaint = true;
+				}
+
+			// New: handling the negative option
+			if (o = parseOption("autonumber") != null) {
+				if (autonumber != o) {
+					autonumber = o;
+					if (autonumber) {
+						setNumber(true);
+//						return repaint; // BH 2023.01.21 why return???
+					}
+				}
+			}
+
+			if (o = parseOption("number") != null) {
+				setNumber(o.booleanValue());
+			}
+
+			if (o = parseOption("showatommapnumberwithbackgroundcolor") != null) {
+				params.showAtomMapNumberWithBackgroundColor = o;
+			}
+
+			if ((o = parseOption("newlook")) != null) {
+				newLook = o;
+				resetAllGraphics();
+			}
+			if ((o = parseOption("oldlook")) != null) {
+				newLook = !o;
+				resetAllGraphics();
+			}
+
+			if ((o = parseSynonymOptions(parameters, "star1", "marker1")) != null) {
+				if (markOnly1 != o) {
+					markOnly1 = o;
+					if (o) {
+						params.number = params.mark = o; // why
+																	// number?
+					} else {
+
+					}
+					mustRedrawEverything();
+
+				}
+
+			}
+
+			if ((o = parseOption("markermenu")) != null) {
+				markerMenu = o;
+			}
+
+//			if ((optionTest = parseSynonymOptions(parameters, markerMultiColorOptionJLabel )) != null) {
+//				if (moleculeHandlingParameters.markerMultiColor != optionTest) {
+//					moleculeHandlingParameters.markerMultiColor = optionTest;
+//					
+//					mustRedrawEverything();
+			//
+//				}
+			//
+//			}
+
+			// atom marking will not happen, but an event will be triggered
+			if ((o = parseOption("pseudomark")) != null) {
+				pseudoMark = o;
+			}
+
+			if ((o = parseOption("markatomonly")) != null) {
+				starAtomOnly = o;
+				if (starAtomOnly) {
+					starBondOnly = false;
+					if (starNothing) {
+						// repaint = true;
+					}
+					starNothing = false;
+				}
+			}
+			if ((o = parseOption("markbondonly")) != null) {
+				starBondOnly = o;
+				if (starBondOnly) {
+					starAtomOnly = false;
+					if (starNothing) {
+						// repaint = true;
+					}
+					starNothing = false;
+				}
+			}
+
+			if ((o = parseOption("marknothing")) != null) {
+				if (starNothing != o) {
+					// repaint = true;
+					starNothing = o;
+				}
+			}
+
+			if ((o = parseOption("fgmenu")) != null) {
+				fgMenuOption = o;
+				mustReDrawTopMenu = true;
+			}
+
+			if ((o = parseOption("toggle")) != null)
+				toggleDepictEdit = o;
+
+			// BB
+			if ((o = parseOption("depictaction")) != null) {
+				depictActionEnabled = o;
+				if (depictActionEnabled) {
+					setDepictOption(true);
+				}
+			}
+			if ((o = parseOption("showdraganddropoiconindepictmode")) != null)
+				showDragAndDropIconInDepictMode = o;
+			// older naming of the same option
+			if ((o = parseOption("showdraganddropsymbolindepictmode")) != null)
+				showDragAndDropIconInDepictMode = o;
+			if ((o = parseOption("addnewpart")) != null)
+				addNewPart = o;
+
+			if ((o = parseOption("exportinchi")) != null)
+				exportInchi = o;
+			if ((o = parseOption("exportinchikey")) != null)
+				exportInchiKey = o;
+			if ((o = parseOption("exportinchiauxinfo")) != null)
+				exportInchiAuxInfo = o;
+			if ((o = parseOption("searchinchikey")) != null)
+				searchInchiKey = o;
+			if ((o = parseOption("exportsvg")) != null)
+				exportSVG = o;
+
+			if ((o = parseOption("exportrxnmerge")) != null)
+				exportRXNmergeOption = o;
+
+			if ((o = parseOption("contextmenu")) != null)
+				contextMenuEnabledOption = o;
+			if ((o = parseOption("fullscreenicon")) != null)
+				fullScreenIconOption = o;
+			if ((o = parseOption("showfullscreeniconindepictmode")) != null)
+				showFullScreenIconInDepictMode = o;
+
+			if ((o = parseOption("useoclidcode")) != null)
+				useOclIdCode = o;
+
+			if ((o = parseOption("xbutton")) != null) {
+				if (xButton != o) {
+					xButton = o;
+					// repaint = true;
+				}
+
+			}
+			if ((o = parseOption("paste")) != null)
+				if (paste != o) {
+					paste = o;
+				}
+
+			if ((o = parseOption("border")) != null)
+				if (depictBorder != o) {
+					depictBorder = o;
+					// repaint = true;
+					mustRedrawEverything();
+				}
+
+			// undocumented options
+//			if (parameters.indexOf("writesmi") > -1)
+//				writesmi = true;
+//			if (parameters.indexOf("writemi") > -1)
+//				writemi = true;
+//			if (parameters.indexOf("writemol") > -1)
+//				writemol = true;
+			if (parameters.indexOf("nocenter") > -1)
+				nocenter = true;
+			if (parameters.indexOf("jmeh") > -1)
+				jmeh = true;
+			if (parameters.indexOf("showan") > -1)
+
+				showAtomNumbers = true;
+			// System.out.println(rButton+"
+			// "+moleculeHandlingParameters.hydrogenHandlingParameters.showHs+" "+query+"
+			// "+autoez+"
+			// "+stereo+" "+canonize+" "+reaction);
+
+			// BB
+			if ((o = parseOption("atommovebutton")) != null)
+				showAtomMoveJButton = o;
+			if ((o = parseOption("useopenchemlib")) != null)
+				useOpenChemLib = o;
+			if ((o = parseOption("zoom")) != null)
+				allowGUIzooming = allowZooming = o;
+
+			// new Feb 2022
+			if ((o = parseOption("zoomgui")) != null)
+				allowGUIzooming = o && allowZooming;
+
+			// zladi options - ake dalsie ???
+			if (reaction) {
+				// BB: if a reaction is read, then the numbering should be autonumber and not
+				// number. This should be checked by Peter.
+				// With autonumber, one can assign different atom map numbers
+				// number = true;
+				autonumber = true;
+				multipart = true;
+			}
+			if (!isDepict())
+				depictBorder = false;
+			// positions and actions for X and Rx buttons
+			// nove X a R action musia byt > 300
+//			if (rButton)
+//				LEFT_MENU_NUMBER_OF_CELLS++;
+			LEFT_MENU_NUMBER_OF_CELLS = determineNumberLeftMenuNumberOfCell();
+
+			resetJPopupMenu(); // the pop menu contains entries and labels that night need to be removed or
+								// added or changed
+
+			// if star is disabled , then go back to default action
+			if (action == ACTION_MARK && (params.mark == false || starNothing)) {
+				action = ACTION_BOND_SINGLE;
+				// repaint = true;
+			}
+
+//			return repaint;
+		}
+
+		private void setDepictOption(boolean tf) {
+			boolean depicting = isDepict();
+			if (tf != depicting) {
+				if (depicting) {
+					// BB CHeck if nodepictaction is used
+					setDepict(false);
+					// molecularAreaScale = 1; // inak kresli mensi font
+					resetMolecularAreaScale();
+
+					// october 2019 - depict bug fix
+
+					// musi male molekuly vratit na povodnu velkost
+					// for (int i = 1; i <= numberofMoleculeParts; i++) {
+					// moleculeParts[i].scaling();
+					// moleculeParts[i].center(); // este raz, teraz uz zmensene
+					// }
+
+					// JMEmol.centerMolList(this, moleculeParts, numberofMoleculeParts);
+
+					// BB moved above - fixed a bug
+					// depictScale = 1; // inak kresli mensi font
+					// normal font (ak bola mensia molekula) sa nastavi v
+					// drawMolecularArea
+					menuCellSize = standardMenuCellSize;
+					if (activeMol != null) {
+						// mol.needRecentering = true; // october 2019 bug
+					}
+
+					paste = true; // BB March 2014 :
+					// paste option will be set below
+					resetAllGraphics();
+				} else {
+					setDepict(true);
+					menuCellSize = 0;
+					molecularAreaImage = null; // pre prechode z depict je ta primala
+					// toto len pre norm moleculeParts, nie pre reaction !!!
+					// alignMolecules(1, numberofMoleculeParts, 0); //will be done during the
+					// repaint
+					paste = false; // BB March 2014 : default does not accept paste anymore
+
+					// October 2019
+					if (moleculePartsList.size() > 0) {
+						// this is done when reading the input file
+						// JMEmol.scaleInternalBondMolList(moleculeParts,
+						// numberofMoleculeParts);
+						// JMEmol.centerMolList(this, moleculeParts, numberofMoleculeParts);
+						molecularAreaScalePixelsPerCoord = scaleAndCenterForDepictMode(graphicalObjectList());
+					}
+					resetAllGraphics();
+				}
+			}
+		}
+
+		private void setNumber(boolean tf) {
+			if (params.number != tf)
+				mustReDrawTopMenu = true;
+			params.number = tf;
+			if (!params.number)
+				autonumber = false;
+			else {
+				if (params.mark)
+					mustRedrawEverything(); // if star option is selected later
+				params.mark = false;
+			}
+		}
+
+	}
+
+	public static void main(String args[]) {
+		JFrame frame = new JFrame("JME Molecular Editor");
+		frame.addWindowListener(new WindowAdapter() {
+			public void windowClosing(WindowEvent evt) {
+				System.exit(0);
+			}
+		});
+		frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
+		JME jme = new JME(frame);
+		frame.setVisible(true);
+
+		// BH why this first?
+		if (args.length == 1)
+			jme.options(args[0]);
+
+		jme.start();
+
+		// reads molecule (from 2008.12)
+		String fileName = null;
+		for (int i = 0; i < args.length; i++) {
+			if (args[i].startsWith("-f")) {
+				fileName = args[++i];
+			} else if (args[i].startsWith("-o")) {
+				jme.options(args[++i]);
+			}
+		}
+
+	}
+
 } // End of JME class
-
-// Options:
-
-//		addNewPart
-//		atommovebutton
-//		autoez
-//		border
-//		canonize
-//		contextMenu
-//		depictaction
-//		exportInchi
-//		exportInchiAuxInfo
-//		exportInchiKey
-//		exportRXNmerge
-//		exportSVG
-//		fgmenu
-//		fullScreenIcon
-//		hydrogens
-//		markAtomOnly
-//		markBondOnly
-//		markerMenu
-//		markNothing
-//		multipart
-//		newlook
-//		oldlook
-//		paste
-//		polarnitro
-//		pseudoMark
-//		query
-//		rbutton
-//		reaction
-//		searchInchiKey
-//		showDragAndDropIconInDepictMode
-//		showDragAndDropSymbolInDepictMode
-//		showFullScreenIconInDepictMode
-//		stereo
-//		toggle
-//		useOclIDCode
-//		useopenchemlib
-//		valenceState
-//		xbutton
-//		zoom
-//		zoomgui
-//		star,
-//		star1,
-//		autonumber
-//		number
-//		showAtomMapNumberWithBackgroundColor
-

@@ -603,7 +603,7 @@ public abstract class JMEUtil {
 		int slen = s.length();
 		for (int i = 1; i <= dec - slen + dotpos + 1; i++)
 			s += "0";
-		return (len == 0 ? s : rightJustify("        ".substring(0, len), s));
+		return (len == 0 ? s : rightJustify("          ".substring(0, len), s));
 	}
 
 	/**

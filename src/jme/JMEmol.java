@@ -5,14 +5,41 @@ import java.awt.FontMetrics;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.StringTokenizer;
 
+import org.jmol.api.JmolAdapter;
+import org.jmol.api.JmolAdapterAtomIterator;
+import org.jmol.api.JmolAdapterBondIterator;
+import org.jmol.util.Edge;
+import org.jmol.util.Elements;
+
+import javajs.util.P3d;
 import jme.JMEUtil.GWT;
 
 // --------------------------------------------------------------------------
 public class JMEmol extends Graphical2DObject {
 
+// constructors:
+//	public JMEmol()  
+//	public JMEmol(MoleculeHandlingParameters pars)  
+//	public JMEmol(JME jme, MoleculeHandlingParameters pars)  
+	
+//	public JMEmol(JME jme, JMEmol mols[])  
+
+//	public JMEmol(JME jme, JMEmol m, int part)  
+//	public JMEmol(JME jme, JMEmol m, int part, Object NOT_USED)  
+	
+//	public JMEmol(JME jme, JmolAdapterAtomIterator atomIterator, JmolAdapterBondIterator bondIterator, MoleculeHandlingParameters pars) throws Exception  
+//	public JMEmol(JME jme, String molecule, boolean hasCoordinates, MoleculeHandlingParameters pars) throws Exception  
+//	public JMEmol(JME jme, String molFile, MoleculeHandlingParameters options)  
+//	public JMEmol initFromMOL(String molFile)  
+//	public JMEmol[] splitMultiparts()  
+
+	
+	
 	public static class ReactionRole {
 		public final static int NOROLE = 0;
 		public final static int REACTANT = 1;
@@ -92,7 +119,12 @@ public class JMEmol extends Graphical2DObject {
 		this(null, pars);
 	}
 
-	// ----------------------------------------------------------------------------
+	/**
+	 * The primary entry point; construct an empty molecule
+	 * 
+	 * @param jme
+	 * @param pars desired parameters or null for defaults
+	 */
 	public JMEmol(JME jme, MoleculeHandlingParameters pars) {
 		this.jme = jme;
 		moleculeHandlingParameters = (pars == null ? new MoleculeHandlingParameters() : pars);
@@ -102,8 +134,9 @@ public class JMEmol extends Graphical2DObject {
 		nmarked = 0;
 	}
 
+	
 	/**
-	 * Create a deep copy of the argument
+	 * Construct a deep copy of the given molecule.
 	 * 
 	 * @param m
 	 */
@@ -138,11 +171,13 @@ public class JMEmol extends Graphical2DObject {
 		chiralFlag = m.chiralFlag;
 	}
 
-	// ----------------------------------------------------------------------------
-	public JMEmol(JME jme, JMEmol mols[]) {
-		// merge molecules to 1 molecule
-		// iba docasne, pouziva sa pri zapise mol file;
-
+	/**
+	 * Construct a molecule by merging molecules.
+	 * 
+	 * @param jme
+	 * @param mols
+	 */
+	public JMEmol(JME jme, JMEmol mols[]) {	
 		this(jme, mols.length > 0 && mols[0] != null ? mols[0].moleculeHandlingParameters : null);
 
 		int nmols = mols.length;
@@ -173,11 +208,16 @@ public class JMEmol extends Graphical2DObject {
 			}
 			nadd = na;
 		}
-		this.fillFields(); // update the adjencylist
+		this.setNeighborsFromBonds(); // update the adjencylist
 	}
 
-	// ----------------------------------------------------------------------------
-	// extracft a molecule part (fragment) of the my self (ensemble)
+	/**
+	 * Construct a fragment molecule from a part of another molecule.
+	 * 
+	 * @param jme
+	 * @param m
+	 * @param part the fragment part to get
+	 */
 	public JMEmol(JME jme, JMEmol m, int part) {
 		this(jme, m.moleculeHandlingParameters);
 		m.computeMultiPartIndices(); // compute the partIndex
@@ -202,11 +242,11 @@ public class JMEmol extends Graphical2DObject {
 			newAddedBond.vb = newn[atom2];
 			// btag[nbonds] = m.btag[i];
 		}
-		this.fillFields(); // update the adjencylist
+		this.setNeighborsFromBonds(); // update the adjencylist
 	}
 
 	/**
-	 * Duplicated of JMEmol(JME jme, JMEmol m, int part) , uses the internal
+	 * Duplicate of JMEmol(JME jme, JMEmol m, int part) , uses the internal
 	 * partIndex instead of the this.a[] for the part information
 	 * 
 	 * @param m
@@ -232,44 +272,62 @@ public class JMEmol extends Graphical2DObject {
 		}
 
 		this.setChiralFlag(m.getChiralFlag());
-		this.fillFields(); // update the adjencylist
+		this.setNeighborsFromBonds(); // update the adjencylist
 	}
 
 	// ----------------------------------------------------------------------------
 	/**
 	 * 
+	 * Construct a JMEmol from a JME string
+	 * 
 	 * @param jme
-	 * @param molecule       : jme string
-	 * @param hasCoordinates - not used anymore
+	 * @param molecule  jme string, for example
+	 * @param type JME, for example
 	 * @param pars
 	 * @throws Exception
 	 */
-	public JMEmol(JME jme, String molecule, boolean hasCoordinates, MoleculeHandlingParameters pars) throws Exception {
-		// processes JME string
-		// natoms nbonds (atomic_symbol x y) (va vb bondType)
-		// atomic symbols for smiles-non-standard atoms may be in smiles form
-		// i.e O-, Fe2+, NH3+
-		// ak su tam vodiky, berie to cislo (aj H0) inak pre stand. atomy doplni
-		// ak su standardne atomy v [] berie ich ako X
-		// 2006.09 stereo double bond is -5
-
+	public JMEmol(JME jme, Object molecule, JME.SupportedFileFormat type, MoleculeHandlingParameters pars) throws Exception {
 		this(jme, pars);
-		// this.moleculeHandlingParameters = pars;
+		if (molecule == null)
+			return;		
+		switch (type) {
+		case JME:
+			createFromJMEString((String) molecule);
+			break;
+		case MOL: // V2000, actually
+			createFromMOLString((String) molecule);
+			break;
+		case JMOL:
+			createFromJmolAdapter((Object[]) molecule);
+			break;
+		default:
+			throw new IllegalArgumentException("Unrecognized format");
+		} 
+		setNeighborsFromBonds(); // will be callsd by complete() later, disable it?
+		deleteHydrogens(pars.hydrogenHandlingParameters);
+		complete(pars.computeValenceState); // este raz, zachytit zmeny
+	}
 
-		// vyhodi "" na zaciatku a konci
-		if (molecule.startsWith("\""))
-			molecule = molecule.substring(1, molecule.length());
-		if (molecule.endsWith("\""))
-			molecule = molecule.substring(0, molecule.length() - 1);
+	/**
+	 * Process the JME string: natoms nbonds (atomic_symbol x y) (va vb bondType)
+	 * 
+	 * atomic symbols for smiles-non-standard atoms may be in smiles form i.e O-,
+	 * Fe2+, NH3+
+	 * 
+	 * @param jmeString
+	 */
+	private void createFromJMEString(String jmeString) {
 
-		// System.err.println("TEST molecule in>"+molecule+"<");
-
-		if (molecule.length() < 1) {
+		if (jmeString.startsWith("\""))
+			jmeString = jmeString.substring(1, jmeString.length());
+		if (jmeString.endsWith("\""))
+			jmeString = jmeString.substring(0, jmeString.length() - 1);
+		if (jmeString.length() < 1) {
 			natoms = 0;
 			return;
 		}
 		try {
-			StringTokenizer st = new StringTokenizer(molecule);
+			StringTokenizer st = new StringTokenizer(jmeString);
 			int natomsx = Integer.valueOf(st.nextToken()).intValue();
 			int nbondsx = Integer.valueOf(st.nextToken()).intValue();
 			// natoms and nbonds filled in createAtom() & createBond()
@@ -283,11 +341,8 @@ public class JMEmol extends Graphical2DObject {
 				// ak Xx spozna - spracuje vsetko, ak je to X, berie cely a testuje len :n
 				String symbol = st.nextToken();
 				Atom atom = this.createAtom(symbol);
-
-				if (hasCoordinates) {
-					atom.x = Double.valueOf(st.nextToken()).doubleValue();
-					atom.y = -Double.valueOf(st.nextToken()).doubleValue();
-				}
+				atom.x = Double.valueOf(st.nextToken()).doubleValue();
+				atom.y = -Double.valueOf(st.nextToken()).doubleValue();
 			}
 			// --- bonds
 			for (int i = 1; i <= nbondsx; i++) {
@@ -317,7 +372,6 @@ public class JMEmol extends Graphical2DObject {
 				bond.stereo = stereob;
 			}
 
-			fillFields(); // will be callsd by complete() later, disable it?
 
 		} // end of try
 		catch (Exception e) {
@@ -326,41 +380,24 @@ public class JMEmol extends Graphical2DObject {
 			natoms = 0;
 			throw (e);
 		}
-		deleteHydrogens(pars.hydrogenHandlingParameters);
-		complete(pars.computeValenceState); // este raz, zachytit zmeny
 	}
 
-	// ----------------------------------------------------------------------------
 	/**
-	 * Read a MOL
+	 * Create a molecule from MOLfile V2000 data.
 	 * 
-	 * @param jme
-	 * @param molFile
+	 * @param molData
 	 */
-	// would be clearer
-	public JMEmol(JME jme, String molFile, MoleculeHandlingParameters options) {
-		// MDL mol file
-		this(jme, options);
-		if (molFile != null)
-			initFromMOL(molFile);
-	}
-
-	public JMEmol initFromMOL(String molFile) {
-
-		//assert (this.moleculeHandlingParameters != null);
-
-		if (molFile == null)
-			return this;
+	private void createFromMOLString(String molData) {
 
 		String line = "";
-		String separator = JMEUtil.findLineSeparator(molFile);
+		String separator = JMEUtil.findLineSeparator(molData);
 
 		// BB: if something else than the molfile, e.g. smiles
 		if (separator == null) {
-			return this;
+			return;
 		}
 
-		StringTokenizer st = new StringTokenizer(molFile, separator, true);
+		StringTokenizer st = new StringTokenizer(molData, separator, true);
 
 		for (int i = 1; i <= 4; i++) {
 			line = JMEUtil.nextData(st, separator); 
@@ -599,10 +636,86 @@ public class JMEmol extends Graphical2DObject {
 				}
 			}
 		}
-
-		return this;
-
 	}
+
+	/**
+	 * From Jmol's SmarterJmolAdapter -- could be any one of dozens of kinds of file.
+	 * 
+	 * @param iterators [atomIterator, bondIterator]
+	 * @throws Exception
+	 */
+	private void createFromJmolAdapter(Object[] iterators) throws Exception {
+		JmolAdapterAtomIterator atomIterator = (JmolAdapterAtomIterator) iterators[0];
+		JmolAdapterBondIterator bondIterator = (JmolAdapterBondIterator) iterators[1];		
+	    Map<Object, Integer> atomMap = new Hashtable<Object, Integer>();
+	    while (atomIterator.hasNext()) {
+	      String sym = Elements.elementSymbolFromNumber(atomIterator.getElementNumber());
+	      // from Jmol -- could be 13C;
+	      Atom a = createAtom(sym);
+	      atomMap.put(atomIterator.getUniqueID(), Integer.valueOf(natoms));
+	      P3d pt = atomIterator.getXYZ();
+	      //System.out.println("atomline"+line);
+	      a.x = pt.x;
+	      a.y = -pt.y;
+	      a.q = atomIterator.getFormalCharge();
+	      setAtom(natoms, JmolAdapter.getElementSymbol(atomIterator.getElement()));
+	    }
+	    while (bondIterator.hasNext()) {
+	      Bond b = createAndAddNewBond();
+	      b.va = atomMap.get(bondIterator.getAtomUniqueID1()).intValue();
+	      b.vb = atomMap.get(bondIterator.getAtomUniqueID2()).intValue();
+	      int bo = bondIterator.getEncodedOrder();
+	      switch (bo) {
+	      case Edge.BOND_STEREO_NEAR:
+	        b.bondType = SINGLE;
+	        b.stereo = UP;
+	        break;
+	      case Edge.BOND_STEREO_FAR:
+	        b.bondType = SINGLE;
+	        b.stereo = DOWN;
+	        break;
+	      case Edge.BOND_COVALENT_SINGLE:
+	      case Edge.BOND_AROMATIC_SINGLE:
+	        b.bondType = SINGLE;
+	        break;
+	      case Edge.BOND_COVALENT_DOUBLE:
+	      case Edge.BOND_AROMATIC_DOUBLE:
+	        b.bondType = DOUBLE;
+	        break;
+	      case Edge.BOND_COVALENT_TRIPLE:
+	        b.bondType = TRIPLE;
+	        break;
+	      case Edge.BOND_AROMATIC:
+	      case Edge.BOND_STEREO_EITHER:
+	      default:
+	        if ((bo & 0x07) != 0)
+	          b.bondType = (bo & 0x07);
+	        break;
+	      }
+	    }
+	}
+
+	/**
+	 * This can be a problem for CDX or CDXML files with fragments.
+	 * 
+	 * @return
+	 */
+	protected boolean checkNeedsCleaning() {
+		// have atoms; check for very close
+		for (int i = natoms + 1; --i >= 1;) {
+			double x = atoms[i].x;
+			double y = atoms[i].y;
+			for (int j = i; --j >= 1;) {
+				double x2 = atoms[j].x;
+				double y2 = atoms[j].y;
+				if (Math.abs(x - x2) + Math.abs(y - y2) < 2) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 
 	// ----------------------------------------------------------------------------
 
@@ -862,7 +975,7 @@ public class JMEmol extends Graphical2DObject {
 			return changed;
 		}
 
-		fillFields(); // compute nv() adjancy list because itis needed below
+		setNeighborsFromBonds(); // compute nv() adjancy list because itis needed below
 		atom_loop: for (int i = natoms; i >= 1; i--) {
 			int parent = v(i)[1];
 			if (pars.removeOnlyCHs && an(parent) != JME.AN_C) {
@@ -1046,23 +1159,13 @@ public class JMEmol extends Graphical2DObject {
 
 	// ----------------------------------------------------------------------------
 	public void completeMolecule(boolean computeValenceState) {
-		// hodit to aj inde
-		// fillFields(); //BB this is performedin complete()
-		// deleteHydrogens(); // ??? treba
-		// scaling();//scaling(); // would give NaN if 0 coordinates
-		// center(); // centering in the editor canvas
 		complete(computeValenceState);
 	}
 
 	// ----------------------------------------------------------------------------
 	void complete(boolean computeValenceState) {
-		// dimenzuje tie variables, co sa nedimenzovali v constructor JMEMol(m)
-		fillFields();
-		// int storage = bonds.length;
-		// bondCenterX = JMEUtil.createArray(storage);
-		// bondCenterY = JMEUtil.createArray(storage);
+		setNeighborsFromBonds();
 		findBondCenters();
-
 		// March 2020: do valenceState() only if requested by the editor
 		if (computeValenceState) {
 			valenceState(); // nh a upravi q
@@ -1078,7 +1181,7 @@ public class JMEmol extends Graphical2DObject {
 	 */
 	public double internalBondLengthScaling() {
 		// proper scaling (to RBOND)
-		double sumlen = 0., scale = 0.;
+		double sumlen = 0, scale = 0;
 
 		double max = 0;
 		double min = Double.MAX_VALUE;
@@ -1096,33 +1199,31 @@ public class JMEmol extends Graphical2DObject {
 				min = d;
 		}
 
-		if (sumlen > 0) {
-			if (nbonds > 0) {
-				double average = sumlen / nbonds;
+		if (sumlen == 0) 
+			return 0;
+		if (nbonds > 0) {
+			double average = sumlen / nbonds;
 
-				// most of the time there is no significant difference between min and max
-				if (average - min < max - average) { // a few bonds are much longer
-					scale = min;
-				} else {// a few bonds are much shorter
-					scale = max;
-				}
-
-				scale = refBondLength / scale;
-			} else if (natoms > 1) { // disconnected structure(s)
-				scale = 3. * refBondLength
-						/ Math.sqrt((x(1) - x(2)) * (x(1) - x(2)) + (y(1) - y(2)) * (y(1) - y(2)));
+			// most of the time there is no significant difference between min and max
+			if (average - min < max - average) { // a few bonds are much longer
+				scale = min;
+			} else {// a few bonds are much shorter
+				scale = max;
 			}
 
-			this.scaleXY(scale);
-			// if (jme.dimension == null) jme.dimension = size();
-			// cim vacsia scale, tym viac sa molekula zmensuje
-
-			this.findBondCenters(); // BB added June 2020
-
-			return refBondLength;
+			scale = refBondLength / scale;
+		} else if (natoms > 1) { // disconnected structure(s)
+			scale = 3. * refBondLength
+					/ Math.sqrt((x(1) - x(2)) * (x(1) - x(2)) + (y(1) - y(2)) * (y(1) - y(2)));
 		}
 
-		return 0;
+		this.scaleXY(scale);
+		// if (jme.dimension == null) jme.dimension = size();
+		// cim vacsia scale, tym viac sa molekula zmensuje
+
+		this.findBondCenters(); // BB added June 2020
+
+		return refBondLength;
 	}
 
 	public void center() {
@@ -1142,7 +1243,7 @@ public class JMEmol extends Graphical2DObject {
 		double xpix = 0, ypix = 0;
 
 		if (jme != null) {
-			Rectangle2D.Double widthAndHeight = this.jme.getMolecularAreaBoundingBoxCoordinate();
+			Rectangle2D.Double widthAndHeight = this.jme.getMolecularAreaBoundingBoxCoordinate00();
 			xpix = widthAndHeight.width;
 			ypix = widthAndHeight.height;
 		}
@@ -1365,7 +1466,7 @@ public class JMEmol extends Graphical2DObject {
 
 		// ked padne, aby aspon ukazalo ramcek
 		// this should not be done here
-		if (jme.depictBorder) {
+		if (jme.options.depictBorder) {
 			og.setColor(Color.black);
 			og.drawRect(0, 0, jme.dimension.width - 1, jme.dimension.height - 1);
 		}
@@ -1387,7 +1488,8 @@ public class JMEmol extends Graphical2DObject {
 
 		// bonds
 		// color background for bonds (2 atoms must have a least one color in common)
-		if (JME.bondBGrectRelativeSize > 0) {
+		double rs =  jme.options.bondBGrectRelativeSize;
+		if (rs > 0) {
 			for (int i = 1; i <= nbonds; i++) {
 				atom1 = bonds[i].va;
 				atom2 = bonds[i].vb;
@@ -1405,8 +1507,8 @@ public class JMEmol extends Graphical2DObject {
 					sirka2s = (sirka3 * 3) * sina;
 					sirka2c = (sirka3 * 3) * cosa;
 
-					sirka2s *= JME.bondBGrectRelativeSize;
-					sirka2c *= JME.bondBGrectRelativeSize;
+					sirka2s *= rs;
+					sirka2c *= rs;
 
 					double[] xr = JMEUtil.createDArray(4), yr = JMEUtil.createDArray(4);
 					// xr[0] = x[atom1]+sirka2s; yr[0] = y[atom1]-sirka2c;
@@ -1434,11 +1536,12 @@ public class JMEmol extends Graphical2DObject {
 
 			// atoms : circle behind the atom position - does not cover the atom symbol
 			// (will be done later)
-			if (JME.atomBGcircleRelativeSize > 0) {
+			rs = jme.options.atomBGcircleRelativeSize;
+			if (rs > 0) {
 				for (int i = 1; i <= natoms; i++) {
 					Color backgroundColor = setPresetPastelBackGroundColor(og, i, true);
 					if (backgroundColor != null) {
-						double scs = cs * JME.atomBGcircleRelativeSize;
+						double scs = cs * rs;
 						og.fillOval(x(i) - scs / 2., y(i) - scs / 2., scs, scs);
 
 						// if we have a high resolution screen or a large zoom factor,
@@ -2739,7 +2842,7 @@ public class JMEmol extends Graphical2DObject {
 	// ----------------------------------------------------------------------------
 	// necessary to add "smaller" bonds in scaled molecule bt WebME
 	double RBOND() {
-		return (JME.scalingIsPerformedByGraphicsEngine ? RBOND : RBOND * jme.molecularAreaScale);
+		return (JME.scalingIsPerformedByGraphicsEngine ? RBOND : RBOND * jme.molecularAreaScalePixelsPerCoord);
 	}
 
 	// ----------------------------------------------------------------------------
@@ -2886,7 +2989,7 @@ public class JMEmol extends Graphical2DObject {
 			addBond();
 			AN(natoms, JME.AN_N);
 			touchedAtom = natoms;
-			if (this.jme.polarnitro) {
+			if (this.jme.options.polarnitro) {
 				this.changeCharge(touchedAtom, 1);
 			}
 			addBond();
@@ -2896,7 +2999,7 @@ public class JMEmol extends Graphical2DObject {
 
 			addBond();
 			AN(natoms, JME.AN_O);
-			if (this.jme.polarnitro) {
+			if (this.jme.options.polarnitro) {
 				bonds[nbonds].bondType = SINGLE;
 				this.changeCharge(natoms, -1);
 			} else {
@@ -3848,33 +3951,6 @@ public class JMEmol extends Graphical2DObject {
 		if (symbol.indexOf("!") > -1)
 			isQuery = true;
 		int hpos = symbol.indexOf("H");
-		// int qpos = Math.max(symbol.indexOf("+"),symbol.indexOf("-"));
-
-		/*
-		 * 
-		 * // spracuje label a odsekne ju //handling atom map if (this.map) { String
-		 * smark = symbol.substring(dpos+1); // fixed in 2010.01 //maxMark =
-		 * Integer.valueOf(smark).intValue() - 1; // v mark() je ++ //makos // try {
-		 * //if a valid integer can be found in the symbol // jme.currentMark =
-		 * Integer.parseInt(smark); // } // catch (Exception e) { // jme.currentMark =
-		 * 0; // } // //touchedAtom = atom; // kvoli mark() // // //BB code copied from
-		 * MOL reading // if (jme.currentMark > 0) { // touchedAtom = atom; //
-		 * mark(true); // touchedAtom = 0; // not to frame atom // }
-		 * 
-		 * try { //if a valid integer can be found in the symbol int map =
-		 * Integer.parseInt(smark);
-		 * 
-		 * if (this.moleculeHandlingParameters.markerMultiColor) {
-		 * this.atoms[atom].backgroundColorIndex = map; } else {
-		 * this.atoms[atom].setMap(map); }
-		 * 
-		 * } catch (Exception e) { //TODO: error reporting }
-		 * 
-		 * 
-		 * 
-		 * //mark(); // odsekne z konca :label symbol = symbol.substring(0,dpos);
-		 * //touchedAtom = 0; }
-		 */
 		atomProcessing: {
 			if (isQuery) {
 				atoms[atom].label = symbol;
@@ -3882,15 +3958,9 @@ public class JMEmol extends Graphical2DObject {
 				atoms[atom].nh = 0;
 				break atomProcessing;
 			}
-
-			// skusa, ci to je standard atom
 			String as = symbol;
-
-			// testuje > 0 nie > -1 (aby pokrylo H a zaciatok atomu s + -
 			if (hpos > 0)
 				as = symbol.substring(0, hpos);
-			// else if (qpos > 0) as = symbol.substring(0,qpos);
-
 			AN(atom, JMEUtil.checkAtomicSymbol(as)); // as & symbol su rozdielne/
 			if (an(atom) == JME.AN_X)
 				atoms[atom].label= as;
@@ -3908,24 +3978,6 @@ public class JMEmol extends Graphical2DObject {
 			if (an(atom) == JME.AN_X) {
 				atoms[atom].nh = nhs;
 			}
-			// co ostatne atomy ??? force ich
-
-			// charge
-			// int charge = 0;
-			// if (qpos > 0) {
-			// char c = symbol.charAt(qpos++);
-			// if (c == '+') charge = 1;
-			// else if (c == '-') charge = -1;
-			// if (charge != 0) {
-			// c = symbol.charAt(qpos++);
-			// if (c >= '0' && c <= '9') c *= c - '0';
-			// else {
-			// while (c=='+') {charge++; c = symbol.charAt(qpos++);}
-			// while (c=='-') {charge--; c = symbol.charAt(qpos++);}
-			// }
-			// }
-			// }
-			// Q(atom ,charge);
 		}
 	}
 
@@ -4675,24 +4727,13 @@ public class JMEmol extends Graphical2DObject {
 	 * initialize the neighbor lists (adjency list) inside the atoms for a newly
 	 * created mol?
 	 */
-	void fillFields() {
+	void setNeighborsFromBonds() {
 		// fills helper fields v[][], nv[], ??? vzdy allocates memory
 
-		// int storage = an.length; // lebo pridava memory po skokoch
-		// int storage = atoms.length; // lebo pridava memory po skokoch
-		// v = JMEUtil.createArray(storage, MAX_BONDS_ON_ATOM+1); //new
-		// int[storage][MAX_BONDS_ON_ATOM+1];
-		// nv = JMEUtil.createArray(storage);
-
 		for (int i = 1; i <= natoms; i++)
-			NV(i, 0); // needed? I thinl hte array is always initialized to 0
+			atoms[i].nv = 0; 
+		// needed? I thinl hte array is always initialized to 0
 		for (int i = 1; i <= nbonds; i++) {
-			// if (nv(va[i]) < MAX_BONDS_ON_ATOM) // 2002.08 predtym <=
-			// //v(va[i])[++nv[va[i]]]=vb[i];
-			// v(va[i])[incrNV(va[i])]=vb[i];
-			// if (nv(vb[i]) < MAX_BONDS_ON_ATOM)
-			// //v(vb[i])[++nv[vb[i]]]=va[i];
-			// v(vb[i])[incrNV(vb[i])]=va[i];
 			int atom1 = bonds[i].va;
 			int atom2 = bonds[i].vb;
 			addBothNeighbors(atom1, atom2);
@@ -7326,7 +7367,7 @@ public class JMEmol extends Graphical2DObject {
 
 		// star marking of a part of a molecules
 		if (moleculeHandlingParameters.mark) {
-			if (jme.markOnly1) { // only one atom at a time can be marked
+			if (jme.options.markOnly1) { // only one atom at a time can be marked
 				for (int at = 1; at <= natoms; at++) {
 					if (at != touchedAtom) {
 						this.atoms[at].resetMark(); // if not done, the atoms with maps will still stay blue
@@ -7371,7 +7412,7 @@ public class JMEmol extends Graphical2DObject {
 		if (moleculeHandlingParameters.mark) {
 			// doColoring = -1;
 			// //assert(activeMarker == this.moleculeHandlingParameters.markerMultiColor);
-			if (jme.markOnly1) { // only one atom at a time can be marked
+			if (jme.options.markOnly1) { // only one atom at a time can be marked
 				for (int at = 1; at <= nbonds; at++) {
 					if (at != touchedBond) {
 						this.bonds[at].resetMark(); // if not done, the atoms with maps will still stay blue

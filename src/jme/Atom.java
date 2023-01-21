@@ -382,5 +382,9 @@ public class Atom extends AtomBondCommon {
 	}
 
 
+	@Override
+	public String toString() {
+		return "[Atom " + getLabel() + " " + x + " " + y + "]";
+	}
 }
 

@@ -81,5 +81,4 @@ public class OclParser implements Parser {
 		return null;
 	}
 
-
 }

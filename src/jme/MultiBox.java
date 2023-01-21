@@ -167,14 +167,14 @@ class MultiBox extends FrameWithLocation {
 		setTitle("SMILES");
 		setLayout(new BorderLayout(2, 0)); // 2, 0 gaps
 		smilesText = new JTextField(smiles + "     ");
-		if (!jme.runsmi) {
+		if (!jme.options.runsmi) {
 			// the JTextField cannot be copied in JS when the setEditable is set to false
 			// smilesText.setEditable(false);
 		}
 		add("Center", smilesText);
 		JPanel p = new JPanel();
 		p.add(this.closeJButton);
-		if (jme.runsmi) {
+		if (jme.options.runsmi) {
 			JButton b = new JButton("Submit");
 			p.add(b);
 		}

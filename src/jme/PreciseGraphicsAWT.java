@@ -439,6 +439,13 @@ public class PreciseGraphicsAWT {
 		this.baseGraphics.drawArc(r(x), r(y), r(width), r(height), (int)Math.round(startAngle), (int)Math.round(arcAngle));
 	}
 
+	public void translate(double x, double y) {
+	
+		baseGraphics.translate(r(x),  r(y));
+	
+	}
+
+
 	public void drawPolygon(double xPoints[], double yPoints[], int nPoints) {
 		int xPointsInt[] = new int[nPoints];
 		int yPointsInt[] = new int[nPoints];
