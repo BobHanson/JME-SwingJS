@@ -181,7 +181,13 @@ public class JmolJME extends JME implements WindowListener {
 		frame.setVisible(true);
 		initialize();
 	}
-	
+
+	public boolean hasSubstructure(String smarts) {
+		String smiles = smiles();
+		return vwr.isSubstructure(smarts, smiles);
+	}
+
+
 	public byte[] toPNG(String filename) {
 		return toBorderedPNG(filename, 10, 10);
 	}
@@ -246,6 +252,10 @@ public class JmolJME extends JME implements WindowListener {
 	public String smiles() {
 		if (activeMol.natoms == 0)
 			return "";
+		boolean isJS = /** @j2sNative true || */false;
+		if (isJS) {
+			return super.smiles();
+		} 
 		String mol = molFile();
 		if (mol.length() == 0)
 			return "";
