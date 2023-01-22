@@ -320,13 +320,6 @@ public class JmolJME extends JME implements WindowListener {
 			myFrame.setVisible(b);
 	}
 
-	private String toSVG(String filename) {
-		String svg = super.getOclSVG();
-		if (filename == null) 
-			return svg;
-		toFile(fixOutFilename(filename), svg, "txt");
-		return null;
-	}
 
 	protected String toMOL(String filename) {
 		String mol = molFile();
@@ -346,14 +339,14 @@ public class JmolJME extends JME implements WindowListener {
 		return (!headless ? filename : filename.replace('?', '_'));
 	}
 
-	public String getSVG(String filename) {
-		String svg = getOclSVG();
-		if (filename == null)
+	public String toSVG(String filename) {
+		String svg = super.getOclSVG();
+		if (filename == null) 
 			return svg;
 		toFile(fixOutFilename(filename), svg, "txt");
 		return null;
-	
 	}
+
 	protected String toCDXML(String filename) {
 		String mol = molFile();
 		String xml = CDXMLWriter.fromString(vwr, "Mol", mol);
@@ -669,8 +662,8 @@ public class JmolJME extends JME implements WindowListener {
 	}
 
 	public static void main(String[] args) {
-		//testJmolData(args);
-		testJMEHeadless();			
+		testJmolData(args);
+		//testJMEHeadless();			
 	}
 
 	private static void testJMEHeadless() {
