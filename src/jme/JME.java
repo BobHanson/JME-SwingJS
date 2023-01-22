@@ -9665,7 +9665,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				if (one)
 					return;
 			}
-			if ((o = parseOption("headless")) != null) {
+			if ((o = parseOption("headless")) != null) { // BH 2023.01.22
 				headless = true;
 			}
 

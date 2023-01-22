@@ -563,14 +563,15 @@ public class JmolJME extends JME implements WindowListener {
 			@Override
 			public void run() {
 				System.out.println("JmolJME writing file " + finalName);
+				boolean haveDialog = (finalName.startsWith("?"));
 				String f = vwr.writeFile(finalName, bytesOrString, type);
-				if (f != null && f.indexOf("OK") == 0) {
+				if (haveDialog && f != null && f.indexOf("OK") == 0) {
 					int pt = f.indexOf(" ", 3);
 					f = f.substring(f.indexOf(" ", pt + 1)).trim();
 					pt = f.lastIndexOf("/");
 					if (pt <= 0)
 						return;
-					f = f.substring(0, pt - 1);
+					f = f.substring(0, pt + 1);
 					vwr.setStringProperty("currentLocalPath", f);
 				}
 				System.out.println(f);
@@ -668,18 +669,18 @@ public class JmolJME extends JME implements WindowListener {
 	}
 
 	public static void main(String[] args) {
-		testJmolData(args);
-		//testJMEHeadless();			
+		//testJmolData(args);
+		testJMEHeadless();			
 	}
 
 	private static void testJMEHeadless() {
 		Viewer vwr = (Viewer) JmolViewer.allocateViewer(null, null);
 		JmolJME jjme = new JmolJME();
 		jjme.vwr = vwr;
-		jjme.headless = true;
+		jjme.options("headless");
 		//jjme.openMolByName("cholesterol");
 		jjme.openMolByName("morphine");
-		jjme.readFile("data/jmol.mol");
+//		jjme.readFile("data/jmol.mol");
 
 //    jjme.readMolFile(vwr.getFileAsString("c:/temp/jmetest.mol"));
 //    jjme.readSmiles("CCCCCCOCC");
