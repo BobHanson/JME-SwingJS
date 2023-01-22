@@ -5,13 +5,25 @@
 <script src="swingjs/swingjs2.js"></script>
 <script>
 if (!self.SwingJS)alert('swingjs2.js was not found. It needs to be in swingjs folder in the same directory as ' + document.location.href)
+demo = {};
+demo.propertyChange$java_beans_PropertyChangeEvent = function(ev) {
+	
+	System.err.println(ev.getPropertyName$() + " " + ev.getNewValue$());
+	
+}
+demo.readyCallback = function(app,b,c,d) {
+	demo.app = app;
+	demo.JME = app.JME;
+	demo.JME.addPropertyChangeListener$java_beans_PropertyChangeListener(demo);
+}
+
 Info = {
   code: null,
   main: "jme.JmolJME",
   core: "NONE",
 	width: 850,
 	height: 550,
-  readyFunction: null,
+  readyFunction: demo.readyCallback,
 	serverURL: 'https://chemapps.stolaf.edu/jmol/jsmol/php/jsmol.php',
 	j2sPath: 'swingjs/j2s',
 	console:'sysoutdiv',

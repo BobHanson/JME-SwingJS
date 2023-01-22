@@ -52,6 +52,7 @@ import java.net.URL;
 import java.util.NoSuchElementException;
 import java.util.Vector;
 
+import javax.swing.JApplet;
 import javax.swing.JFrame;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
@@ -74,6 +75,10 @@ import jme.TextTransfer.PasteAction;
 @SuppressWarnings("serial")
 public class JME extends JPanel implements ActionListener, MouseWheelListener, MouseListener, KeyListener,
 		MouseMotionListener, PropertyChangeListener {
+
+	public interface HTML5Applet {
+		public Object getParameter(String s);
+	}
 
 	protected final Options options = new Options();
 
@@ -715,6 +720,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	// ----------------------------------------------------------------------------
 	public void initialize() {
+		options.registerJS(this);
 		params.keepSameCoordinatesForOutput = false;
 		params.internalBondScalingForInput = true;
 		params.showAtomMapNumberWithBackgroundColor = false;
@@ -765,7 +771,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		LEFT_MENU_NUMBER_OF_CELLS = this.determineNumberLeftMenuNumberOfCell();
 		// showHydrogens = true;
 
-		options.getAppletOptions();
+		options.getAppletOptions(this);
 
 		action = ACTION_BOND_SINGLE; // musi to tu but, inak nic
 
@@ -780,7 +786,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
-	public void start() {
+	public void start(String[] args) {
+		int pt = 0;
+		if (args.length > 0 && !args[1].startsWith("-"))
+			options(args[pt++]);
+
 		dimension = getSize();
 		// no repaint because the applet viewer will call repaint() after start()
 		// this was changed because the molecule is always loaded with a GWT.runasync
@@ -816,6 +826,28 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			handleReadGenericInput(options.genericChemicalInputFromInit, null, repaint, true);
 			// will call paint to redraw the has been decoded
 		}
+
+		process(args, pt);
+	}
+
+	public void process(String[] args, int pt) {
+		if (pt < 0 || pt >= args.length)
+			return;
+		// reads molecule (from 2008.12)
+		String fileName = null;
+		for (int i = pt; i < args.length; i++) {
+			if (args[i].startsWith("-f")) {
+				readFile(args[++i]);
+			} else if (args[i].startsWith("-o")) {
+				options(args[++i]);
+			}
+		}
+
+	}
+
+	protected Object readFile(String fname) {
+		// TODO
+		return null;
 	}
 
 	public static String makeErrorMessage(Exception e) {
@@ -1144,7 +1176,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return true if this implementation can compute inchi
 	 */
 	protected boolean canComputeInchi() {
-		return false;
+		return true;
 	}
 
 	/**
@@ -3630,7 +3662,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 		if (this.afterStructureChangeEvent != null && this.afterStructureChangeEvent.action != null) {
 			// mol.cleanAfterChanged();
-			notifyStructuralChangeToJS();
+			notifyStructuralChange("draw");
 			// this.afterStructureChangeEvent.reset();
 
 			// BB new Feb 2017
@@ -7898,6 +7930,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// test cases with invalid MOL
 	final StringWrapper sdfPastedMessage = new StringWrapper();
 
+	public final static String JME_EVENT_STRUCTURE_MODIFIED = "JME_StructureModifiedEvent";
+	public final static String JME_EVENT_PASTE = "JME_PasteEvent";
+	private static final String JME_EVENT_DEPICT_EDIT_TOGGLE = "JME_DepictEditToggleEvent";
+	private static final String JME_EVENT_ATOM_CLICKED = "JME_AtomClickedEvent";
+	private static final String JME_EVENT_BOND_CLICKED = "JME_BondClickedEvent";
+	private static final String JME_EVENT_ATOM_HIGHLIGHT = "JME_AtomHighlightEvent";
+	private static final String JME_EVENT_BOND_HIGHLIGHT = "JME_BondHighlightEvent";
+
 	public void pasteGenericInput(String chemicalString, boolean recordEvent,
 			final RunAsyncCallback sucessAndFailureHandle) {
 
@@ -7913,7 +7953,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 			// emit an event that says that a SDF mutiple structure was added sept 2019
 			this.afterStructureChangeEvent.setAction(READ_MULTI_SDF);
-			notifyStructuralChangeToJS();
+			notifyStructuralChange("paste");
 
 		}
 
@@ -7948,34 +7988,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			localSucessAndFailureHandle.onFailure(e);
 		}
 	}
-
-	/*
-	 * Same functionality as prePasteJSfunction but only for JSME Advantage: the
-	 * argument is a JS function, not a JS function name. The JS fyunction will have
-	 * two arguments: my self and the string to process before pasting For JME,
-	 * always return false - meaning that there is no callback set
-	 */
-	protected boolean handleBeforePasteEvent(String molecule) {
-
-		return false;
-	}
-
-	/**
-	 * Called when pasting has been sucessful. Method intended for a subclass.
-	 */
-	protected void handleAfterPasteEvent(String pasteContent) {
-		// Do nothing
-
-	}
-
-	/**
-	 * Called after swith to edit / depict mode using the toggle option. Method
-	 * intended for a subclass.
-	 */
-	protected void handleAfterAfterDepictEditToggleEvent() {
-		// do nothing
-	}
-
+	
 	@Deprecated
 	public String cutSelectedMoleculeForSystemClipBoard() {
 		if (this.activeMol.natoms == 0) {
@@ -8267,7 +8280,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		case LA_FAILED:
 			break;
 		default:
-			this.notifyStructuralChangeToJS();
+			this.notifyStructuralChange("restore");
 		}
 
 	}
@@ -8577,31 +8590,68 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public Boolean canHandleAtomHighLightCallBack() {
-		return this.notifyAtomHighLightJSfunction != null;
+		return true;//this.notifyAtomHighLightJSfunction != null;
 	}
 
 	public Boolean canHandleBondHighLightCallBack() {
-		return false;
+		return true;
 	}
 
 	public Boolean canHandleAtomClickedCallBack() {
-		return false;
+		return true;
 	}
 
 	public Boolean canHandleBondClickedCallBack() {
-		return false;
+		return true;
 	}
 
 	/**
 	 */
 	public void handleAtomClickedCallBack(int actualMoleculePartIndex, int clickedAtom) {
-		/* do nothing */
-
+		notifyEvent(JME_EVENT_ATOM_CLICKED, new int[] {actualMoleculePartIndex, clickedAtom});
 	}
 
 	public void handleBondClickedCallBack(int actualMoleculePartIndex, int clickedBond) {
-		/* do nothing */
+		notifyEvent(JME_EVENT_BOND_CLICKED, new int[] {actualMoleculePartIndex, clickedBond});
+	}
+	
 
+	/*
+	 * Same functionality as prePasteJSfunction but only for JSME Advantage: the
+	 * argument is a JS function, not a JS function name. The JS fyunction will have
+	 * two arguments: my self and the string to process before pasting For JME,
+	 * always return false - meaning that there is no callback set
+	 */
+	protected boolean handleBeforePasteEvent(String molecule) {
+
+		return false;
+	}
+
+	/**
+	 * Called when pasting has been sucessful. Method intended for a subclass.
+	 */
+	protected void handleAfterPasteEvent(String pasteContent) {
+		notifyEvent(JME_EVENT_PASTE, pasteContent);
+	}
+
+	/**
+	 * Called after swith to edit / depict mode using the toggle option. Method
+	 * intended for a subclass.
+	 */
+	protected void handleAfterAfterDepictEditToggleEvent() {
+		notifyEvent(JME_EVENT_DEPICT_EDIT_TOGGLE, Boolean.valueOf(depict));
+	}
+
+	protected void handleAftertructureModifiedEvent(String cause) {
+		// subclass do something more
+		String a = afterStructureChangeEvent.getAction();
+		//System.out.println("Structure modified event: " + a);
+		notifyEvent(JME_EVENT_STRUCTURE_MODIFIED, afterStructureChangeEvent);
+		updateReactionRoles();
+	}
+
+	public void notifyEvent(String name, Object value) {
+		firePropertyChange(name, new Object[] {options.getApplet(false)}, value);
 	}
 
 	/**
@@ -8611,8 +8661,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param touchedAtom
 	 */
 	public void handleAtomHighLightCallBack(int actualMoleculePartIndex, int touchedAtom) {
-		/* do nothing */
-
+		notifyEvent(JME_EVENT_ATOM_HIGHLIGHT, new int[] {actualMoleculePartIndex, touchedAtom});
 	}
 
 	/**
@@ -8622,8 +8671,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param touchedBond
 	 */
 	public void handleBondHighLightCallBack(int actualMoleculePartIndex, int touchedBond) {
-		/* do nothing */
-
+		notifyEvent(JME_EVENT_BOND_HIGHLIGHT, new int[] {actualMoleculePartIndex, touchedBond});
 	}
 
 	/**
@@ -8734,24 +8782,24 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	/**
 	 * Notify the JavaScript envirronement that the chemical structure has changed
+	 * 
+	 * @param cause
 	 */
-	public void notifyStructuralChangeToJS() {
+	public void notifyStructuralChange(String cause) {
 
-		// the 2nd implementation for JSME that uses event
-		if (this.afterStructureChangeEvent != null && this.afterStructureChangeEvent.action != null) {
-			if (this.afterStructureChangeEvent.stackLevel == 0) {
-				this.afterStructureChangeEvent.stackLevel++; // avoid infinite loop
-
-				this.handleAftertructureModifiedEvent();
-			} else {
-				this.afterStructureChangeEvent.reset();
+		if (afterStructureChangeEvent != null && afterStructureChangeEvent.action != null) {
+			if (afterStructureChangeEvent.stackLevel > 0) {
+				afterStructureChangeEvent.reset();
 				return;
 			}
+			afterStructureChangeEvent.stackLevel++;
+			handleAftertructureModifiedEvent(cause);
 		}
 
 		// TODO: exception handling with JSException: this function will not work
 		// outside a web browser
-		if (this.notifyStructuralChangeJSfunction != null) {
+		if (notifyStructuralChangeJSfunction != null) {
+			// BH this does not allow for xx.xx.f
 			JSObject jsObject = JSObject.getWindow(this);
 			jsObject.call(this.notifyStructuralChangeJSfunction, null);
 		}
@@ -9283,20 +9331,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
-	protected void handleAftertructureModifiedEvent() {
-		// clear the event after it has been used
-		// (afterStructureChangeEvent != null)
-		// fterStructureChangeEvent.reset(); //not needed anymore because of using
-		// recordAfterStructureChangedEvent(String action, int moleculePartIndex, int
-		// atomIndex, int bondIndex)
-
-		// subclass do something more
-
-		System.out.println("Structure modified event: " + afterStructureChangeEvent.getAction());
-		// updateReactionParts(); //June 2017
-		updateReactionRoles();
-	}
-
 	/**
 	 * 
 	 * @return true if the editor is in depict mode
@@ -9466,17 +9500,29 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		//String depictcgi = null;
 		//String depictservlet = null;
 
-		private String parameters;
+		private String options;
 
 		private Boolean parseOption(String option) {
 			return parseOption(option, "no");
 		}
 
-		public void getAppletOptions() {
-			boolean canGetAppletOptions = /** @j2sNative true || */
-					false;
-			if (!canGetAppletOptions)
+		/**
+		 * Add the JME field to the HTML applet object. 
+		 * @param jme
+		 */
+		public void registerJS(JME jme) {
+			HTML5Applet a = getApplet(false);
+			if (a == null)
 				return;
+			/**
+			 * @j2sNative
+			 * 
+			 * a.JME = jme;
+			 */
+			{}			
+		}
+
+		public void getAppletOptions(JME jme) {
 			try {
 				String options = getParameter("options");
 				if (options != null)
@@ -9526,20 +9572,33 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 		}
 
-		public String getParameter(String p) {
-			// SwingJS sets the applet in the ThreadGroup
+		/**
+		 * Get either the JApplet (possibly a JSDummyApplet) linking this to its
+		 * JavaScript HTMLApplet counterpart, or that counterpart.
+		 * 
+		 * @param asJava true to return the JApplet; false to return the DOM object for
+		 *               which ._applet is the JApplet.
+		 * @return
+		 */
+		public HTML5Applet getApplet(boolean asJApplet) {
 			@SuppressWarnings("unused")
 			Object g = Thread.currentThread().getThreadGroup();
 			/**
 			 * @j2sNative
-			 * 
-			 * 			return g.getHtmlApplet$()._appletPanel.getParameter$S(p);
+			 * 			var a = g.getHtmlApplet$();
+			 * 			return (asJApplet ? a._applet : a);
 			 * 
 			 */
 			{
 				// Java only
 				return null;
 			}
+			
+		}
+		public String getParameter(String p) {
+			// SwingJS sets the applet in the ThreadGroup
+			JApplet applet = (JApplet) getApplet(true);
+			return (applet == null ? null : applet.getParameter(p));
 		}
 
 		/**
@@ -9551,8 +9610,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		 * @return null if option not found
 		 */
 		private Boolean parseOption(String option, String negativePrefix) {
-			boolean pos = (parameters.indexOf(" " + option + " ") >= 0);
-			boolean neg = (parameters.indexOf(" " + negativePrefix + option) >= 0);
+			boolean pos = (options.indexOf(" " + option + " ") >= 0);
+			boolean neg = (options.indexOf(" " + negativePrefix + option) >= 0);
 			if (pos && neg) {
 				log("check option " + option);
 				return null;
@@ -9586,7 +9645,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			String p0 = parameters;
 			parameters = parameters.replaceAll("[^_0-9a-zA-Z]", ";");
 			boolean one = (p0.equals(parameters));
-			this.parameters = ";" + parameters.toLowerCase() + ";";
+			options = ";" + parameters.toLowerCase() + ";";
 
 			// BH note -- if more are added, make sure they are lowercase here
 
@@ -9605,6 +9664,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				}
 				if (one)
 					return;
+			}
+			if ((o = parseOption("headless")) != null) {
+				headless = true;
 			}
 
 			if ((o = parseOption("rbutton")) != null) {
@@ -9874,6 +9936,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if ((o = parseOption("zoomgui")) != null)
 				allowGUIzooming = o && allowZooming;
 
+			
+			
 			// zladi options - ake dalsie ???
 			if (reaction) {
 				// BB: if a reaction is read, then the numbering should be autonumber and not
@@ -9891,6 +9955,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //				LEFT_MENU_NUMBER_OF_CELLS++;
 			LEFT_MENU_NUMBER_OF_CELLS = determineNumberLeftMenuNumberOfCell();
 
+			
+			handleAdditionalOptions(options);
+			
 			resetJPopupMenu(); // the pop menu contains entries and labels that night need to be removed or
 								// added or changed
 
@@ -9971,6 +10038,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
+	public void handleAdditionalOptions(String options) {
+		// for subclasses
+	}
+
 	public static void main(String args[]) {
 		JFrame frame = new JFrame("JME Molecular Editor");
 		frame.addWindowListener(new WindowAdapter() {
@@ -9981,23 +10052,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
 		JME jme = new JME(frame);
 		frame.setVisible(true);
-
-		// BH why this first?
-		if (args.length == 1)
-			jme.options(args[0]);
-
-		jme.start();
-
-		// reads molecule (from 2008.12)
-		String fileName = null;
-		for (int i = 0; i < args.length; i++) {
-			if (args[i].startsWith("-f")) {
-				fileName = args[++i];
-			} else if (args[i].startsWith("-o")) {
-				jme.options(args[++i]);
-			}
-		}
-
+		jme.start(args);
 	}
+
 
 } // End of JME class

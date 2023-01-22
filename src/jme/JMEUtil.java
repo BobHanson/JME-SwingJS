@@ -253,17 +253,23 @@ public abstract class JMEUtil {
 		/**
 		 * Called when, for some reason, the necessary code cannot be loaded. For
 		 * example, the web browser might no longer have network access.
+		 * 
+		 * @j2sAlias onFailure
 		 */
 		public void onFailure(Throwable reason);
 
 		/**
 		 * Called once the necessary code for it has been loaded.
+		 * @j2sAlias onSuccess
 		 */
 		public void onSuccess();
 	}
 
 	public static abstract class JSME_RunAsyncCallback implements RunAsyncCallback {
 
+		/**
+		 * @j2sAlias onFailure
+		 */
 		@Override
 		public void onFailure(Throwable reason) {
 			// Window.alert("Loading JS code failed");
@@ -276,14 +282,24 @@ public abstract class JMEUtil {
 		/**
 		 * Called when, for some reason, the necessary code cannot be loaded. For
 		 * example, the web browser might no longer have network access.
+		 * 
+		 * @j2sAlias onFailure
 		 */
 		void onFailure(Throwable reason);
 
 		/**
 		 * Called once the necessary code for it has been loaded.
+		 * 
+		 * @j2sAlias onSuccess
 		 */
 		void onSuccess(String data);
 
+		/**
+		 * 
+		 * @j2sAlias onWarning
+		 * 
+		 * @param message
+		 */
 		void onWarning(String message);
 
 	}

@@ -24,6 +24,7 @@
 package jme;
 
 import java.awt.Container;
+import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -180,6 +181,20 @@ public class JmolJME extends JME implements WindowListener {
 		frame.setVisible(true);
 		initialize();
 	}
+	
+	public byte[] toPNG(String filename) {
+		return toBorderedPNG(filename, 10, 10);
+	}
+
+	public Dimension getImageSize() {
+		jme.Box coordBox = activeMol.computeBoundingBoxWithAtomLabels(null);
+		double f = molecularAreaScalePixelsPerCoord;
+		return new Dimension((int) (coordBox.width * f), (int) (coordBox.height * f));
+	}
+	
+	public String toHtmlDataURI() {
+		return "data:image/png;base64," + javajs.util.Base64.getBase64(toBorderedPNG(null, 10, 10)); 
+	}
 
 	public byte[] toBorderedPNG(String filename, int marginX, int marginY) {
 		try {
@@ -244,7 +259,15 @@ public class JmolJME extends JME implements WindowListener {
 	}
 
 	public String inchi() {
-		return vwr.getInchi(null, molFile(), "standard");
+		return inchi("standard");
+	}
+	
+	public String inchiFixedH() {
+		return inchi("fixedH");
+	}
+	
+	public String inchi(String options) {
+		return vwr.getInchi(null, molFile(), (options == null ? "standard" : options));
 	}
 
 	/**
@@ -297,7 +320,6 @@ public class JmolJME extends JME implements WindowListener {
 			myFrame.setVisible(b);
 	}
 
-
 	private String toSVG(String filename) {
 		String svg = super.getOclSVG();
 		if (filename == null) 
@@ -314,10 +336,24 @@ public class JmolJME extends JME implements WindowListener {
 		return null;
 	}
 
+	/**
+	 * Just making sure we do not try to open a dialog if headless.
+	 * 
+	 * @param filename
+	 * @return
+	 */
 	private String fixOutFilename(String filename) {
 		return (!headless ? filename : filename.replace('?', '_'));
 	}
 
+	public String getSVG(String filename) {
+		String svg = getOclSVG();
+		if (filename == null)
+			return svg;
+		toFile(fixOutFilename(filename), svg, "txt");
+		return null;
+	
+	}
 	protected String toCDXML(String filename) {
 		String mol = molFile();
 		String xml = CDXMLWriter.fromString(vwr, "Mol", mol);
@@ -379,7 +415,7 @@ public class JmolJME extends JME implements WindowListener {
 			return;
 		try {
 			if (name == FileDropper.PROPERTY_FILEDROPPER_FILE) {
-				read2Dor3DFile((String) val);
+				readFile((String) val);
 			} else if (name == FileDropper.PROPERTY_FILEDROPPER_INLINE) {
 				readDroppedData(val);
 			}
@@ -466,7 +502,7 @@ public class JmolJME extends JME implements WindowListener {
 		}
 	}
 
-	protected void read2Dor3DFile(String fname) {
+	protected Object readFile(String fname) {
 		try {
 			setFileName(fname);
 			File f = new File(fname);
@@ -481,7 +517,7 @@ public class JmolJME extends JME implements WindowListener {
 				clear();
 				readMolecule(vwr.getFileAsString(fname));
 				activeMol.center();
-				return;
+				return null;
 			}
 			Map<String, Object> htParams = new Hashtable<String, Object>();
 			htParams.put("filter", "NOH;NO3D;fileType=" + type);
@@ -502,13 +538,16 @@ public class JmolJME extends JME implements WindowListener {
 //				activeMol.center();
 			} else {
 				sorry(ret.toString());
+				return ret.toString();
 			}
 		} catch (Exception e) {
 			sorry(e.toString());
 			e.printStackTrace();
+			return e;
 		}
 		repaint();
 		System.out.println("JJME " + fname);
+		return null;
 	}
 
 	private void toFile(String name, final Object bytesOrString, final String type) {
@@ -624,6 +663,9 @@ public class JmolJME extends JME implements WindowListener {
 		parentWindow = null;
 	}
 
+	protected void handleAddiitonalParameters() {
+
+	}
 
 	public static void main(String[] args) {
 		testJmolData(args);
@@ -637,7 +679,7 @@ public class JmolJME extends JME implements WindowListener {
 		jjme.headless = true;
 		//jjme.openMolByName("cholesterol");
 		jjme.openMolByName("morphine");
-		jjme.read2Dor3DFile("data/jmol.mol");
+		jjme.readFile("data/jmol.mol");
 
 //    jjme.readMolFile(vwr.getFileAsString("c:/temp/jmetest.mol"));
 //    jjme.readSmiles("CCCCCCOCC");
@@ -657,17 +699,8 @@ public class JmolJME extends JME implements WindowListener {
 		frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
 		JmolJME jjme = new JmolJME();
 		Viewer vwr = (Viewer) JmolViewer.allocateViewer(null, null);
-		vwr.getInchi(null, null, null);
+		vwr.getInchi(null, null, null); // initialize InChI
 		jjme.setViewer(frame, vwr, null);
-		jjme.start();
-		String fileName = null;
-		for (int i = 0; i < args.length; i++) {
-			if (args[i].startsWith("-f")) {
-				fileName = args[++i];
-			} else if (args[i].startsWith("-o")) {
-				jjme.options(args[++i]);
-			}
-		}
 
 		//jjme.openMolByName( "cholesterol");
 		//jjme.openMolByName("morphine");
@@ -676,7 +709,8 @@ public class JmolJME extends JME implements WindowListener {
 		//jjme.read2Dor3DFile("c:/temp/t.cdx");
 		
 		SwingUtilities.invokeLater(() -> {
-			jjme.read2Dor3DFile("data/3af.cdxml");
+			jjme.start(args);
+			jjme.readFile("data/3af.cdxml");
 		});
 		
 	  }
