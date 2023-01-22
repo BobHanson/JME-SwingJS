@@ -20,6 +20,7 @@ package jme;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Container;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Event;
 import java.awt.Font;
@@ -30,6 +31,13 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
+import java.awt.dnd.DnDConstants;
+import java.awt.dnd.DragGestureEvent;
+import java.awt.dnd.DragGestureListener;
+import java.awt.dnd.DragSource;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -47,6 +55,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.NoSuchElementException;
@@ -74,7 +83,7 @@ import jme.TextTransfer.PasteAction;
 // ****************************************************************************
 @SuppressWarnings("serial")
 public class JME extends JPanel implements ActionListener, MouseWheelListener, MouseListener, KeyListener,
-		MouseMotionListener, PropertyChangeListener {
+		MouseMotionListener, PropertyChangeListener, DragGestureListener {
 
 	public interface HTML5Applet {
 		public Object getParameter(String s);
@@ -724,6 +733,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		params.keepSameCoordinatesForOutput = false;
 		params.internalBondScalingForInput = true;
 		params.showAtomMapNumberWithBackgroundColor = false;
+
+		 DragSource ds = new DragSource();
+		 ds.createDefaultDragGestureRecognizer(this, DnDConstants.ACTION_COPY, this);
 
 		Container parent = this.getParent();
 		if (parent != null) {
@@ -10053,6 +10065,51 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		JME jme = new JME(frame);
 		frame.setVisible(true);
 		jme.start(args);
+	}
+
+	@Override
+	public void dragGestureRecognized(DragGestureEvent dge) {
+		try {
+		MouseEvent e = (MouseEvent) dge.getTriggerEvent();
+		System.out.println(e.getID());
+		if (e.getID() != MouseEvent.MOUSE_PRESSED)
+			return;
+		int x = e.getX();
+		int y = e.getY();
+		if (!dragAndDropIcon.contains(x, y))
+			return;
+		Cursor cursor = null;
+		System.out.println(dge.getDragAction());
+		if (dge.getDragAction() == DnDConstants.ACTION_COPY) {
+			cursor = DragSource.DefaultCopyDrop;
+			dge.startDrag(cursor, new Transferable() {
+
+				@Override
+				public DataFlavor[] getTransferDataFlavors() {
+					// TODO Auto-generated method stub
+					return new DataFlavor[] { DataFlavor.stringFlavor };
+				}
+
+				@Override
+				public boolean isDataFlavorSupported(DataFlavor flavor) {
+					// TODO Auto-generated method stub
+					return flavor == DataFlavor.stringFlavor;
+				}
+
+				@Override
+				public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException, IOException {
+					if (flavor == DataFlavor.stringFlavor) {
+						return molFile();
+					}
+					return null;
+				}
+
+			});
+
+		}
+		} catch (Throwable t) {
+			System.out.println("hmm");
+		}
 	}
 
 
