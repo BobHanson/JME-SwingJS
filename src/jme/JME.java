@@ -3467,6 +3467,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	PreciseGraphicsAWT getScaledGraphicsOfPreciseImage(PreciseImage pi, double scale, Rectangle2D.Double screenArea) {
 		PreciseGraphicsAWT og;
+		if (pi == null)
+			System.out.println("??");
 		if (scalingIsPerformedByGraphicsEngine) {
 			og = pi.getGraphics(scale);
 		} else {
@@ -3705,7 +3707,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //Swing will handle this differently
 //		if (!this.mustReDrawTopMenu)
 //			return;
-
+		
+		// BH 2023 topMenuImage can be null even in Java if this is happening on the main thread. 
+		if (topMenuImage == null)
+			return;
 		Rectangle2D.Double screenArea = new Rectangle2D.Double(0, 0, dimension.width, topMenuHeight());
 		PreciseGraphicsAWT og = this.getScaledGraphicsOfPreciseImage(topMenuImage, menuScale, screenArea);
 

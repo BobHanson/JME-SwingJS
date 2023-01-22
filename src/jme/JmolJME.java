@@ -34,6 +34,7 @@ import java.awt.image.BufferedImage;
 import java.beans.PropertyChangeEvent;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,6 +50,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.SwingUtilities;
 
 import org.jmol.adapter.smarter.AtomSetCollection;
 import org.jmol.adapter.smarter.Resolver;
@@ -372,10 +374,12 @@ public class JmolJME extends JME implements WindowListener {
 	@Override
 	public void propertyChange(PropertyChangeEvent evt) {
 		String name = evt.getPropertyName();
-		String val = evt.getNewValue().toString();
+		Object val = evt.getNewValue();
+		if (val == null)
+			return;
 		try {
 			if (name == FileDropper.PROPERTY_FILEDROPPER_FILE) {
-				read2Dor3DFile(val);
+				read2Dor3DFile((String) val);
 			} else if (name == FileDropper.PROPERTY_FILEDROPPER_INLINE) {
 				readDroppedData(val);
 			}
@@ -465,6 +469,9 @@ public class JmolJME extends JME implements WindowListener {
 	protected void read2Dor3DFile(String fname) {
 		try {
 			setFileName(fname);
+			File f = new File(fname);
+		    System.out.println("JmolJME reading file " + f.getAbsolutePath());
+
 			// from file dropper
 			BufferedInputStream bis = new BufferedInputStream(new FileInputStream(fname));
 			boolean isBinary = (Resolver.getBinaryType(bis) != null);
@@ -620,7 +627,7 @@ public class JmolJME extends JME implements WindowListener {
 
 	public static void main(String[] args) {
 		testJmolData(args);
-		//testJMEHeadless();
+		//testJMEHeadless();			
 	}
 
 	private static void testJMEHeadless() {
@@ -630,7 +637,7 @@ public class JmolJME extends JME implements WindowListener {
 		jjme.headless = true;
 		//jjme.openMolByName("cholesterol");
 		jjme.openMolByName("morphine");
-		jjme.read2Dor3DFile("c:/temp/jmetest.mol");
+		jjme.read2Dor3DFile("data/jmol.mol");
 
 //    jjme.readMolFile(vwr.getFileAsString("c:/temp/jmetest.mol"));
 //    jjme.readSmiles("CCCCCCOCC");
@@ -648,6 +655,7 @@ public class JmolJME extends JME implements WindowListener {
 		frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
 		JmolJME jjme = new JmolJME();
 		Viewer vwr = (Viewer) JmolViewer.allocateViewer(null, null);
+		vwr.getInchi(null, null, null);
 		jjme.setViewer(frame, vwr, null);
 		jjme.start();
 		String fileName = null;
@@ -664,7 +672,10 @@ public class JmolJME extends JME implements WindowListener {
 		//jjme.read2Dor3DFile("c:/temp/jmetest.mol");
 		//jjme.read2Dor3DFile("c:/temp/cdx/t2.cdxml");
 		//jjme.read2Dor3DFile("c:/temp/t.cdx");
-		jjme.read2Dor3DFile("c:/temp/cdx/3af.cdxml");
+		
+		SwingUtilities.invokeLater(() -> {
+			jjme.read2Dor3DFile("data/3af.cdxml");
+		});
 		
 	  }
 

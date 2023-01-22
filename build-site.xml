@@ -33,6 +33,9 @@
   	<property name="html.dir" value="html" />
   	<property name="resources.dir" value="resources" />
   	<property name="openchemlib.dir" value="../openchemlib/site/swingjs/j2s" />
+  	<!-- location of third-party jar contents as precompiled zipped .js files to copy to site/ -->
+  	<property name="libjs.dir" value="libjs" />
+ 
   	 
   	<!-- unzip SwingJS-site.zip 
   	
@@ -43,6 +46,16 @@
   	<echo> Unzipping ${swingjs.zip} into ${site.dir} </echo>
   	<unzip src="${swingjs.zip}" dest="${site.dir}/" overwrite="true"/>  	
 
+
+  	<echo> Unzipping ${libjs.dir} *.zip into ${site.dir} </echo>
+
+  		<unzip dest="${site.dir}">
+  		    <fileset dir="${libjs.dir}">
+  		        <include name="*.zip"/>
+  		    </fileset>
+  		</unzip>
+  	
+  	
 	<!-- transfer site-level resources -->
 
   	<echo> Copying ${html.dir} files into ${site.dir} </echo>
@@ -104,7 +117,7 @@
   	<echo> Copying ${resources.dir} files into ${j2s.dir} </echo>
   	<copy failonerror="false" todir="${j2s.dir}">
       <fileset dir="${resources.dir}">
-      	<include name="**"/>
+      	<include name="**/*"/>
    	  </fileset>
   </copy>
 </target>
