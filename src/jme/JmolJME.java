@@ -647,6 +647,8 @@ public class JmolJME extends JME implements WindowListener {
 
 	private static void testJmolData(String[] args) {
 		JFrame frame = new JFrame("JmolJME Molecular Editor");
+		frame.setName("JME"); // for embedding in <div id="testApplet-JME-div">
+
 		frame.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent evt) {
 				System.exit(0);
