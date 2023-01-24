@@ -66,10 +66,12 @@ import javax.swing.JFrame;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.SwingUtilities;
 
 import jme.Box.Axis;
 import jme.ChemicalFormatDetector.MajorChemicalFormat;
 import jme.ColorManager.ColorInfo;
+import jme.JMESmiles.SmilesCreationParameters;
 import jme.JMEUtil.GWT;
 import jme.JMEUtil.JSME_RunAsyncCallback;
 import jme.JMEUtil.RunAsyncCallback;
@@ -721,6 +723,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		frame.setName("JME"); // for embedding in <div id="testApplet-JME-div">
 		frame.add("Center", this);
 		frame.addKeyListener(this);
+		addKeyListener(this);
 		addMouseListener(this);
 		addMouseMotionListener(this);
 		new FileDropper(this);
@@ -842,16 +845,17 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		process(args, pt);
 	}
 
-	public void process(String[] args, int pt) {
-		if (pt < 0 || pt >= args.length)
+	public void process(String[] args, int i) {
+		if (i < 0 || i >= args.length)
 			return;
 		// reads molecule (from 2008.12)
-		String fileName = null;
-		for (int i = pt; i < args.length; i++) {
+		for (; i < args.length; i++) {
 			if (args[i].startsWith("-f")) {
 				readFile(args[++i]);
 			} else if (args[i].startsWith("-o")) {
 				options(args[++i]);
+			} else if (args[i].startsWith("-c")) {
+				options.callback(args[++i], args[++i]);
 			}
 		}
 
@@ -1337,8 +1341,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	@Override
 	public void mouseEntered(MouseEvent e) {
-		// TODO
-
+		requestFocusInWindow();
 	}
 
 	@Override
@@ -5441,23 +5444,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (notches == 0)
 			return;
 
-//		String message;
-//		String newline = "\n";
-//		if (notches < 0) {
-//			message = "Mouse wheel moved UP " + -notches + " notch(es)" + newline;
-//		} else {
-//			message = "Mouse wheel moved DOWN " + notches + " notch(es)" + newline;
-//		}
-//		if (e.getScrollType() == MouseWheelEvent.WHEEL_UNIT_SCROLL) {
-//			message += "    Scroll type: WHEEL_UNIT_SCROLL" + newline;
-//			message += "    Scroll amount: " + e.getScrollAmount() + " unit increments per notch" + newline;
-//			message += "    Units to scroll: " + e.getUnitsToScroll() + " unit increments" + newline;
-//			message += "    Vertical unit increment: " + " pixels" + newline;
-//		} else { // scroll type == MouseWheelEvent.WHEEL_BLOCK_SCROLL
-//			message += "    Scroll type: WHEEL_BLOCK_SCROLL" + newline;
-//			message += "    Vertical block increment: " + " pixels" + newline;
-//		}
-		// System.out.println(message);
 
 		notches *= -1; // to give the same zoom direction as googlemaps
 
@@ -5545,25 +5531,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (shiftXY != null) {
 			this.graphicalObjectList().move(shiftXY);
 		}
-		// } else {
-		// What to do?
-		// reaction TODO
-		// multipart
-		// }
 		this.setMustRedrawMolecularArea(true);
 
 	}
-
-	// don't use this in reaction mode because the arrow
-//	protected void moveAllMolecules(double x, double y) {
-//		moleculePartsList.moveXY(x, y);
-
-//	}
-
-//	protected void moveAllMolecules(Point.Double shiftXY) {
-//		moveAllMolecules(shiftXY.x, shiftXY.y);
-
-//	}
 
 	/**
 	 * Compute the translation X,Y needed for the molecule to stay centered after
@@ -5608,55 +5578,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return result;
 
 	}
-
-	/**
-	 * Invoked when a mouse button has been pressed on a component.
-	 */
-//	@Override
-//	public void mousePressed(MouseEvent e) {
-//		int numberOfClicks = e.getClickCount();
-//		System.out.println(""+numberOfClicks);
-//
-//	}
-
-	/**
-	 * Invoked when the mouse button has been clicked (pressed and released) on a
-	 * component.
-	 */
-//	@Override
-//	public void mouseClicked(MouseEvent e) {
-//		int numberOfClicks = e.getClickCount();
-//		System.out.println(""+numberOfClicks);
-//
-//	}
-
-	/**
-	 * Invoked when a mouse button has been released on a component.
-	 */
-//	@Override
-//	public void mouseReleased(MouseEvent e) {
-//		int numberOfClicks = e.getClickCount();
-//		System.out.println(""+numberOfClicks);
-//	}
-
-	/**
-	 * Invoked when the mouse enters a component.
-	 */
-//	@Override
-//	public void mouseEntered(MouseEvent e) {
-//		int numberOfClicks = e.getClickCount();
-//		System.out.println(""+numberOfClicks);
-//	}
-
-	/**
-	 * Invoked when the mouse exits a component.
-	 */
-//	@Override
-//	public void mouseExited(MouseEvent e) {
-//		int numberOfClicks = e.getClickCount();
-//		System.out.println(""+numberOfClicks);
-//	}
-
 	protected boolean canDoAtomOrBondAction(int action) {
 		return (!isDepict() || (isDepict() && action == ACTION_MARK));
 	}
@@ -9607,6 +9528,26 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 			
 		}
+	
+		/**
+		 * The -c option allows calling any method in sequence with 
+		 * other operations. 
+		 * 
+		 * "this" in the callback will be this JME instance.
+		 * 
+		 * @param f generally a function such as function(args) {var x = this;.....}
+		 * @param args
+		 */
+		public void callback(Object f, Object args) {
+			JME jme = JME.this;
+			/**
+			 * @j2sNative
+			 * 
+			 * f.apply(jme, args);
+			 */
+		}
+
+
 		public String getParameter(String p) {
 			// SwingJS sets the applet in the ThreadGroup
 			JApplet applet = (JApplet) getApplet(true);
@@ -10048,23 +9989,22 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 		}
 
+		public Object getInfo(String param) {
+			Object html5applet = getApplet(false);
+			/**
+			 * @j2sNative
+			 * 
+			 * return html5applet.__Info[param];
+			 */
+			{
+				return null;
+			}
+		}
+
 	}
 
 	public void handleAdditionalOptions(String options) {
 		// for subclasses
-	}
-
-	public static void main(String args[]) {
-		JFrame frame = new JFrame("JME Molecular Editor");
-		frame.addWindowListener(new WindowAdapter() {
-			public void windowClosing(WindowEvent evt) {
-				System.exit(0);
-			}
-		});
-		frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
-		JME jme = new JME(frame);
-		frame.setVisible(true);
-		jme.start(args);
 	}
 
 	@Override
@@ -10112,5 +10052,20 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 	}
 
+
+	public static void main(String args[]) {
+		JFrame frame = new JFrame("JME Molecular Editor");
+		frame.addWindowListener(new WindowAdapter() {
+			public void windowClosing(WindowEvent evt) {
+				System.exit(0);
+			}
+		});
+		frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
+		JME jme = new JME(frame);
+		SwingUtilities.invokeLater(()->{
+			frame.setVisible(true);
+			jme.start(args);			
+		});
+	}
 
 } // End of JME class

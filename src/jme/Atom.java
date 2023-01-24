@@ -32,7 +32,7 @@ public class Atom extends AtomBondCommon {
 	boolean deleteFlag;
 
 	public String label;
-	int[] v = JMEUtil.createArray(JMEmol.MAX_BONDS_ON_ATOM+1);
+	int[] v = new int[JMEmol.MAX_BONDS_ON_ATOM+1];
 
 	int nv;
 

@@ -14,6 +14,7 @@ import com.actelion.research.chem.StereoMolecule;
 import com.actelion.research.chem.coords.CoordinateInventor; // to compute 2D coordinates
 
 import jme.JME.SupportedFileFormat;
+import jme.JMESmiles.SmilesCreationParameters;
 import jme.JMEUtil.GWT;
 
 //END JAVA_IMPORT

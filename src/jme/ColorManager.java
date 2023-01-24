@@ -78,7 +78,7 @@ public class ColorManager {
 	public int[][] getBackGroundColorPaletteAsInteger() {
 		initDefaultBackGroundColorPaletteIfNeeded();
 		
-		int result[][] = JMEUtil.createArray(psColor.length-1, 3);
+		int result[][] = new int[psColor.length-1][3];
 		
 		// the first value is ignored
 		for(int i = 1 ; i < psColor.length; i++) {
@@ -93,7 +93,7 @@ public class ColorManager {
 	
 	public String[] getBackGroundColorPalette() {
 		initDefaultBackGroundColorPaletteIfNeeded();
-		String result[] = JMEUtil.createSArray(psColor.length - 1);
+		String result[] = new String[psColor.length - 1];
 		for(int i = 1 ; i < psColor.length; i++) {
 			result[i - 1] = this.makeHexColor(psColor[i].color);
 		}

@@ -90,22 +90,47 @@ public class JmolJME extends JME implements WindowListener {
 		setRemoveHsC();
 	}
 
-	public void setViewer(JFrame frame, Viewer vwr, Container parent) {
+	public void setViewer(JFrame frame, Viewer vwr, Container parent, String frameType) {
 		// from JmolPanel
 		parentWindow = parent;
 		this.vwr = vwr;
-
 		if (parent == null)
-
-			headless = vwr.headless;
-
+			headless = vwr.headless; 
 		if (frame == null) {
-			frame = new JFrame(getTitle());
-			JPanel pp = new JPanel();
-			JPanel p = new JPanel();
-			pp.add("Center", p);
-			p.setLayout(new javax.swing.BoxLayout(p, javax.swing.BoxLayout.X_AXIS));
-			JButton b;
+			frame = getJmolFrame(frameType);
+		}
+		setFrame(frame);
+		frame.setResizable(true);
+		frame.setVisible(true);
+		initialize();
+	}
+
+	private JFrame getJmolFrame(String type) {
+
+		JFrame frame = new JFrame(type == "search" ? "Substructure search" : getTitle());
+		JPanel pp = new JPanel();
+		JPanel p = new JPanel();
+		pp.add("Center", p);
+		p.setLayout(new javax.swing.BoxLayout(p, javax.swing.BoxLayout.X_AXIS));
+		JButton b;
+
+		if ("search".equals(type)) {
+			p.add(b = new JButton("search"));
+			b.addActionListener(new ActionListener() {
+
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					String smiles = smiles();
+					Object f = options.getInfo("searchCallback");
+					/**
+					 * @j2sNative
+					 * 
+					 *   f && f(smiles);
+					 */
+				}
+
+			});
+		} else {
 			p.add(b = new JButton("clean"));
 			b.addActionListener(new ActionListener() {
 
@@ -171,20 +196,58 @@ public class JmolJME extends JME implements WindowListener {
 				}
 
 			});
-			frame.add("South", pp);
-			frame.setBounds(300, 300, 600, 400);
-
-			frame.addWindowListener(this);
 		}
-		setFrame(frame);
-		frame.setResizable(true);
-		frame.setVisible(true);
-		initialize();
+		frame.add("South", pp);
+		frame.setBounds(300, 300, 600, 400);
+
+		frame.addWindowListener(this);
+		return frame;
 	}
 
-	public boolean hasSubstructure(String smarts) {
-		String smiles = smiles();
-		return vwr.isSubstructure(smarts, smiles);
+	/**
+	 * Check for smarts in this structure.
+	 * 
+	 * For this search we want the most general (c1ccccn1) as the target, 
+	 * which is this structure. So we use JME's OCL code, which 
+	 * tends to be most inclusive on aromaticity
+	 * 
+	 * 
+	 * @param pattern
+	 * @return
+	 */
+	public boolean hasStructure(String pattern, boolean isSmarts) {
+		return vwr.hasStructure(pattern, super.smiles(), isSmarts);
+	}
+
+
+	/**
+	 * See if we can match this or the given smarts in an array of 
+	 * structures.
+	 * 
+	 * For this search we want the most general (c1ccccn1) as the target, 
+	 * which in this case are the SMILES in the array. 
+	 * So we use Jmol's SMILES generator code, which 
+	 * tends to be moderately inclusive. 
+	 * 
+	 *  NCI/CADD would be highly Kekule.
+	 *  
+	 * 
+	 *  
+	 * 
+	 * Return null for some sort of SMILES initialization error
+	 * 
+	 * @param smilesSet
+	 * @return
+	 */
+	public int[] findMatchingStructures(String smarts, String[] smilesSet, boolean isSmarts) {
+		int[] ret;
+		try {
+			return vwr.getSmilesMatcher().hasStructure(smarts == null ? smilesFromJmol() : smarts, smilesSet, 0);
+		} catch (Exception e) {
+			say("there was a problem with matching the SMILES " + e);
+			e.printStackTrace();
+		}
+		return null;
 	}
 
 
@@ -252,22 +315,28 @@ public class JmolJME extends JME implements WindowListener {
 	public String smiles() {
 		if (activeMol.natoms == 0)
 			return "";
-		boolean isJS = /** @j2sNative true || */false;
-		if (isJS) {
+		if (JMEUtil.isSwingJS) {
+			// this is an aromaticity problem with nccccc=O
 			return super.smiles();
 		} 
 		String mol = molFile();
 		if (mol.length() == 0)
 			return "";
-		String smiles = vwr.getInchi(null, mol, "smiles");
-//
-//    
-//    // problems with stereochemistry??
-//    String smiles = vwr.getSmilesMatcher().getSmilesFromJME(jmeFile());
-		repaint(); // aby ked je chyba v smilesi (stereo) aby sa objavilo info
-		return smiles;
+		return vwr.getInchi(null, mol, "smiles");
 	}
-
+	
+	public String smilesFromJmol() {
+		if (activeMol.natoms == 0)
+			return "";
+		if (JMEUtil.isSwingJS) {
+		    return vwr.getSmilesMatcher().getSmilesFromJME(jmeFile());
+		} 
+		String mol = molFile();
+		if (mol.length() == 0)
+			return "";
+		return vwr.getInchi(null, mol, "smiles");		
+	}	
+	
 	public String inchi() {
 		return inchi("standard");
 	}
@@ -672,14 +741,67 @@ public class JmolJME extends JME implements WindowListener {
 	}
 
 	public static void main(String[] args) {
-		testJmolData(args);
-		//testJMEHeadless();			
+		JFrame frame = null;
+		JmolJME jjme = new JmolJME();
+		Viewer vwr = (Viewer) JmolViewer.allocateViewer(null, null);
+		jjme.vwr = vwr;
+		String type = null;
+		
+		if (args.length > 0) {
+			if (args[0].equals("headless")) {
+				jjme.options("headless");
+				return;
+			}
+			if (args[0].equals("search")) {
+				type = "search";
+			} else if (args[0].equals("test")) {
+				switch (args[1]) {
+				case "headless":
+					testJMEHeadless(jjme);
+					return;
+				case "data":
+					testJmolData(jjme, args);
+					return;
+				}
+			}
+		}
+		startJmolJME(frame, jjme, type);
+
+		// testJmolData(args);
+		// testJMEHeadless(jjme);
 	}
 
-	private static void testJMEHeadless() {
-		Viewer vwr = (Viewer) JmolViewer.allocateViewer(null, null);
-		JmolJME jjme = new JmolJME();
-		jjme.vwr = vwr;
+	private static void startJmolJME(JFrame frame, JmolJME jjme, String type) {
+//		if (frame == null) {
+//			frame = new JFrame("JmolJME Molecular Editor");
+//			frame.setName("JME"); // for embedding in <div id="testApplet-JME-div">
+//			frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
+//			frame.addWindowListener(new WindowAdapter() {
+//				public void windowClosing(WindowEvent evt) {
+//					System.exit(0);
+//				}
+//			});
+//		}
+//
+		jjme.setViewer(frame, jjme.vwr, null, type);
+		jjme.vwr.getInchi(null, null, null); // initialize InChI
+
+		// jjme.openMolByName( "cholesterol");
+		// jjme.openMolByName("morphine");
+		// jjme.read2Dor3DFile("c:/temp/jmetest.mol");
+		// jjme.read2Dor3DFile("c:/temp/cdx/t2.cdxml");
+		// jjme.read2Dor3DFile("c:/temp/t.cdx");
+
+		SwingUtilities.invokeLater(() -> {
+			jjme.myFrame.setVisible(true);
+			jjme.start(new String[0]);
+		});
+
+		// TODO Auto-generated method stub
+
+	}
+
+	private static void testJMEHeadless(JmolJME jjme) {
 		jjme.options("headless");
 		//jjme.openMolByName("cholesterol");
 		jjme.openMolByName("morphine");
@@ -691,7 +813,7 @@ public class JmolJME extends JME implements WindowListener {
 		jjme.toBorderedPNG("c:/temp/test.png", 10, 10);
 	}
 
-	private static void testJmolData(String[] args) {
+	private static void testJmolData(JmolJME jjme, String[] args) {
 		JFrame frame = new JFrame("JmolJME Molecular Editor");
 		frame.setName("JME"); // for embedding in <div id="testApplet-JME-div">
 
@@ -701,10 +823,8 @@ public class JmolJME extends JME implements WindowListener {
 			}
 		});
 		frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
-		JmolJME jjme = new JmolJME();
-		Viewer vwr = (Viewer) JmolViewer.allocateViewer(null, null);
-		vwr.getInchi(null, null, null); // initialize InChI
-		jjme.setViewer(frame, vwr, null);
+		jjme.vwr.getInchi(null, null, null); // initialize InChI
+		jjme.setViewer(frame, jjme.vwr, null, null);
 
 		//jjme.openMolByName( "cholesterol");
 		//jjme.openMolByName("morphine");

@@ -7,12 +7,15 @@ import java.util.StringTokenizer;
 
 public abstract class JMEUtil {
 
+	
+	public static boolean isSwingJS = /** @j2sNative true || */false;
+
 	public static final int ALIGN_LEFT = 0;
 	public static final int ALIGN_CENTER = 1;
 	public static final int ALIGN_RIGHT = 2;
 
 	public static int[] growArray(int[] array, int newSize) {
-		int newArray[] = createArray(newSize);
+		int newArray[] = new int[newSize];
 		System.arraycopy(array, 0, newArray, 0, array.length);
 
 		return newArray;
@@ -95,14 +98,14 @@ public abstract class JMEUtil {
 	}
 
 	public static String[] growArray(String[] array, int newSize) {
-		String newArray[] = createSArray(newSize);
+		String newArray[] = new String[newSize];
 		System.arraycopy(array, 0, newArray, 0, array.length);
 
 		return newArray;
 	}
 
 	public static double[] growArray(double[] array, int newSize) {
-		double newArray[] = createDArray(newSize);
+		double newArray[] = new double[newSize];
 		System.arraycopy(array, 0, newArray, 0, array.length);
 
 		return newArray;
@@ -110,13 +113,13 @@ public abstract class JMEUtil {
 
 	public static int[][] growArray(int[][] array, int newSize) {
 		int secondarySize = array[0].length;
-		int newArray[][] = createArray(newSize, secondarySize); // new int[newSize][secondarySize];
+		int newArray[][] = new int[newSize][secondarySize]; // new int[newSize][secondarySize];
 		System.arraycopy(array, 0, newArray, 0, array.length);
 
 		return newArray;
 	}
 
-	public static boolean equals(int[] a1, int[] a2) {
+ 	public static boolean equals(int[] a1, int[] a2) {
 		if (a1.length == a2.length) {
 			for (int i = 0; i < a1.length; i++) {
 				if (a1[i] != a2[i]) {
@@ -185,30 +188,6 @@ public abstract class JMEUtil {
 		return copy;
 
 	};
-
-	public static int[] createArray(int size) {
-		return new int[size];
-	};
-
-	public static String[] createSArray(int size) {
-		return new String[size];
-	};
-
-	public static double[] createDArray(int size) {
-		return new double[size];
-	};
-
-	public static long[] createLArray(int size) {
-		return new long[size];
-	};
-
-	public static boolean[] createBArray(int size) {
-		return new boolean[size];
-	};
-
-	public static int[][] createArray(int size1, int size2) {
-		return new int[size1][size2];
-	}
 
 	/**
 	 * Check if the applet is showing in highDPI or not. In a web browser, this can
@@ -320,8 +299,8 @@ public abstract class JMEUtil {
 	based on those up to prime[100] squared
 		 */
 		int npn;
-		long[] pn = createLArray(n+2);
-		int[] prime = createArray(100);
+		long[] pn = new long[n+2];
+		int[] prime = new int[100];
 		int test=5, index=0;
 		int num=0;
 		boolean check=true;

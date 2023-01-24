@@ -53,8 +53,7 @@ public  abstract class AtomBondCommon {
 	}
 
 	public void resetBackgroundColors() {
-		this.backgroundColors = JMEUtil.createArray(1);
-		this.backgroundColors[0] = NOT_MAPPED_OR_MARKED;
+		this.backgroundColors = new int[] {NOT_MAPPED_OR_MARKED};
 		
 	}
 
