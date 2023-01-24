@@ -71,21 +71,20 @@ import javax.swing.SwingUtilities;
 import jme.Box.Axis;
 import jme.ChemicalFormatDetector.MajorChemicalFormat;
 import jme.ColorManager.ColorInfo;
-import jme.JMESmiles.SmilesCreationParameters;
 import jme.JMEUtil.GWT;
 import jme.JMEUtil.JSME_RunAsyncCallback;
 import jme.JMEUtil.RunAsyncCallback;
 import jme.JMEUtil.RunWhenDataReadyCallback;
 import jme.JMEmol.ReactionRole;
 import jme.JMEmolList.MolFileOrRxnParameters;
-import jme.MoleculeHandlingParameters.HydrogenHandlingParameters;
+import jme.MoleculeHandlingParameters.HydrogenParameters;
 import jme.TextTransfer.PasteAction;
 
 // ----------------------------------------------------------------------------
 // ****************************************************************************
 @SuppressWarnings("serial")
 public class JME extends JPanel implements ActionListener, MouseWheelListener, MouseListener, KeyListener,
-		MouseMotionListener, PropertyChangeListener, DragGestureListener {
+		MouseMotionListener, PropertyChangeListener, DragGestureListener, JMEStatusListener {
 
 	public interface HTML5Applet {
 		public Object getParameter(String s);
@@ -267,7 +266,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// tieto parametere sa naplnaju v init (aby sa vynulovali pri starte)
 	// boolean bwMode = false;
 	
-	SmilesCreationParameters smilesPars = new SmilesCreationParameters();
 	public MoleculeHandlingParameters params = new MoleculeHandlingParameters();
 
 	boolean pasteFromSDFstack = false;
@@ -469,67 +467,22 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	static final int ACTION_AN_R_LAST = 1310;
 	// end added by BB
 
-	// JSME custom atomic numbers for use in Atom.na
-	// TODO Element table
-	static final int AN_H = 1;
-	static final int AN_B = 2;
-	static final int AN_C = 3;
-	static final int AN_N = 4;
-	static final int AN_O = 5;
-	static final int AN_SI = 6;
-	static final int AN_P = 7;
-	static final int AN_S = 8;
-	static final int AN_F = 9;
-	static final int AN_CL = 10;
-	static final int AN_BR = 11;
-	static final int AN_I = 12;
-	static final int AN_SE = 13;
+	static final int actionToAtomNumberArray[] = { 
+			ACTION_AN_C, Atom.AN_C, 
+			ACTION_AN_N, Atom.AN_N, 
+			ACTION_AN_O, Atom.AN_O, 
+			ACTION_AN_F, Atom.AN_F, 
+			ACTION_AN_CL, Atom.AN_CL, 
+			ACTION_AN_BR, Atom.AN_BR, 
+			ACTION_AN_I, Atom.AN_I, 
+			ACTION_AN_S, Atom.AN_S, 
+			ACTION_AN_P, Atom.AN_P,
+			ACTION_AN_H, Atom.AN_H, 
+			ACTION_AN_X, Atom.AN_X, 
+			ACTION_AN_R, Atom.AN_R, 
+	};
 
-	// BB
-	// https://en.wikipedia.org/wiki/List_of_oxidation_states_of_the_elements
-	static final int AN_K = 14;
-	static final int AN_METAL1_START = AN_K;
-	static final int AN_Na = 15;
-	static final int AN_Li = 16;
-	static final int AN_Rb = 17;
-	static final int AN_Cs = 18;
-	static final int AN_Fr = 19;
-	static final int AN_Ag = 20;
-	static final int AN_METAL1_END = AN_Ag;
-
-	static final int AN_Mg = AN_METAL1_END + 1;
-	static final int AN_METAL2_START = AN_Mg;
-	static final int AN_Ca = AN_Mg + 1;
-	static final int AN_Ba = AN_Ca + 1;
-	static final int AN_Sr = AN_Ba + 1;;
-	static final int AN_Zn = AN_Sr + 1;
-	static final int AN_Ni = AN_Zn + 1;
-	static final int AN_Cu = AN_Ni + 1;
-	static final int AN_Cd = AN_Cu + 1;
-
-	static final int AN_METAL2_END = AN_Cd;
-
-	static final int AN_METAL3_START = AN_METAL2_END + 1;
-	static final int AN_Al = AN_METAL3_START;
-	static final int AN_Ga = AN_Al + 1;
-	static final int AN_Au = AN_Ga + 1;
-	static final int AN_METAL3_END = AN_Au;
-
-	static final int AN_X = AN_METAL3_END + 1;
-
-	static final int AN_R = AN_X + 1;
-	// static final int AN_R1 = 20;
-	// static final int AN_R2 = 21;
-	// static final int AN_R3 = 22;
-	// added by BB
-	static final int AN_R_LAST = AN_R + 9; // keep the 9! 1 value for each R
-
-	static final int actionToAtomNumberArray[] = { ACTION_AN_C, AN_C, ACTION_AN_N, AN_N, ACTION_AN_O, AN_O, ACTION_AN_F,
-			AN_F, ACTION_AN_CL, AN_CL, ACTION_AN_BR, AN_BR, ACTION_AN_I, AN_I, ACTION_AN_S, AN_S, ACTION_AN_P, AN_P,
-			ACTION_AN_H, AN_H, ACTION_AN_X, AN_X, ACTION_AN_R, AN_R, };
-
-	static final Color color[] = new Color[AN_R_LAST + 1];
-	static final String zlabel[] = new String[AN_R_LAST + 1];
+	static final Color color[] = new Color[Atom.AN_R_LAST + 1];
 
 	// info about last action & undo
 	int lastAction = 0; // trva len po mouse up
@@ -597,11 +550,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	SDFstack sdfStack = new SDFstack();
 
 	int stackPointer = -1;
-	boolean doTags = false; // compatibility with JMEPro
-	final boolean webme = false; // compatibility with JMEPro
+	final static boolean webme = false; // compatibility with JMEPro
 	public int[] apointx, apointy, bpointx, bpointy; // coordinates for webme
 	boolean revertStereo = false; // down stereo bond (only 1 action)
-	boolean relativeStereo = false;
+	//boolean relativeStereo = false; // not implemented
 	// boolean allHs = false;
 	// for key marking 2009.04
 	boolean resetExtendAtomMark = true;
@@ -971,7 +923,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		if (action >= ACTION_AN_R) {
 			int delta = action - ACTION_AN_R;
-			result = AN_R + delta;
+			result = Atom.AN_R + delta;
 		} else {
 			for (int i = 0; i < actionToAtomNumberArray.length; i += 2) {
 				if (actionToAtomNumberArray[i] == action) {
@@ -980,9 +932,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				}
 			}
 			// patch related to determineNumberLeftMenuNumberOfCell
-			if (result == AN_X) {
+			if (result == Atom.AN_X) {
 				if (!options.xButton && options.rButton) { // X button has been removed and replaced by R button
-					result = AN_R;
+					result = Atom.AN_R;
 				}
 			}
 
@@ -1594,14 +1546,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		this.updateReactionRoles();
 
-		smilesPars.stereo = options.stereo;
-		smilesPars.polarnitro = options.polarnitro;
-		// System.err.println("smilesPars.canonize: " +smilesPars.canonize);
-		// System.err.println("# molecules: " + moleculeParts.size());
-		// System.err.println("# atoms: " + moleculeParts.get(0).natoms);
-		smilesPars.canonize = options.canonize;
-
-		String smiles = moleculePartsList.generateSmilesOrSmirks(smilesPars);
+		params.smilesParams.stereo = options.stereo;
+		params.smilesParams.polarnitro = options.polarnitro;
+		params.smilesParams.canonize = options.canonize;
+		String smiles = moleculePartsList.generateSmilesOrSmirks(params);
 
 		return smiles;
 
@@ -2256,7 +2204,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// leave a margin around the molecule
 		double margin = (double) JMEmol.RBOND / 2;
 
-		Box boundingBox = graphicalObjecList.newBoundingBox();
+		Box boundingBox = Graphical2DObject.newBoundingBox(graphicalObjecList);
 		if (boundingBox != null && !boundingBox.isEmpty()) {
 			boundingBox.x -= margin;
 			boundingBox.y -= margin;
@@ -2973,7 +2921,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// move the agent group such that it is aligned with the center of the two other
 			// groups
 			assert (agentGroup != null && agentGroup.size() >= 1); // the agent group contains the arrow
-			agentGroup.move(Axis.Y, agentGroup.centerY() - reactionArrow.centerY());
+			Graphical2DObject.move(agentGroup, Axis.Y, agentGroup.centerY() - reactionArrow.centerY());
 
 			// new June 2017: split the reaction components if needed after the alignment is
 			// done
@@ -3115,6 +3063,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	protected String menuXShortcuts = null;
 
+	private JMEBuilder builder;
+
 	/**
 	 * Specify custom keyboard shortcuts letters for the X menu box. These new
 	 * shortcuts will have a higher priority than predefined shortcuts. For
@@ -3140,8 +3090,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	protected void setRemoveHsC() {
-		this.params.hydrogenHandlingParameters.removeHs = true;
-		this.params.hydrogenHandlingParameters.removeOnlyCHs = true;
+		this.params.hydrogenParams.removeHs = true;
+		this.params.hydrogenParams.removeOnlyCHs = true;
 	}
 
 	// TODO: rdefine in JME2
@@ -3408,106 +3358,31 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				(int) (Math.round(d))));
 	}
 
-	// ----------------------------------------------------------------------------
-
-	// BB
-	// metal like LI, K, Na which can be single cation
-//	public static int isMetal1(int an) {
-//		return an >= AN_METAL1_START && an <= AN_METAL1_END? 1 : 0;
-//	}
-//	//metal like LI, K, Na which can be single cation
-//	public static boolean isMetal2(int an) {
-//		return an >= AN_METAL2_START && an <= AN_METAL2_END;
-//	}
-
-	public static int chargedMetalType(int an) {
-		if (an >= AN_METAL1_START && an <= AN_METAL1_END)
-			return 1; // Na+
-		if (an >= AN_METAL2_START && an <= AN_METAL2_END)
-			return 2; // Ca++
-		if (an >= AN_METAL3_START && an <= AN_METAL3_END)
-			return 3; // Al+++
-
-		return 0;
-	}
 
 	public static void atomicData() {
-		for (int i = 1; i <= AN_R_LAST; i++) {
-			if (chargedMetalType(i) > 0) {
+		for (int i = Atom.AN_METAL1_START; i <= Atom.AN_R_LAST; i++) {
+			if (Atom.chargedMetalType(i) > 0) {
 				color[i] = Color.darkGray;
 			} else {
 				color[i] = Color.orange;
-				zlabel[i] = "X";
 			}
 		}
-		zlabel[AN_H] = "H";
-		color[AN_H] = Color.darkGray;
-		zlabel[AN_B] = "B";
-		color[AN_B] = Color.orange;
-		zlabel[AN_C] = "C";
-		color[AN_C] = Color.darkGray;
-		zlabel[AN_N] = "N";
-		color[AN_N] = Color.blue;
-		zlabel[AN_O] = "O";
-		color[AN_O] = Color.red;
-		zlabel[AN_F] = "F";
-		color[AN_F] = Color.magenta;
-		zlabel[AN_CL] = "Cl";
-		color[AN_CL] = Color.magenta;
-		zlabel[AN_BR] = "Br";
-		color[AN_BR] = Color.magenta;
-		zlabel[AN_I] = "I";
-		color[AN_I] = Color.magenta;
-		zlabel[AN_S] = "S";
-		color[AN_S] = Color.yellow.darker();
-		zlabel[AN_P] = "P";
-		color[AN_P] = Color.orange;
-		zlabel[AN_SI] = "Si";
-		color[AN_SI] = Color.darkGray;
-		zlabel[AN_SE] = "Se";
-		color[AN_SE] = Color.darkGray;
-		zlabel[AN_X] = "X";
-		color[AN_X] = Color.darkGray;
-
-		zlabel[AN_K] = "K";
-		zlabel[AN_Li] = "Li";
-		zlabel[AN_Na] = "Na";
-		zlabel[AN_Rb] = "Rb";
-		zlabel[AN_Cs] = "Cs";
-		zlabel[AN_Fr] = "Fr";
-		zlabel[AN_Ag] = "Ag";
-
-		zlabel[AN_Mg] = "Mg";
-		zlabel[AN_Ca] = "Ca";
-		zlabel[AN_Sr] = "Sr";
-		zlabel[AN_Ba] = "Ba";
-		zlabel[AN_Zn] = "Zn";
-		zlabel[AN_Ni] = "Ni";
-		zlabel[AN_Cu] = "Cu";
-		zlabel[AN_Cd] = "Cd";
-
-		zlabel[AN_Al] = "Al";
-		zlabel[AN_Ga] = "Ga";
-		zlabel[AN_Au] = "Au";
-
-		// BB: replace cases by a loop for the R groups
-		for (int i = AN_R; i <= AN_R_LAST; i++) {
-			String label = "R";
-			if (i > AN_R) {
-				label += i - AN_R;
-			}
-			zlabel[i] = label;
-			color[i] = Color.darkGray;
-		}
-		/*
-		 * zlabel[AN_R] = "R"; color[AN_R] = Color.darkGray; zlabel[AN_R1] = "R1";
-		 * color[AN_R1] = Color.darkGray; zlabel[AN_R2] = "R2"; color[AN_R2] =
-		 * Color.darkGray; zlabel[AN_R3] = "R3"; color[AN_R3] = Color.darkGray;
-		 */
+		color[Atom.AN_H] = Color.darkGray;
+		color[Atom.AN_B] = Color.orange;
+		color[Atom.AN_C] = Color.darkGray;
+		color[Atom.AN_N] = Color.blue;
+		color[Atom.AN_O] = Color.red;
+		color[Atom.AN_F] = Color.magenta;
+		color[Atom.AN_CL] = Color.magenta;
+		color[Atom.AN_BR] = Color.magenta;
+		color[Atom.AN_I] = Color.magenta;
+		color[Atom.AN_S] = Color.yellow.darker();
+		color[Atom.AN_P] = Color.orange;
+		color[Atom.AN_SI] = Color.darkGray;
+		color[Atom.AN_SE] = Color.darkGray;
+		color[Atom.AN_X] = Color.darkGray;
 	}
 
-	// BB : added atomic atomicData initialization , allows to work also in the test
-	// suite
 	static {
 		atomicData();
 	}
@@ -4313,18 +4188,18 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 //			}
 
-			if (active_an == AN_X) {
+			if (active_an == Atom.AN_X) {
 				this.handleAtomXbox();
 			}
 			// BB : handling R group
 			if (pressed >= ACTION_AN_R && pressed <= ACTION_AN_R_LAST) {
-				active_an = AN_R + (pressed - ACTION_AN_R);
+				active_an = Atom.AN_R + (pressed - ACTION_AN_R);
 			}
 
 			// 2009.09 if touchedAtom, changes it
 			if (structureChangePerformed == false && activeMol.touchedAtom > 0) {
 				// BB
-				if (active_an != activeMol.an(activeMol.touchedAtom) && active_an != AN_X) {
+				if (active_an != activeMol.an(activeMol.touchedAtom) && active_an != Atom.AN_X) {
 					activeMol.AN(activeMol.touchedAtom, active_an);
 					activeMol.Q(activeMol.touchedAtom, 0); // resetne naboj
 					// mol.iso[mol.touchedAtom] = 0; //BB: reset isotop
@@ -4341,7 +4216,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					// BB Sept 2015: changed the touched atom but do not change the menu
 					// action = actionOld;
 					structureChangePerformed = true;
-				} else if (active_an == AN_X) {
+				} else if (active_an == Atom.AN_X) {
 					// MultiBox not atomxBox (this is static and always
 					// available,
 					// needed for key press)
@@ -4379,7 +4254,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 				// fusing ring to bond
 				lastAction = LA_RING; // in addRing may be set to 0
-				activeMol.addRing();
+				getBuilder(activeMol).addRing();
 				structureChangePerformed = true;
 				this.recordBondEvent(ADD_RING_BOND);
 			}
@@ -4392,21 +4267,21 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					lastAction = 0; // correction - ohterwise mouse drag will move the end of the new added bond
 									// instead of moving the molecule
 					// mol.preSave();
-					activeMol.addBond();
+					getBuilder(activeMol).addBond();
 					this.recordBondEvent(ADD_BOND);
 					structureChangePerformed = true;
 				} else { // mol.touchedBond > 0
 					// code cpoied from mouseDown DUPLiCATED !!!! TODO
-					int bondType = JMEmol.SINGLE;
+					int bondType = Bond.SINGLE;
 					String eventType = SET_BOND_SINGLE;
 					boolean changed; // BB
 					switch (action) {
 					case ACTION_BOND_DOUBLE:
-						bondType = JMEmol.DOUBLE;
+						bondType = Bond.DOUBLE;
 						eventType = SET_BOND_DOUBLE;
 						break;
 					case ACTION_BOND_TRIPLE:
-						bondType = JMEmol.TRIPLE;
+						bondType = Bond.TRIPLE;
 						eventType = SET_BOND_TRIPLE;
 					}
 					changed = bondType != activeMol.bonds[activeMol.touchedBond].bondType;
@@ -4415,7 +4290,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						this.recordBondEvent(eventType);
 						structureChangePerformed = true;
 						activeMol.bonds[activeMol.touchedBond].stereo = 0; // zrusi stereo
-					} else if (bondType == JMEmol.DOUBLE) {
+					} else if (bondType == Bond.DOUBLE) {
 						// no change but clicked a second time on a double bond with the double bond
 						// tool
 						// change normal double bond into crossed bond or vice versa
@@ -4454,6 +4329,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		// BB
 		return status;
+	}
+
+	private JMEBuilder getBuilder(JMEmol mol) {
+		if (builder == null)
+			builder = new JMEBuilder(this);
+		return builder.set(mol, action);
 	}
 
 	/**
@@ -4989,7 +4870,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		} else { // ypos >=3 (left menu squares)
 			int dan = mapActionToAtomNumber(square, -1);
 			if (dan != -1) {
-				String label = zlabel[dan];
+				String label = Atom.zlabel[dan];
 				Color atomSymbolColor = this.leftMenuAtomColor == null ? color[dan] : this.leftMenuAtomColor;
 
 				squareTextBold(g, xstart, ystart, atomSymbolColor, label);
@@ -5344,7 +5225,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		info(customDefaultInfoText);
 	}
 
-	protected void info(String text) {
+	@Override
+	public void info(String text) {
 		if (text == null)
 			text = customDefaultInfoText;
 		mustReDrawInfo = true;
@@ -5529,7 +5411,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		Point.Double shiftXY = this.findTranslationToCenterAfterScaling(touchedMol, previousAreaSize, newAreaSize);
 
 		if (shiftXY != null) {
-			this.graphicalObjectList().move(shiftXY);
+			Graphical2DObject.move(graphicalObjectList(), shiftXY);
 		}
 		this.setMustRedrawMolecularArea(true);
 
@@ -5767,7 +5649,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				} else if (action == ACTION_BOND_SINGLE || action == ACTION_BOND_DOUBLE || action == ACTION_BOND_TRIPLE
 						|| action == ACTION_STEREO || action == ACTION_CHAIN) {
 					lastAction = LA_BOND; // in addBond may be set to 0
-					activeMol.addBond();
+					getBuilder(activeMol).addBond();
 					activeMol.touched_org = activeMol.touchedAtom;
 
 					if (action == ACTION_CHAIN) {
@@ -5786,7 +5668,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 				} else if (action >= ACTION_RING_3 && action <= ACTION_RING_9) {
 					lastAction = LA_RING; // in addRing may be set to 0
-					activeMol.addRing();
+					getBuilder(activeMol).addRing();
 					this.recordAtomEvent(ADD_RING);
 
 				} else if (action == ACTION_TEMPLATE) {
@@ -5796,7 +5678,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 				} else if (action >= ACTION_GROUP_MIN && action < ACTION_GROUP_MAX) {
 
-					activeMol.addGroup(false);
+					getBuilder(activeMol).addGroup(false);
 					this.recordAtomEvent(ADD_GROUP);
 
 					lastAction = LA_GROUP; // may be set to 0
@@ -5867,7 +5749,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				} else if (action == ACTION_MOVE_AT) {
 					// System.out.println("Move atom started");
 				} else if (action > 300) { // atoms
-					if (active_an != activeMol.an(activeMol.touchedAtom) || active_an == AN_X) {
+					if (active_an != activeMol.an(activeMol.touchedAtom) || active_an == Atom.AN_X) {
 						activeMol.AN(activeMol.touchedAtom, active_an);
 						activeMol.Q(activeMol.touchedAtom, 0); // resetne naboj
 						// mol.iso[mol.touchedAtom] = 0; //BB: reset isotop
@@ -5877,7 +5759,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 						// special processing pre AN_X, osetrene, ze moze byt aj
 						// ""
-						if (active_an == AN_X) {
+						if (active_an == Atom.AN_X) {
 							String xx = MultiBox.atomicSymbol.getText();
 							if (xx.length() < 1)
 								xx = "X";
@@ -5910,17 +5792,17 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					this.recordBondEvent(DEL_BOND_GROUP);
 					activeMol.touchedBond = 0;
 				} else if (action == ACTION_STEREO) {
-					activeMol.stereoBond(activeMol.touchedBond);
+					activeMol.toggleBondStereo(activeMol.touchedBond);
 					this.recordBondEvent(SET_BOND_STEREO);
 				} else if (action == ACTION_BOND_SINGLE || action == ACTION_CHAIN) { // ACTION_CHAIN should be removed?
-					if (activeMol.bonds[activeMol.touchedBond].bondType == JMEmol.SINGLE
+					if (activeMol.bonds[activeMol.touchedBond].bondType == Bond.SINGLE
 							&& activeMol.bonds[activeMol.touchedBond].stereo == 0) {// nie pre
 						// stereo
-						activeMol.bonds[activeMol.touchedBond].bondType = JMEmol.DOUBLE;
+						activeMol.bonds[activeMol.touchedBond].bondType = Bond.DOUBLE;
 						this.recordBondEvent(SET_BOND_DOUBLE);
 
 					} else {
-						activeMol.bonds[activeMol.touchedBond].bondType = JMEmol.SINGLE;
+						activeMol.bonds[activeMol.touchedBond].bondType = Bond.SINGLE;
 						activeMol.bonds[activeMol.touchedBond].stereo = 0; // BB: remove stereo flag - bug fix - was
 																			// creating a
 						// problem with undo/redo
@@ -5930,9 +5812,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					}
 					activeMol.bonds[activeMol.touchedBond].stereo = 0; // zrusi stereo
 				} else if (action == ACTION_BOND_DOUBLE) {
-					boolean differentBondOrder = activeMol.bonds[activeMol.touchedBond].bondType != JMEmol.DOUBLE;
+					boolean differentBondOrder = activeMol.bonds[activeMol.touchedBond].bondType != Bond.DOUBLE;
 
-					activeMol.bonds[activeMol.touchedBond].bondType = JMEmol.DOUBLE;
+					activeMol.bonds[activeMol.touchedBond].bondType = Bond.DOUBLE;
 
 					if (!differentBondOrder) {
 						activeMol.bonds[activeMol.touchedBond].toggleNormalCrossedDoubleBond();
@@ -5944,7 +5826,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					this.recordBondEvent(SET_BOND_DOUBLE);
 
 				} else if (action == ACTION_BOND_TRIPLE) {
-					activeMol.bonds[activeMol.touchedBond].bondType = JMEmol.TRIPLE;
+					activeMol.bonds[activeMol.touchedBond].bondType = Bond.TRIPLE;
 					activeMol.bonds[activeMol.touchedBond].stereo = 0; // zrusi stereo
 					activeMol.cleanAfterChanged(options.polarnitro);
 
@@ -5953,7 +5835,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				} else if (action >= ACTION_RING_3 && action <= ACTION_RING_9) {
 					// fusing ring to bond
 					lastAction = LA_RING; // in addRing may be set to 0
-					activeMol.addRing();
+					getBuilder(activeMol).addRing();
 					this.recordBondEvent(ADD_RING_BOND);
 					activeMol.cleanAfterChanged(options.polarnitro); // FIXME: add to addRing
 
@@ -5961,14 +5843,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					if (!queryBox.isBondQuery())
 						return true;
 					String bondQuery = queryBox.getSmarts();
-					activeMol.bonds[activeMol.touchedBond].bondType = JMEmol.QUERY;
-					// mol.stereob[mol.touchedBond] = JMEmol.QUERY;
+					activeMol.bonds[activeMol.touchedBond].bondType = Bond.QUERY;
+					// mol.stereob[mol.touchedBond] = Bond.QUERY;
 					activeMol.bonds[activeMol.touchedBond].btag = bondQuery;
 					/*
-					 * if ("~".equals(bondQuery)) mol.stereob[mol.touchedBond] = JMEmol.QB_ANY; if
-					 * (":".equals(bondQuery)) mol.stereob[mol.touchedBond] = JMEmol.QB_AROMATIC; if
-					 * ("@".equals(bondQuery)) mol.stereob[mol.touchedBond] = JMEmol.QB_RING; if
-					 * ("!@".equals(bondQuery)) mol.stereob[mol.touchedBond] = JMEmol.QB_NONRING;
+					 * if ("~".equals(bondQuery)) mol.stereob[mol.touchedBond] = Bond.QB_ANY; if
+					 * (":".equals(bondQuery)) mol.stereob[mol.touchedBond] = Bond.QB_AROMATIC; if
+					 * ("@".equals(bondQuery)) mol.stereob[mol.touchedBond] = Bond.QB_RING; if
+					 * ("!@".equals(bondQuery)) mol.stereob[mol.touchedBond] = Bond.QB_NONRING;
 					 */
 
 					this.recordBondEvent(SET_QUERY_BOND);
@@ -6038,7 +5920,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					activeMol.touchedAtom = 1;
 					activeMol.touched_org = 1; // needed for checkNewBond();
 					lastAction = LA_BOND;
-					activeMol.addBond();
+					getBuilder(activeMol).addBond();
 					// orienting chain
 					if (action == ACTION_CHAIN) {
 //						mol.x[2] = x + JMEmol.RBOND * .866;
@@ -6061,7 +5943,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					activeMol.xorg = screenToDrawingX(x);
 					activeMol.yorg = screenToDrawingY(y);
 					lastAction = LA_RING;
-					activeMol.addRing();
+					getBuilder(activeMol).addRing();
 					this.recordAfterStructureChangedEvent(ADD_RING);
 				} else if (action > 300) { // adding 1st atom
 					activeMol.createAtom();
@@ -6072,7 +5954,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //					mol.y[1] = y;
 					XY(activeMol, 1, x, y);
 					activeMol.touchedAtom = 1;
-					if (active_an == AN_X) {
+					if (active_an == Atom.AN_X) {
 						String xx = MultiBox.atomicSymbol.getText();
 						if (xx.length() < 1)
 							xx = "X";
@@ -6095,7 +5977,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 					activeMol.touchedAtom = 1;
 					// adding group
-					activeMol.addGroup(true);
+					getBuilder(activeMol).addGroup(true);
 					this.recordAfterStructureChangedEvent(ADD_GROUP);
 				} else {
 					System.err.println("error -report fall through bug !");
@@ -6545,7 +6427,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (!isOutsideDrawingArea(x, y)) {
 				Rectangle2D.Double boundingBox = this.getMolecularAreaBoundingBoxCoordinate00();
 				// activeMol.move(drawingAreaMoveX, drawingAreaMoveY, boundingBox);
-				activeGraphicalObject.move(drawingAreaMoveX, drawingAreaMoveY, boundingBox);
+				Graphical2DObject.move(activeGraphicalObject, drawingAreaMoveX, drawingAreaMoveY, boundingBox);
 
 				lastAction = LA_MOVE;
 			}
@@ -6938,7 +6820,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				options.xButton = true;
 				info(MultiBox.atomicSymbol.getText());
 				pressed = ACTION_AN_X;
-				active_an = AN_X;
+				active_an = Atom.AN_X;
 				return menuAction(pressed);
 			}
 		}
@@ -6980,7 +6862,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (options.xButton) {
 				info(MultiBox.atomicSymbol.getText());
 				pressed = ACTION_AN_X;
-				active_an = AN_X;
+				active_an = Atom.AN_X;
 			}
 			break;
 
@@ -7245,7 +7127,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// if number between 0 and 9 was entered
 		if (digit_key >= 0 && digit_key <= 9 && activeMol.touchedAtom > 0) {
 			int an = activeMol.an(activeMol.touchedAtom);
-			if (an >= AN_R && an <= AN_R_LAST) {
+			if (an >= Atom.AN_R && an <= Atom.AN_R_LAST) {
 				pressed = ACTION_AN_R + digit_key;
 			}
 		}
@@ -7459,7 +7341,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		} else if (cmd == deleteHydrogensMoleculeAction) {
 
 			// From the user interaction, thus it is not using the settings from options()
-			HydrogenHandlingParameters options = new MoleculeHandlingParameters().hydrogenHandlingParameters;
+			HydrogenParameters options = new MoleculeHandlingParameters().hydrogenParams;
 			options.removeHs = true;
 			options.removeOnlyCHs = false;
 
@@ -9629,8 +9511,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 			// show implicit H
 			if ((o = parseOption("hydrogens")) != null) {
-				if (params.hydrogenHandlingParameters.showHs != o) {
-					params.hydrogenHandlingParameters.showHs = o;
+				if (params.hydrogenParams.showHs != o) {
+					params.hydrogenParams.showHs = o;
 					mustReDrawMolecularArea();
 				}
 			}
@@ -9654,11 +9536,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (parameters.indexOf("keephs") > -1) {
 				// keepHydrogens = true;
 				// removeOnlyCHydrogens = false;
-				params.hydrogenHandlingParameters.removeHs = false;
+				params.hydrogenParams.removeHs = false;
 			}
 			if (parameters.indexOf("removehs") > -1) {
-				params.hydrogenHandlingParameters.removeHs = true;
-				params.hydrogenHandlingParameters.removeOnlyCHs = false;
+				params.hydrogenParams.removeHs = true;
+				params.hydrogenParams.removeOnlyCHs = false;
 			}
 
 			if (parameters.indexOf("removehsc") > -1) {
@@ -9687,7 +9569,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 			if ((o = parseOption("autoez")) != null) {
 				// autoez = optionTest;
-				smilesPars.autoez = o;
+				params.smilesParams.autoez = o;
 			}
 
 			if ((o = parseOption("stereo")) != null)
@@ -10011,7 +9893,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public void dragGestureRecognized(DragGestureEvent dge) {
 		try {
 		MouseEvent e = (MouseEvent) dge.getTriggerEvent();
-		System.out.println(e.getID());
 		if (e.getID() != MouseEvent.MOUSE_PRESSED)
 			return;
 		int x = e.getX();

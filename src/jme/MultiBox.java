@@ -5,14 +5,11 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Desktop;
 import java.awt.Dimension;
-import java.awt.Event;
-import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 
@@ -22,7 +19,6 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
-import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 
 //****************************************************************************
@@ -118,7 +114,7 @@ class MultiBox extends FrameWithLocation {
 		b.add(javax.swing.Box.createRigidArea(new Dimension(10,10)));
 		for (String cl : JME.copyright) {
 			JLabel l = new JLabel(cl);
-			l.setFont(jme.copyRigthSmallTextFont);
+			l.setFont(JME.copyRigthSmallTextFont);
 			b.add(l);
 		}
 		for (int i = 0; i < b.getComponentCount(); i++)
@@ -135,7 +131,7 @@ class MultiBox extends FrameWithLocation {
 			public void actionPerformed(ActionEvent e) {
 				// System.out.println("help");
 				try {
-					URL u = new URL(MultiBox.this.jme.helpUrl);
+					URL u = new URL(JME.helpUrl);
 					showURL(u);
 				} catch (Exception urlException) {
 					System.out.println(urlException.getMessage());
@@ -149,7 +145,7 @@ class MultiBox extends FrameWithLocation {
 			public void actionPerformed(ActionEvent e) {
 				// System.out.println("help");
 				try {
-					URL u = new URL(MultiBox.this.jme.websiteUrl);
+					URL u = new URL(JME.websiteUrl);
 					showURL(u);
 				} catch (Exception urlException) {
 					System.out.println(urlException.getMessage());
@@ -191,7 +187,7 @@ class MultiBox extends FrameWithLocation {
 	// sets smiles in smiles box a aj upravi dlzku
 	// BB: resize does not work
 	void setSmiles(String smiles) {
-		Dimension d = size();
+		Dimension d = getSize();
 		int l = jme.menuCellFontSmallerMet.stringWidth(smiles) + 50;
 		if (l < 150)
 			l = 150;
@@ -200,7 +196,7 @@ class MultiBox extends FrameWithLocation {
 			l = 400;
 
 		validate();
-		this.resize(l, d.height);
+		setSize(l, d.height);
 		smilesText.setText(smiles);
 	}
 
@@ -230,7 +226,7 @@ class MultiBox extends FrameWithLocation {
 		// vracia false, lebo potom by sa nedalo pisat napr v smilesBox
 		if (jme.action != JME.ACTION_AN_X) {
 			jme.action = JME.ACTION_AN_X;
-			jme.active_an = JME.AN_X; // treba
+			jme.active_an = Atom.AN_X; // treba
 		}
 		// JME.repaint(); //can't make static reference ... kvoli ocierneniu X
 		return false; // inak sa nedaju pisat pismena do text boxu

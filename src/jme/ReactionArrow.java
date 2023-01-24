@@ -3,7 +3,7 @@ package jme;
 import java.awt.Color;
 import java.awt.geom.Line2D;
 
-class ReactionArrow extends Graphical2DObject {
+class ReactionArrow implements Graphical2DObject {
 
 	double arrowWidth = 24 * 2;
 	
@@ -34,7 +34,7 @@ class ReactionArrow extends Graphical2DObject {
 	}
 	
 	@Override
-	void draw(PreciseGraphicsAWT og) {
+	public void draw(PreciseGraphicsAWT og) {
 				
 		double m = arrowHeigth() / 2; // hrot sipky
 		og.setColor(Color.magenta);
@@ -61,14 +61,13 @@ class ReactionArrow extends Graphical2DObject {
 	/**
 	 * Absolute positioning
 	 */
-	@Override
 	public void XY(double x, double y) {
 		hasBeenPlaced = true;
 		centerX = x;
 		centerY = y;
 	}
 	@Override
-	protected void moveXY(double moveX, double moveY) {
+	public void moveXY(double moveX, double moveY) {
 		hasBeenPlaced = true;
 		centerX += moveX;
 		centerY += moveY;
@@ -104,18 +103,19 @@ class ReactionArrow extends Graphical2DObject {
 
 	@Override
 	public double closestDistance(double x, double y) {
-		double min = Double.MAX_VALUE;
-		
+		double min = Double.MAX_VALUE;		
 		for(Line2D.Double eachLine : this.lines ) {
 			@SuppressWarnings("static-access")
-			double d = this.closestDistancePointToLine(x, y, eachLine);
-			//System.out.println("Arrow " + x + ":" + y + " d=" + d);
-
+			double d = Graphical2DObject.closestDistancePointToLine(x, y, eachLine);
 			min = Math.min(d, min);
 		}
-		//System.out.println("Arrow " + x + ":" + y + " min=" + min);
-		
 		return min;
+	}
+
+
+	@Override
+	public boolean isEmpty() {
+		return false;
 	}
 
 

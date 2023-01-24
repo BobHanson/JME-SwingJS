@@ -13,7 +13,7 @@ import javax.swing.JPanel;
 @SuppressWarnings("serial")
 class AlertBox extends FrameWithLocation {
 
-	// the source can be the applet.
+	// the source can be the applet
 	public AlertBox(String msg, Component source, Color backgroundColor) {
 		super();
 

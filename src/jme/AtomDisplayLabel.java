@@ -40,7 +40,7 @@ public class AtomDisplayLabel {
 
 		//boolean isCumuleneSP = (nv == 2 && sbo == 4);
 		int padding = 2; // number of pixel of white space surrounding the atom labels
-		noLabelAtom = (an == JME.AN_C && q == 0 && iso == 0 && nv > 0 && (nv != 2 || sbo != 4));
+		noLabelAtom = (an == Atom.AN_C && q == 0 && iso == 0 && nv > 0 && (nv != 2 || sbo != 4));
 
 		// BB better display for OH or o- : the bond will point at the atom symbol "O"
 		// and not at the center of the "OH"

@@ -1,22 +1,29 @@
 package jme;
 
-public class JMESmiles extends JMEmol {
+public class JMESmiles extends JMEcore {
 
-public JMESmiles(JMEmol mol, int part) {
-		super(mol.jme, mol, part, null);
+	/**
+	 * temporary array that holds an atom selection
+	 */
+	private int a[]; 
+	
+	/**
+	 * temporary array that holds bond types
+	 */
+	private int btype[]; 
+
+	private boolean doMark;
+	private boolean isQuery;
+	private boolean autoez;
+
+	private boolean stereo;
+
+	
+
+public JMESmiles(JMEmol mol, int part, boolean isQuery) {
+		super(mol, part);
+		this.isQuery = isQuery;
 	}
-
-	public static class SmilesCreationParameters {
-		
-		public boolean stereo = true ;
-		public boolean canonize = true;
-		public boolean autoez = true;
-		public boolean allHs = false;
-		public boolean star = false;
-		public boolean polarnitro = false;
-
-	}
-
 
 	// ----------------------------------------------------------------------------
 	// ----------------------------------------------------------------------------
@@ -27,14 +34,13 @@ public JMESmiles(JMEmol mol, int part) {
 	 * 
 	 * @return
 	 */
-	String createSmilesWithSideEffect(SmilesCreationParameters pars) {
+	String createSmilesWithSideEffect(MoleculeHandlingParameters mpars) {
 		if (natoms == 0)
 			return "";
-
-		if (pars == null)
-			pars = new SmilesCreationParameters();
-
-		this.smilesParameters = pars;
+		
+		doMark = mpars.mark;
+		autoez = mpars.smilesParams.autoez;
+		stereo = mpars.smilesParams.stereo;
 
 		int[] con1 = new int[natoms + 10]; // well a little bit too much memory
 		int[] con2 = new int[natoms + 10]; // but the code is much cleaner than Vector
@@ -53,21 +59,12 @@ public JMESmiles(JMEmol mol, int part) {
 		// checkMultipart(false); //BB change: do not remove the small parts!!!
 		// varaible a[] is now set
 
-		boolean noQueryBonds = true;
-		for (int b = 1; b <= nbonds; b++) {
-			if (bonds[b].bondType == QUERY || bonds[b].isCoordination()) { // the canonize function goes into an
-																			// infinite loop if there is a coordination
-																			// bond
-				noQueryBonds = false;
-				break;
-			}
-		}
 		// asi to treba takto komplikovane
 		// btype RING_NONAROMATIC sa nepouziva ! (len aromatic)
-		if (smilesParameters.canonize && noQueryBonds) {
-
-			deleteHydrogens(!pars.stereo);
-			cleanPolarBonds(pars.polarnitro);
+		if (mpars.smilesParams.canonize && !haveQueryOrCoordBonds()) {
+			// BH hydrogen deletion is taken care of in JMEmol prior to this
+			deleteHydrogens(!mpars.smilesParams.stereo);
+			cleanPolarBonds(mpars.smilesParams.polarnitro);
 			findRingBonds(bondMinimumRingSize);
 			findAromatic(isAromatic, bondMinimumRingSize); // naplni btype
 			canonize(); // btype[] sa tu znici
@@ -146,7 +143,7 @@ public JMESmiles(JMEmol mol, int part) {
 					for (int i = 1; i <= ncandidates; i++) {
 						int b = bondIdentity(candidate[i], atom); // pozor bondType[], btype[]
 						// if (isDouble(bondType[b]) || bondType[b]==TRIPLE) // !!!
-						if (btype[b] == DOUBLE || btype[b] == TRIPLE) {
+						if (btype[b] == Bond.DOUBLE || btype[b] == Bond.TRIPLE) {
 							atomnew = candidate[i];
 							break;
 						}
@@ -235,7 +232,7 @@ public JMESmiles(JMEmol mol, int part) {
 		// identification of stereo atoms
 		int slashBond[] = new int[nbonds + 1]; // info about / or \ bonds (1,0,or -1)
 		int slimak[] = new int[natoms + 1]; // info about @ or @@ (1,0,or -1)
-		if (smilesParameters.stereo)
+		if (stereo)
 			smilesStereo(aa, parent, slashBond, slimak, bondMinimumRingSize, con1, con2, nconnections);
 
 		// -------- vlastne vytvaranie SMILESu
@@ -245,7 +242,7 @@ public JMESmiles(JMEmol mol, int part) {
 		// 2009.04 reverted, caused problems c1:c:[Ir]:c:c:c:1
 		// uncomment for dqp
 		// for (int i=1;i<=natoms;i++)
-		// if (an[i] == JME.AN_X && !label[i].equals("H")) queryMode = true;
+		// if (an[i] == Atom.AN_X && !label[i].equals("H")) queryMode = true;
 
 		StringBuffer smiles = new StringBuffer("");
 		int ax[] = new int[natoms + 1]; // kvoli connections
@@ -281,16 +278,6 @@ public JMESmiles(JMEmol mol, int part) {
 		return smiles.toString();
 	}
 
-	// used for SMILES generation
-	private boolean deleteHydrogens(boolean keepStereo) {
-		MoleculeHandlingParameters.HydrogenHandlingParameters pars = new MoleculeHandlingParameters().hydrogenHandlingParameters;
-		pars.keepStereoHs = keepStereo;
-		pars.removeHs = true;
-		pars.removeOnlyCHs = false;
-
-		return deleteHydrogens(pars);
-	}
-
 	// ----------------------------------------------------------------------------
 	private void smilesAddAtom(int at, StringBuffer smiles, boolean isAromatic, int slimak[]) {
 		String z = "X";
@@ -301,42 +288,31 @@ public JMESmiles(JMEmol mol, int part) {
 		int an = atom.an;
 
 		boolean bracket = false;
-		// BB isotop
-		// if (q[at] != 0 || iso[at] != 0) bracket = true;
 		if (q != 0 || iso != 0)
 			bracket = true;
 		if (slimak[at] != 0)
 			bracket = true;
 
-		// if the atom is mapped, then a bracket for the atom map number is needed
-		// int unmarked = -999999999 ; //BB
-		// int lmark = unmarked;
-		// for (int i=1;i<=nmarked;i++) if (mark[i][0]==atom) {lmark=mark[i][1];break;}
-		// //if (lmark > -1) bracket = true;
-		// if (lmark != unmarked) bracket = true;
-
 		int map = this.findAtomMapForOutput(at);
-		boolean isMapped = map != 0;
+		boolean isMapped = (map != 0);
 		bracket = bracket || isMapped;
 
-		// if (jme.allHs) bracket = true; // May 2020: jme.allH is never set dynamically
-		// if (jme.star && backgroundColor[atom] > 0) {bracket = true; lmark = 1;}
-		if (moleculeHandlingParameters.mark && atoms[at].backgroundColors[0] > 0) {
+		if (doMark && atoms[at].backgroundColors[0] > 0) {
 			bracket = true;
 		}
 
 		switch (an) {
-		case JME.AN_B:
+		case Atom.AN_B:
 			z = "B";
 			break;
-		case JME.AN_C:
+		case Atom.AN_C:
 			if (isAromatic)
 				z = "c";
 			else
 				z = "C";
 			// tu aromaticitu ???
 			break;
-		case JME.AN_N:
+		case Atom.AN_N:
 			if (isAromatic) {
 				z = "n";
 				if (nh > 0)
@@ -344,13 +320,13 @@ public JMESmiles(JMEmol mol, int part) {
 			} else
 				z = "N";
 			break;
-		case JME.AN_O:
+		case Atom.AN_O:
 			if (isAromatic)
 				z = "o";
 			else
 				z = "O";
 			break;
-		case JME.AN_P:
+		case Atom.AN_P:
 			if (isAromatic) {
 				z = "p";
 				if (nh > 0)
@@ -358,45 +334,45 @@ public JMESmiles(JMEmol mol, int part) {
 			} else
 				z = "P";
 			break;
-		case JME.AN_S:
+		case Atom.AN_S:
 			if (isAromatic)
 				z = "s";
 			else
 				z = "S";
 			break;
-		case JME.AN_SE:
+		case Atom.AN_SE:
 			if (isAromatic)
 				z = "se";
 			else
 				z = "Se";
 			bracket = true;
 			break;
-		case JME.AN_SI:
+		case Atom.AN_SI:
 			z = "Si";
 			bracket = true;
 			break;
-		case JME.AN_F:
+		case Atom.AN_F:
 			z = "F";
 			break;
-		case JME.AN_CL:
+		case Atom.AN_CL:
 			z = "Cl";
 			break;
-		case JME.AN_BR:
+		case Atom.AN_BR:
 			z = "Br";
 			break;
-		case JME.AN_I:
+		case Atom.AN_I:
 			z = "I";
 			break;
-		case JME.AN_H:
+		case Atom.AN_H:
 			z = "H";
 			bracket = true;
 			break;
 		// BB: remove R
-		// case JME.AN_R: z = "R"; bracket = true; break;
-		// case JME.AN_R1: z = "R1"; bracket = true; break;
-		// case JME.AN_R2: z = "R2"; bracket = true; break;
-		// case JME.AN_R3: z = "R3"; bracket = true; break;
-		case JME.AN_X:
+		// case Atom.AN_R: z = "R"; bracket = true; break;
+		// case Atom.AN_R1: z = "R1"; bracket = true; break;
+		// case Atom.AN_R2: z = "R2"; bracket = true; break;
+		// case Atom.AN_R3: z = "R3"; bracket = true; break;
+		case Atom.AN_X:
 			bracket = true;
 			z = atoms[at].label;
 
@@ -415,13 +391,13 @@ public JMESmiles(JMEmol mol, int part) {
 			break;
 		}
 
-		if (JME.chargedMetalType(an) > 0) {
-			z = JME.zlabel[an];
+		if (Atom.chargedMetalType(an) > 0) {
+			z = Atom.zlabel[an];
 			bracket = true;
 		}
-		if (an >= JME.AN_R && an <= JME.AN_R_LAST) {
+		if (an >= Atom.AN_R && an <= Atom.AN_R_LAST) {
 			bracket = true;
-			z = JME.zlabel[an]; // R, R1, R2, ...
+			z = Atom.zlabel[an]; // R, R1, R2, ...
 
 		}
 		if (bracket) {
@@ -472,7 +448,7 @@ public JMESmiles(JMEmol mol, int part) {
 		// what is the difference between btype[b] and bonds[b].bondType ?
 		// btype is computed locally and contains information about aromaticity
 		// idea: for the bond type, use bits inside an int: type & AROMATIC
-		if (btype[b] != AROMATIC && bond.isDouble())
+		if (btype[b] != Bond.AROMATIC && bond.isDouble())
 			smiles.append("=");
 		else if (bond.isTriple())
 			smiles.append("#");
@@ -488,7 +464,7 @@ public JMESmiles(JMEmol mol, int part) {
 			if (o != null)
 				z = (String) o;
 			smiles.append(z);
-		} else if (btype[b] == AROMATIC && queryMode)
+		} else if (btype[b] == Bond.AROMATIC && queryMode)
 			smiles.append(":");
 		else if (bond.isCoordination())
 			smiles.append("~"); // May 2017 stwereo is not encoded in the coordination
@@ -544,11 +520,11 @@ public JMESmiles(JMEmol mol, int part) {
 			int nstereo = 0, doubleBonded = 0;
 			for (int neighbor = 1; neighbor <= nv(at); neighbor++) {
 				int bi = bondIdentity(at, v(at)[neighbor]);
-				if (btype[bi] == AROMATIC)
+				if (btype[bi] == Bond.AROMATIC)
 					continue atom_loop;
-				if (bonds[bi].bondType == SINGLE && upDownBond(bonds[bi], at) != 0)
+				if (bonds[bi].bondType == Bond.SINGLE && upDownBond(bonds[bi], at) != 0)
 					nstereo++;
-				if (bonds[bi].bondType == DOUBLE)
+				if (bonds[bi].bondType == Bond.DOUBLE)
 					doubleBonded = v(at)[neighbor];
 			}
 			if (nstereo == 0)
@@ -598,7 +574,7 @@ public JMESmiles(JMEmol mol, int part) {
 		int stereoRef = 0; // ci t[0] je up || down
 		if (atoms[atom].nv == 3) {
 			if ((nup == 1 && ndown == 1) || (nstereo == 3 && nup > 0 && ndown > 0)) {
-				jme.info("Error in C3H stereospecification !");
+				info("Error in C3H stereospecification !");
 				return;
 			}
 			int refAtom = ref[0];
@@ -645,7 +621,7 @@ public JMESmiles(JMEmol mol, int part) {
 
 				if (nstereo == 4) {
 					if (nup == 0 || ndown == 0) {
-						jme.info("Error in C4 stereospecification !");
+						info("Error in C4 stereospecification !");
 						return;
 					} else if (nup == 1 || ndown == 1) { // 3/1 ta 1 je stereoRef
 						t[0] = ox[0];
@@ -703,7 +679,7 @@ public JMESmiles(JMEmol mol, int part) {
 					} else {
 						// zistuje, ci markovane nie su vedla seba (to nesmie byt)
 						if ((box[0] == box[1]) || (box[1] == box[2])) {
-							jme.info("Error in C4 stereospecification ! 2/0r");
+							info("Error in C4 stereospecification ! 2/0r");
 							return;
 						}
 						if (box[0] != 0) {
@@ -726,14 +702,14 @@ public JMESmiles(JMEmol mol, int part) {
 			}
 		}
 
-		JMEUtil.stereoTransformation(t, ref);
+		stereoTransformation(t, ref);
 
 		if (t[2] == ref[2])
 			slimak[atom] = 1;
 		else if (t[2] == ref[3])
 			slimak[atom] = -1;
 		else
-			jme.info("Error in stereoprocessing ! - t30");
+			info("Error in stereoprocessing ! - t30");
 
 		slimak[atom] *= stereoRef;
 	}
@@ -1031,7 +1007,7 @@ public JMESmiles(JMEmol mol, int part) {
 		for (int j = 1, n = 0; j <= nv(atom1); j++) {
 			int atomx = v(atom1)[j];
 			int bi = bondIdentity(atom1, atomx);
-			if (bondType(bi) == DOUBLE)
+			if (bondType(bi) == Bond.DOUBLE)
 				continue;
 			neighbors[n++] = atomx;
 		}
@@ -1053,7 +1029,7 @@ public JMESmiles(JMEmol mol, int part) {
 		// than 2
 
 		// int bondType = this.bonds[bond].bondType;
-		if (bondType(bond) != DOUBLE || btype[bond] == AROMATIC)
+		if (bondType(bond) != Bond.DOUBLE || btype[bond] == Bond.AROMATIC)
 			return;
 
 		// minimum ring size for having bond that can be either trans or cis in a ring
@@ -1061,13 +1037,11 @@ public JMESmiles(JMEmol mol, int part) {
 			return;
 		// bondMinimumRingSize[bond] means no ring
 
-		// if (!(bonds[bond].stereo==EZ || (jme.autoez && !isRingBond[bond])))
-		// return;
-		if (!(bonds[bond].stereo == EZ || this.smilesParameters.autoez))
+		if (!(bonds[bond].stereo == Bond.STEREO_EZ || autoez))
 			return; // BB October 2016: stereo for large rings is missing
 
 		// BB Feb 2017
-		if (bonds[bond].stereo == EZ)
+		if (bonds[bond].stereo == Bond.STEREO_EZ)
 			return;
 
 		int atom1 = bonds[bond].va, atom2 = bonds[bond].vb;
@@ -1139,14 +1113,14 @@ public JMESmiles(JMEmol mol, int part) {
 		int bi = bondIdentity(atom1, ref11);
 		if (slashBond[bi] != 0) {
 			ref1 = ref11;
-		} else if (bondType(bi) == SINGLE && btype[bi] != AROMATIC)
+		} else if (bondType(bi) == Bond.SINGLE && btype[bi] != Bond.AROMATIC)
 			ref1 = ref11;
 
 		if (ref1 == 0 && ref12 > 0) { // BB added ref12>0
 			bi = bondIdentity(atom1, ref12);
 			if (slashBond[bi] != 0)
 				ref1 = ref12;
-			else if (bondType(bi) == SINGLE && btype[bi] != AROMATIC)
+			else if (bondType(bi) == Bond.SINGLE && btype[bi] != Bond.AROMATIC)
 				ref1 = ref12;
 		}
 		if (ax[ref1] > ax[atom1])
@@ -1181,11 +1155,11 @@ public JMESmiles(JMEmol mol, int part) {
 			ref22 = d;
 		}
 		bi = bondIdentity(atom2, ref21);
-		if (bondType(bi) == SINGLE && btype[bi] != AROMATIC && slashBond[bi] == 0)
+		if (bondType(bi) == Bond.SINGLE && btype[bi] != Bond.AROMATIC && slashBond[bi] == 0)
 			ref2 = ref21;
 		if (ref2 == 0 && ref22 > 0) { // BB added ref22>0
 			bi = bondIdentity(atom2, ref22);
-			if (bondType(bi) == SINGLE && btype[bi] != AROMATIC)
+			if (bondType(bi) == Bond.SINGLE && btype[bi] != Bond.AROMATIC)
 				ref2 = ref22; // ref2x netreba
 		}
 
@@ -1202,7 +1176,7 @@ public JMESmiles(JMEmol mol, int part) {
 		double y1 = (y(ref1) - y(atom1)) * cosa - (x(ref1) - x(atom1)) * sina;
 		double y2 = (y(ref2) - y(atom1)) * cosa - (x(ref2) - x(atom1)) * sina;
 		if (Math.abs(y1) < 2 || Math.abs(y2) < 2) {
-			jme.info("Not unique E/Z geometry !");
+			info("Not unique E/Z geometry !");
 			return;
 		}
 		int b1 = bondIdentity(ref1, atom1);
@@ -1246,15 +1220,15 @@ public JMESmiles(JMEmol mol, int part) {
 		// ci ide hore 1, dolu -1, alebo nie je stereo
 		// pri UP a DOWN je hrot na va[bond], pri XUP a XDOWN na vb[bond]
 		int sb = bond.stereo;
-		if (sb < 1 || sb > 4)
+		if (sb == Bond.STEREO_NONE || sb > Bond.STEREO_LAST_KNOWN)
 			return 0;
-		if (sb == UP && bond.va == atom)
+		if (sb == Bond.STEREO_UP && bond.va == atom)
 			return 1;
-		if (sb == DOWN && bond.va == atom)
+		if (sb == Bond.STEREO_DOWN && bond.va == atom)
 			return -1;
-		if (sb == XUP && bond.vb == atom)
+		if (sb == Bond.STEREO_XUP && bond.vb == atom)
 			return 1;
-		if (sb == XDOWN && bond.vb == atom)
+		if (sb == Bond.STEREO_XDOWN && bond.vb == atom)
 			return -1;
 		return 0;
 	}
@@ -1285,7 +1259,7 @@ public JMESmiles(JMEmol mol, int part) {
 					continue NEIGHBOR_LOOP;
 
 				int bi = bondIdentity(currentCumuleneAtom, atomx);
-				if (bonds[bi].bondType == DOUBLE && btype[bi] != AROMATIC) {
+				if (bonds[bi].bondType == Bond.DOUBLE && btype[bi] != Bond.AROMATIC) {
 					cumuleneAtoms[++numberCumuleneAtoms] = atomx;
 					currentCumuleneAtom = atomx;
 					continue FIND_CUMULENE_ATOM;
@@ -1389,7 +1363,7 @@ public JMESmiles(JMEmol mol, int part) {
 		int ref22x = ref22 > 0 ? upDownBond(bonds[bondIdentity(end, ref22)], end) : 0;
 
 		if (Math.abs(ref11x + ref12x) > 1 || ref21x != 0 || ref22x != 0) {
-			jme.info("Bad stereoinfo on allene !");
+			info("Bad stereoinfo on allene !");
 			return;
 		}
 
@@ -1422,12 +1396,12 @@ public JMESmiles(JMEmol mol, int part) {
 			slimak[center] *= -1;
 	}
 
-	public static String getSmiles(JMEmol deepCopy, SmilesCreationParameters pars) {
+	public static String getSmiles(JMEmol deepCopy, MoleculeHandlingParameters pars, boolean isQuery) {
 		// from now on, coordination bonds will be shown with "~"
 		int nparts = deepCopy.computeMultiPartIndices();
 		JMESmiles[] parts = new JMESmiles[nparts];
 		for (int part = 1; part <= nparts; part++) {
-			parts[part - 1] = new JMESmiles(deepCopy, part);
+			parts[part - 1] = new JMESmiles(deepCopy, part, isQuery);
 			// new implementation that uses the internal
 			// partIndex variable
 		}
@@ -1441,11 +1415,510 @@ public JMESmiles(JMEmol mol, int part) {
 			parts[p] = null;
 		}
 		return result;
+	}	
+
+	public void findRingBonds(int sizes[]) {
+		for (int i = 1; i <= nbonds; i++) {
+			sizes[i] = minimumRingSize(bonds[i]);
+		}
+	}
+
+	boolean isInRing(int atom, int minBondRingSizes[]) {
+		for (int i = 1; i <= nv(atom); i++) {
+			if (minBondRingSizes[bondIdentity(atom, v(atom)[i])] > 0)
+				return true;
+		}
+		return false;
+	}
+
+	// ----------------------------------------------------------------------------
+	void findAromatic(boolean isAromatic[], int minBondRingSizes[]) {
+		// two pass
+
+		btype = new int[nbonds + 1];
+		boolean pa[] = new boolean[natoms + 1]; // possible aromatic
+
+		for (int i = 1; i <= natoms; i++) {
+			pa[i] = false;
+			isAromatic[i] = false;
+			if (!isInRing(i, minBondRingSizes))
+				continue;
+			// if (nv(i)+nh[i]>3) continue; // >X< nemoze byt aromaticky (ako s nabojmi?)
+			if (nv(i) + atoms[i].nh > 3)
+				continue; // >X< nemoze byt aromaticky (ako s nabojmi?)
+			switch (an(i)) {
+			case Atom.AN_C:
+			case Atom.AN_N:
+			case Atom.AN_P:
+			case Atom.AN_O:
+			case Atom.AN_S:
+			case Atom.AN_SE:
+				pa[i] = true;
+				break;
+			case Atom.AN_X:
+				// 2013.09
+				if (atoms[i].label.startsWith("A"))
+					pa[i] = false;
+				else
+					pa[i] = true;
+				break;
+			}
+
+		}
+
+		// 2013.09
+		if (isQuery)
+			doRingQueryCheck(isAromatic, minBondRingSizes);
+
+		// 2. prechod, ide po ring vazbach a cekuje, zaroven plni aj btype[]
+		// ignoruje stereo !!!
+		for (int b = 1; b <= nbonds; b++) {
+			if (isSingle(b))
+				btype[b] = Bond.SINGLE;
+			else if (isDouble(b))
+				btype[b] = Bond.DOUBLE;
+			else if (bonds[b].bondType == Bond.TRIPLE)
+				btype[b] = Bond.TRIPLE;
+			else
+				System.err.println("problems in findAromatic " + bonds[b].bondType);
+		}
+		bondloop: for (int b = 1; b <= nbonds; b++) {
+			if (minBondRingSizes[b] == 0)
+				continue;
+			int atom1 = bonds[b].va;
+			int atom2 = bonds[b].vb;
+			if (!pa[atom1] || !pa[atom2])
+				continue;
+
+			// loop cez molekulu len po pa[] atomoch
+			boolean a[] = new boolean[natoms + 1]; // plni na false
+			for (int i = 1; i <= nv(atom1); i++) {
+				int atom = v(atom1)[i];
+				if (atom != atom2 && pa[atom])
+					a[atom] = true;
+			}
+
+			boolean ok = false;
+			while (true) {
+				for (int i = 1; i <= natoms; i++) {
+					ok = false;
+					if (a[i] && pa[i] && i != atom1) {
+						for (int j = 1; j <= nv(i); j++) {
+							int atom = v(i)[j];
+							if (atom == atom2) { // bond b je v aromatickom kruhu
+								isAromatic[atom1] = true;
+								isAromatic[atom2] = true;
+								btype[b] = Bond.AROMATIC;
+								continue bondloop;
+							}
+							if (!a[atom] && pa[atom]) {
+								a[atom] = true;
+								ok = true;
+							}
+						}
+					}
+					if (ok)
+						break;
+				}
+				if (!ok)
+					break;
+			}
+
+		} // --- bondloop
+
+	}
+
+	// ----------------------------------------------------------------------------
+	// new in 2013.09
+	void doRingQueryCheck(boolean isAromatic[], int minBondRingSizes[]) {
+		// check ring smarts
+		// non-query ring atom should change from O,N,S,o,n,s to X #8,#7,#16
+		// check whether there are some query atoms in rings
+		boolean ra[] = new boolean[natoms + 1]; // ring atoms
+		boolean doCheck = false;
+		for (int b = 1; b <= nbonds; b++) {
+			int atom1 = bonds[b].va;
+			int atom2 = bonds[b].vb;
+			ra[atom1] = true;
+			ra[atom2] = true;
+			if (an(atom1) == Atom.AN_X || an(atom2) == Atom.AN_X)
+				doCheck = true;
+		}
+		if (!doCheck)
+			return; // no query atoms in rings
+
+		bondloop1: for (int b = 1; b <= nbonds; b++) {
+			if (minBondRingSizes[b] == 0)
+				continue;
+			int atom1 = bonds[b].va;
+			int atom2 = bonds[b].vb;
+			boolean a[] = new boolean[natoms + 1]; // tracking
+			for (int i = 1; i <= nv(atom1); i++) {
+				int atom = v(atom1)[i];
+				if (atom != atom2 && ra[atom])
+					a[atom] = true;
+			}
+
+			boolean ok = false;
+			while (true) {
+				for (int i = 1; i <= natoms; i++) {
+					ok = false;
+					if (a[i] && ra[i] && i != atom1) {
+						for (int j = 1; j <= nv(i); j++) {
+							int atom = v(i)[j];
+							if (atom == atom2) { // bond b je v aromatickom kruhu
+
+								for (int k = 1; k <= natoms; k++) {
+									if (!a[k])
+										continue;
+									if (an(k) == Atom.AN_O) {
+										AN(k, Atom.AN_X);
+										atoms[k].label=  "#8";
+									}
+									if (an(k) == Atom.AN_N) {
+										AN(k, Atom.AN_X);
+										atoms[k].label= "#7";
+									}
+									if (an(k) == Atom.AN_S) {
+										AN(k, Atom.AN_X);
+										atoms[k].label= "#16";
+									}
+								}
+
+								continue bondloop1;
+							}
+							if (!a[atom] && ra[atom]) {
+								a[atom] = true;
+								ok = true;
+							}
+						}
+					}
+					if (ok)
+						break;
+				}
+				if (!ok)
+					break;
+			}
+
+		} // --- bondloop1 end
+	}
+
+	void canonize() {
+		// #1 atom will be simplest
+		boolean ok;
+		int a[] = new int[natoms + 1]; // current ranking
+		int aold[] = new int[natoms + 1];
+		long d[] = new long[natoms + 1];
+		// primes
+		long prime[] = new long[natoms + 2]; // +2 primes return minimum 2 values
+		prime = JMESmiles.generatePrimes(natoms);
+
+		// seeds
+		for (int i = 1; i <= natoms; i++) {
+			Atom atom = this.atoms[i];
+			int xbo = 1; // product of bond orders
+			for (int j = 1; j <= nbonds; j++) { // efektivnejsie ako s bond identity
+				if (bonds[j].va == i || bonds[j].vb == i) {
+					xbo *= btype[j]; // 1,2,3 alebo 5 (AROMATIC)
+				}
+			}
+			int xan = an(i);
+			if (xan == Atom.AN_X) {
+				String zlabel = atoms[i].label;
+				// nekanonizuje query, ale to nevadi
+				if (zlabel != null && zlabel.length() > 0) { // BB avoid String index out of range: 0
+					int c1 = zlabel.charAt(0) - 'A' + 1; // +1 aby sa nekrylo z h.AN
+					int c2 = 0;
+					if (zlabel.length() > 1)
+						c2 = zlabel.charAt(1) - 'a';
+					if (c1 < 0)
+						c1 = 0;
+					if (c2 < 0)
+						c2 = 0; // pre qry - zostava visiet pri #
+					xan = c1 * 28 + c2;
+				}
+			}
+			int qq = 0;
+			if (q(i) != 0) { // most of the time charge is 0
+				if (q(i) < -2)
+					qq = 1;
+				else if (q(i) == -2)
+					qq = 2;
+				else if (q(i) == -1)
+					qq = 3;
+				else if (q(i) == 1)
+					qq = 4;
+				else if (q(i) == 2)
+					qq = 5;
+				else if (q(i) > 2)
+					qq = 6;
+			}
+			// BB
+			int deltaIso = 0;
+			// if(iso[i] != 0) {
+			if (atom.iso != 0) {
+				// deltaIso = AtomicElements.getDeltaIsotopicMassOfElement(this.getAtomLabel(i),
+				// iso[i]);
+				deltaIso = AtomicElements.getDeltaIsotopicMassOfElement(getAtomLabel(i), atom.iso);
+				// what should happen if deltaIso < 0?
+				if (deltaIso < 0) {
+					deltaIso = 10 - deltaIso; // never tested
+				}
+			}
+
+			// (x musi byt maximum+1)
+			int xx = 126;
+			int dFactor = xbo;
+			dFactor += atoms[i].nh * xx;
+			xx *= 7;
+			dFactor += qq * xx;
+			xx *= 7;
+			if (deltaIso != 0) // keep the exact previous behavior if not isotop because I am not sure of side
+								// effects
+				dFactor += deltaIso * xx;
+			xx *= 7; // BB not sure this is correct
+			dFactor += xan * xx;
+			xx *= 783; // 27*28+26+1
+			dFactor += nv(i) * xx;
+
+			d[i] = dFactor;
+		}
+
+		int breaklevel = 0;
+		while (true) {
+			// sorting
+			if (canonsort(a, d))
+				break;
+			// comparing with aold[]
+			ok = false;
+			for (int i = 1; i <= natoms; i++)
+				if (a[i] != aold[i]) {
+					aold[i] = a[i];
+					ok = true;
+				}
+
+			if (ok) { // cize ci sa pohlo dopredu
+				for (int i = 1; i <= natoms; i++) {
+					d[i] = 1;
+					for (int j = 1; j <= nv(i); j++)
+						d[i] *= prime[a[v(i)[j]]];
+				}
+				breaklevel = 0;
+			} else { // musi break degeneraciu
+				if (breaklevel > 0) { // just random breaking
+					for (int i = 1; i <= natoms; i++)
+						d[i] = 1;
+					bd: for (int i = 1; i <= natoms - 1; i++)
+						for (int j = i + 1; j <= natoms; j++)
+							if (a[i] == a[j]) {
+								d[i] = 2;
+								break bd;
+							}
+				} else { // skusa inteligente
+					for (int i = 1; i <= natoms; i++) {
+						d[i] = 1;
+						// co E,Z,stereovazby, je to OK ???
+						for (int j = 1; j <= nv(i); j++) {
+							int atom = v(i)[j];
+							d[i] *= an(atom) * btype[bondIdentity(i, atom)];
+						}
+					}
+					breaklevel = 1;
+				}
+			}
+			canonsort(a, d);
+			for (int i = 1; i <= natoms; i++)
+				d[i] = aold[i] * natoms + a[i];
+		}
+
+		// reordering atoms podla a[]
+		for (int i = 1; i <= natoms; i++)
+			aold[i] = a[i];
+		// [0] used as a swap space
+		for (int s = 1; s <= natoms; s++) {
+			for (int i = 1; i <= natoms; i++) {
+				if (aold[i] == s) { // changes s and i
+					JMEUtil.swap(this.atoms, i, s);
+					aold[i] = aold[s];
+					aold[s] = s;
+					break;
+				}
+			}
+		}
+
+		// marked atoms
+		// for (int i=1;i<=nmarked;i++) mark[i][0] = a[mark[i][0]]; //mark[][1] zostane
+		// System.out.println("mrk1 "+mark[1][0]+" "+mark[2][0]+" "+mark[3][0]);
+
+		// canonization of bonds (pozor na stereo !)
+		for (int i = 1; i <= nbonds; i++) {
+			bonds[i].va = a[bonds[i].va];
+			bonds[i].vb = a[bonds[i].vb];
+			if (bonds[i].va > bonds[i].vb) {
+				int du = bonds[i].va;
+				bonds[i].va = bonds[i].vb;
+				bonds[i].vb = du;
+				if (bonds[i].stereo == Bond.STEREO_UP)
+					bonds[i].stereo = Bond.STEREO_XUP;
+				else if (bonds[i].stereo == Bond.STEREO_DOWN)
+					bonds[i].stereo = Bond.STEREO_XDOWN;
+				else if (bonds[i].stereo == Bond.STEREO_XUP)
+					bonds[i].stereo = Bond.STEREO_UP;
+				else if (bonds[i].stereo == Bond.STEREO_XDOWN)
+					bonds[i].stereo = Bond.STEREO_DOWN;
+			}
+		}
+
+		// sorting bonds according to va & vb
+		// ez ????
+		for (int i = 1; i < nbonds; i++) {
+			int minva = natoms;
+			int minvb = natoms;
+			int b = 0;
+			for (int j = i; j <= nbonds; j++) {
+				if (bonds[j].va < minva) {
+					minva = bonds[j].va;
+					minvb = bonds[j].vb;
+					b = j;
+				} else if (bonds[j].va == minva && bonds[j].vb < minvb) {
+					minvb = bonds[j].vb;
+					b = j;
+				}
+			}
+			JMEUtil.swap(this.bonds, i, b);
+		}
+		complete(this.moleculeHandlingParameters.computeValenceState);
+
+	}
+
+	// ----------------------------------------------------------------------------
+	boolean canonsort(int a[], long d[]) {
+		// v d[] su podla coho sa triedi, vysledok do a[] (1 1 1 2 3 3 ...)
+		// pozor ! d[] nesmie byt 0
+		// returns true ak nth = natoms (cize ziadna degeneracia)
+		long min = 0;
+		int nth = 0;
+		int ndone = 0;
+		while (true) {
+			nth++;
+			for (int i = 1; i <= natoms; i++)
+				if (d[i] > 0) {
+					min = d[i];
+					break;
+				}
+			for (int i = 1; i <= natoms; i++)
+				if (d[i] > 0 && d[i] < min)
+					min = d[i];
+			for (int i = 1; i <= natoms; i++)
+				if (d[i] == min) {
+					a[i] = nth;
+					d[i] = 0;
+					ndone++;
+				}
+			if (ndone == natoms)
+				break;
+		}
+		if (nth == natoms)
+			return true;
+		else
+			return false;
+	}
+
+	// used for SMILES generation
+	boolean deleteHydrogens(boolean keepStereo) {
+		MoleculeHandlingParameters.HydrogenParameters pars = new MoleculeHandlingParameters().hydrogenParams;
+		pars.keepStereoHs = keepStereo;
+		pars.removeHs = true;
+		pars.removeOnlyCHs = false;
+		return deleteHydrogens(pars);
+	}
+
+	// ----------------------------------------------------------------------------
+	public static long[] generatePrimes(int n) {
+		/*
+	Prime Number Generator
+	code by Mark Chamness (modified slightly by Peter Ertl)
+	This subroutine calculates first n prime numbers (starting with 2)
+	It stores the first 100 primes it generates. Then it evaluates the rest
+	based on those up to prime[100] squared
+		 */
+		int npn;
+		long[] pn = new long[n+2];
+		int[] prime = new int[100];
+		int test=5, index=0;
+		int num=0;
+		boolean check=true;
+		prime[0]=3;
+		pn[1] = 2; pn[2] = 3; npn=2;
+		if (n<3) return pn; // very rear case
+		while(test<(prime[num]*prime[num])) {
+			index=0; check=true;
+			while(check==true && index<=num && test>=(prime[index]*prime[index])) {
+				if(test%prime[index] == 0)  check=false;
+				else index++;
+			}
+			if(check==true) {
+				pn[++npn] = test;
+				if (npn >= n) return pn;
+				if(num<(prime.length-1)) {
+					num++;
+					prime[num]=test;
+				}
+			}
+			test+=2;
+		}
+		System.err.println("ERROR - Prime Number generator failed !");
+		return pn;
+	}
+
+	public static void stereoTransformation(int t[], int ref[]) {
+		// System.out.println(t[0]+" "+t[1]+" "+t[2]+" "+t[3]+" --- ");
+		int d = 0;
+		if (ref[0] == t[1]) // 0,1 2,3
+		{
+			d = t[0];
+			t[0] = t[1];
+			t[1] = d;
+			d = t[2];
+			t[2] = t[3];
+			t[3] = d;
+		} else if (ref[0] == t[2]) // 0,2 1,3
+		{
+			d = t[2];
+			t[2] = t[0];
+			t[0] = d;
+			d = t[1];
+			t[1] = t[3];
+			t[3] = d;
+		} else if (ref[0] == t[3]) // 0,3 1,2
+		{
+			d = t[3];
+			t[3] = t[0];
+			t[0] = d;
+			d = t[1];
+			t[1] = t[2];
+			t[2] = d;
+		}
+	
+		if (ref[1] == t[2]) // 1,2 2,3
+		{
+			d = t[1];
+			t[1] = t[2];
+			t[2] = d;
+			d = t[2];
+			t[2] = t[3];
+			t[3] = d;
+		} else if (ref[1] == t[3]) // 1,3 2,3
+		{
+			d = t[1];
+			t[1] = t[3];
+			t[3] = d;
+			d = t[2];
+			t[2] = t[3];
+			t[3] = d;
+		}
 	}
 
 
 
-	
-	
-	
 }

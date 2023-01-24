@@ -17,7 +17,6 @@ public abstract class JMEUtil {
 	public static int[] growArray(int[] array, int newSize) {
 		int newArray[] = new int[newSize];
 		System.arraycopy(array, 0, newArray, 0, array.length);
-
 		return newArray;
 	}
 
@@ -25,21 +24,9 @@ public abstract class JMEUtil {
 	public static int[] copyArray(int[] array) {
 		int copy[] = new int[array.length];
 		System.arraycopy(array, 0, copy, 0, array.length);
-
 		return copy;
-
 	}
 
-	public static <T> T[] growArray(T[] array, int newSize) {
-		assert (newSize >= array.length);
-		// the new array is made of null
-		// T newArray[] = (T[])new Object[newSize]; //Cannot create a generic array of T
-		// . Java is a crappy programming language
-		T[] newArray = copyOf(array, newSize);
-		// System.arraycopy(array,0,newArray,0,array.length);
-
-		return newArray;
-	}
 // Cloning
 
 	/**
@@ -206,11 +193,6 @@ public abstract class JMEUtil {
 	 */
 	public static class GWT {
 
-		public static boolean isScript() {
-			// TODO Auto-generated method stub
-			return false;
-		}
-
 		public static void log(String string) {
 			// TODO Auto-generated method stub
 
@@ -287,44 +269,6 @@ public abstract class JMEUtil {
 	
 		runAsyncCallback.onSuccess();
 	
-	}
-
-	// ----------------------------------------------------------------------------
-	public static long[] generatePrimes(int n) {
-		/*
-	Prime Number Generator
-	code by Mark Chamness (modified slightly by Peter Ertl)
-	This subroutine calculates first n prime numbers (starting with 2)
-	It stores the first 100 primes it generates. Then it evaluates the rest
-	based on those up to prime[100] squared
-		 */
-		int npn;
-		long[] pn = new long[n+2];
-		int[] prime = new int[100];
-		int test=5, index=0;
-		int num=0;
-		boolean check=true;
-		prime[0]=3;
-		pn[1] = 2; pn[2] = 3; npn=2;
-		if (n<3) return pn; // very rear case
-		while(test<(prime[num]*prime[num])) {
-			index=0; check=true;
-			while(check==true && index<=num && test>=(prime[index]*prime[index])) {
-				if(test%prime[index] == 0)  check=false;
-				else index++;
-			}
-			if(check==true) {
-				pn[++npn] = test;
-				if (npn >= n) return pn;
-				if(num<(prime.length-1)) {
-					num++;
-					prime[num]=test;
-				}
-			}
-			test+=2;
-		}
-		System.err.println("ERROR - Prime Number generator failed !");
-		return pn;
 	}
 
 	public static String nextData(StringTokenizer st, String separator) {
@@ -447,74 +391,6 @@ public abstract class JMEUtil {
 		return 0;
 	}
 
-	// ----------------------------------------------------------------------------
-	public static void stereoTransformation(int t[], int ref[]) {
-		// System.out.println(t[0]+" "+t[1]+" "+t[2]+" "+t[3]+" --- ");
-		int d = 0;
-		if (ref[0] == t[1]) // 0,1 2,3
-		{
-			d = t[0];
-			t[0] = t[1];
-			t[1] = d;
-			d = t[2];
-			t[2] = t[3];
-			t[3] = d;
-		} else if (ref[0] == t[2]) // 0,2 1,3
-		{
-			d = t[2];
-			t[2] = t[0];
-			t[0] = d;
-			d = t[1];
-			t[1] = t[3];
-			t[3] = d;
-		} else if (ref[0] == t[3]) // 0,3 1,2
-		{
-			d = t[3];
-			t[3] = t[0];
-			t[0] = d;
-			d = t[1];
-			t[1] = t[2];
-			t[2] = d;
-		}
-	
-		if (ref[1] == t[2]) // 1,2 2,3
-		{
-			d = t[1];
-			t[1] = t[2];
-			t[2] = d;
-			d = t[2];
-			t[2] = t[3];
-			t[3] = d;
-		} else if (ref[1] == t[3]) // 1,3 2,3
-		{
-			d = t[1];
-			t[1] = t[3];
-			t[3] = d;
-			d = t[2];
-			t[2] = t[3];
-			t[3] = d;
-		}
-	}
-
-	// ----------------------------------------------------------------------------
-	/**
-	 * Return the JME atoming number associated to the given symbol
-	 * 
-	 * @param s
-	 * @return
-	 */
-	public static int checkAtomicSymbol(String s) {
-	
-		// BB simplification
-		for (int an = 1; an < JME.zlabel.length; an++) {
-			if (s.equals(JME.zlabel[an]))
-				return an;
-		}
-		// there is a problem for R groups beyond R9: it will be interpreted as AN_X
-		// see also protected int mapActionToAtomNumber(int action, int notFound) {
-		return JME.AN_X;
-	}
-	// ----------------------------------------------------------------------------
 
 	// ----------------------------------------------------------------------------
 	/**

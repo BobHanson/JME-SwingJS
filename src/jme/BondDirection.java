@@ -31,11 +31,12 @@ class BondDirection {
 
 		Atom savedAtom = mol.atoms[sourceAtom].deepCopy();
 
-		boolean hasTwoPossibleAddAngle = mol.addBondToAtom(sourceAtom, addBondArgument); // create a new atom and a
-																							// new bond with the
-																							// right orientation
-																							// relative to the
-																							// sourceAtom
+		boolean hasTwoPossibleAddAngle = mol.addBondToAtom(sourceAtom, addBondArgument);
+		// create a new atom and a
+		// new bond with the
+		// right orientation
+		// relative to the
+		// sourceAtom
 
 		int destAtom = mol.natoms; // index of the new added atom
 
@@ -63,20 +64,13 @@ class BondDirection {
 	 */
 	public void moveAndRotateFragment(JMEmol mol, int ffirst, int flast, int sourceAt, BondDirection sourceBD) {
 
-		FRAGMENT_ATOM_LOOP: for (int i = ffirst; i <= flast; i++) {
+		for (int i = ffirst; i <= flast; i++) {
 			Atom atom = mol.atoms[i];
-			// double[] x = mol.x;
-			// double[] y = mol.y;
-
-			// move point2 to zero
-			// x[i] -= this.x;
-			// y[i] -= this.y;
 			atom.moveXY(-this.x, -this.y);
 
 			// rotation to be parallel with x axis
 			double xx = atom.x * this.cos + atom.y * this.sin;
 			double yy = atom.y * this.cos - atom.x * this.sin;
-			// atom.x = xx; atom.y = yy;
 
 			atom.XY(xx, yy);
 
@@ -84,12 +78,9 @@ class BondDirection {
 			// -cos - opposite direction
 			xx = -atom.x * sourceBD.cos + atom.y * sourceBD.sin;
 			yy = -atom.y * sourceBD.cos - atom.x * sourceBD.sin;
-			// atom.x = xx; atom.y = yy;
 			atom.XY(xx, yy);
 
 			// move towards point1
-			// atom.x += x[sourceAt];
-			// atom.y += y[sourceAt];
 			atom.moveXY(mol.atoms[sourceAt].x, mol.atoms[sourceAt].y);
 
 		}

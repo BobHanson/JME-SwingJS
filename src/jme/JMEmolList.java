@@ -4,7 +4,6 @@
 package jme;
 
 import java.util.ArrayList;
-//START JAVA_IMPORT
 import java.util.StringTokenizer;
 
 import com.actelion.research.chem.AromaticityResolver;
@@ -14,14 +13,7 @@ import com.actelion.research.chem.StereoMolecule;
 import com.actelion.research.chem.coords.CoordinateInventor; // to compute 2D coordinates
 
 import jme.JME.SupportedFileFormat;
-import jme.JMESmiles.SmilesCreationParameters;
 import jme.JMEUtil.GWT;
-
-//END JAVA_IMPORT
-
-//START GWT_IMPORT
-//import ejava.util.StringTokenizer;
-//END GWT_IMPORT
 
 
 
@@ -355,8 +347,8 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			molCopy = mol.deepCopy();
 			for (int i = 1; i <= molCopy.natoms; i++) {
 				Atom atom = molCopy.getAtom(i);
-				if (atom.an == JME.AN_H) { // replace hydrogen
-					atom.an = JME.AN_X;
+				if (atom.an == Atom.AN_H) { // replace hydrogen
+					atom.an = Atom.AN_X;
 					atom.iso = 0;
 					atom.label = "A" + i;
 				}
@@ -414,7 +406,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		
 		for(int b = 1; b <= mol.nBonds(); b++) {
 			Bond bond = mol.bonds[b];
-			if( bond.bondType == 4 || bond.bondType == JMEmol.AROMATIC || bond.isQuery()) { //TODO: molfile reader should use AROMATIC?
+			if( bond.bondType == 4 || bond.bondType == Bond.AROMATIC || bond.bondType == Bond.QUERY) { //TODO: molfile reader should use AROMATIC?
 				return true;
 			}
 		}
@@ -726,7 +718,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 
 	
 	//duplicated code with generateJmeFile
-	public String generateSmilesOrSmirks(SmilesCreationParameters pars) {
+	public String generateSmilesOrSmirks(MoleculeHandlingParameters pars) {
 		String result = "";
 		
 		if (isReaction) {
@@ -1096,7 +1088,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	}
 	public void move(Box.Axis xOrY, double dist) {
 		for(JMEmol mol: this) {
-			mol.move(xOrY, dist);
+			Graphical2DObject.move(mol, xOrY, dist);
 		}
 	}
 

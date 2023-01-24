@@ -97,7 +97,7 @@ public class JmolJME extends JME implements WindowListener {
 		if (parent == null)
 			headless = vwr.headless; 
 		if (frame == null) {
-			frame = getJmolFrame(frameType);
+			frame = getJmolFrame(frameType, (parent == null));
 		}
 		setFrame(frame);
 		frame.setResizable(true);
@@ -105,7 +105,7 @@ public class JmolJME extends JME implements WindowListener {
 		initialize();
 	}
 
-	private JFrame getJmolFrame(String type) {
+	private JFrame getJmolFrame(String type, boolean exit0) {
 
 		JFrame frame = new JFrame(type == "search" ? "Substructure search" : getTitle());
 		JPanel pp = new JPanel();
@@ -131,6 +131,13 @@ public class JmolJME extends JME implements WindowListener {
 
 			});
 		} else {
+			if (exit0) {
+			frame.addWindowListener(new WindowAdapter() {
+					public void windowClosing(WindowEvent evt) {
+						System.exit(0);
+					}
+			});
+			}
 			p.add(b = new JButton("clean"));
 			b.addActionListener(new ActionListener() {
 
