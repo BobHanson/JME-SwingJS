@@ -18,6 +18,8 @@ public class JMESmiles extends JMEcore {
 
 	private boolean stereo;
 
+	private boolean computeValenceState;
+
 	
 
 public JMESmiles(JMEmol mol, int part, boolean isQuery) {
@@ -39,8 +41,10 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			return "";
 		
 		doMark = mpars.mark;
+		computeValenceState = mpars.computeValenceState;
 		autoez = mpars.smilesParams.autoez;
 		stereo = mpars.smilesParams.stereo;
+		moleculeHandlingParameters = mpars;
 
 		int[] con1 = new int[natoms + 10]; // well a little bit too much memory
 		int[] con2 = new int[natoms + 10]; // but the code is much cleaner than Vector
@@ -1787,7 +1791,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			}
 			JMEUtil.swap(this.bonds, i, b);
 		}
-		complete(this.moleculeHandlingParameters.computeValenceState);
+		complete(computeValenceState);
 
 	}
 

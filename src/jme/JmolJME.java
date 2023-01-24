@@ -47,7 +47,6 @@ import javax.imageio.ImageIO;
 import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
@@ -120,7 +119,9 @@ public class JmolJME extends JME implements WindowListener {
 
 				@Override
 				public void actionPerformed(ActionEvent e) {
+					@SuppressWarnings("unused")
 					String smiles = smiles();
+					@SuppressWarnings("unused")
 					Object f = options.getInfo("searchCallback");
 					/**
 					 * @j2sNative
@@ -215,31 +216,31 @@ public class JmolJME extends JME implements WindowListener {
 	 * Check for smarts in this structure.
 	 * 
 	 * For this search we want the most general (c1ccccn1) as the target, 
-	 * which is this structure. So we use JME's OCL code, which 
-	 * tends to be most inclusive on aromaticity
+	 * which is this structure. So we use JME's native code, which 
+	 * tends to be most inclusive on aromaticity, thus super.smiles();
 	 * 
 	 * 
 	 * @param pattern
 	 * @return
 	 */
 	public boolean hasStructure(String pattern, boolean isSmarts) {
-		return vwr.hasStructure(pattern, super.smiles(), isSmarts);
+		String smiles = super.smiles();
+		return vwr.hasStructure(pattern, smiles, isSmarts);
 	}
 
 
 	/**
-	 * See if we can match this or the given smarts in an array of 
+	 * See if we can match this or the given smarts to any structure in an array of
 	 * structures.
 	 * 
-	 * For this search we want the most general (c1ccccn1) as the target, 
-	 * which in this case are the SMILES in the array. 
-	 * So we use Jmol's SMILES generator code, which 
-	 * tends to be moderately inclusive. 
+	 * For this search we want the most general (c1ccccn1) as the target, which in
+	 * this case are the SMILES in the array. So we use Jmol's SMILES generator
+	 * code, which tends to be moderately inclusive.
 	 * 
-	 *  NCI/CADD would be highly Kekule.
-	 *  
+	 * NCI/CADD would be highly Kekule.
 	 * 
-	 *  
+	 * 
+	 * 
 	 * 
 	 * Return null for some sort of SMILES initialization error
 	 * 
@@ -247,7 +248,6 @@ public class JmolJME extends JME implements WindowListener {
 	 * @return
 	 */
 	public int[] findMatchingStructures(String smarts, String[] smilesSet, boolean isSmarts) {
-		int[] ret;
 		try {
 			return vwr.getSmilesMatcher().hasStructure(smarts == null ? smilesFromJmol() : smarts, smilesSet, 0);
 		} catch (Exception e) {

@@ -8459,8 +8459,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	protected void handleAftertructureModifiedEvent(String cause) {
 		// subclass do something more
-		String a = afterStructureChangeEvent.getAction();
-		//System.out.println("Structure modified event: " + a);
 		notifyEvent(JME_EVENT_STRUCTURE_MODIFIED, afterStructureChangeEvent);
 		updateReactionRoles();
 	}
@@ -8498,18 +8496,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param atomIndex (first index is 1, not 0)
 	 */
 	public void setAtomToHighLight(int molIndex, int atomIndex) {
-
-		// JMEmol molToHighLight = this.selectMolIfValidOrShowError(molIndex);
-
 		this.moleculePartsList.resetTouchedAtomAndBond();
-//		for (int i = 1; i <= this.numberofMoleculeParts; i++) {
-//			this.moleculeParts[i].touchedAtom = 0;
-//			this.moleculeParts[i].touchedBond = 0;
-//		}
-
 		if (atomIndex != 0) {
 			// 0 means reset highlight
-
 			JMEmolList.EnsembleAtom ea = this.getEnsembleAtom(molIndex, atomIndex);
 
 			if (ea == null) {
