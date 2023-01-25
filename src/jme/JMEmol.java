@@ -1416,12 +1416,6 @@ public class JMEmol extends JMEcore implements Graphical2DObject {
 				// query bond text
 				og.setFont(jme.atomDrawingAreaFont);
 				double h = JMEUtil.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
-				/*
-				 * String z = "?"; switch (stereob[i]) { case Bond.QB_ANY: z = "~"; break; case
-				 * Bond.QB_AROMATIC: z = ":"; break; case Bond.QB_RING: z = "@"; break; case Bond.QB_NONRING: z
-				 * = "!@"; break; }
-				 */
-				// 2007.10 dqp support
 				Object o = bond.btag;
 				String z = "?";
 				if (o != null)
@@ -1429,8 +1423,6 @@ public class JMEmol extends JMEcore implements Graphical2DObject {
 				double w = jme.atomDrawingAreaFontMet.stringWidth(z);
 				double xstart = (xa + xb) / 2. - w / 2.;
 				double ystart = (ya + yb) / 2. + h / 2 - 1; // o 1 vyssie
-				// g.setColor(Color.white);
-				// g.fillRect(xstart-1,ystart-h+2,w+1,h-1);
 				og.setColor(Color.magenta);
 				og.drawString(z, xstart, ystart);
 				og.setColor(Color.black);
@@ -3073,13 +3065,6 @@ public class JMEmol extends JMEcore implements Graphical2DObject {
 				if (Math.abs(q(i)) > 1)
 					z += Math.abs(q(i));
 			}
-
-			// mapping
-			// int lmark = -1;
-			// for (int j=1;j<=nmarked;j++) if(mark[j][0]==i) {lmark=mark[j][1]; break;}
-			// if (jme.star && backgroundColor[i] > 0) lmark = 1;
-			// if (lmark > -1) z+= ":" + lmark;
-
 			int map = this.findAtomMapForOutput(i);
 			if (map != 0)
 				z += ":" + map;

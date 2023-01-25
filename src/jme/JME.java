@@ -387,55 +387,24 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	static final int ACTION_BOND_DOUBLE = 203;
 	static final int ACTION_BOND_TRIPLE = 204;
 	static final int ACTION_CHAIN = 205;
-	static final int ACTION_RING_3 = 206;
-	static final int ACTION_RING_4 = 207;
-	static final int ACTION_RING_5 = 208;
-	public static final int ACTION_RING_PH = 209;
-	static final int ACTION_RING_6 = 210;
-	static final int ACTION_RING_7 = 211;
-	static final int ACTION_RING_8 = 212;
-
+	
+	// JMEBuilder.ACTION_RING 206 - 212 and 221-229 see JMEBuilder
+	
 	static final int ACTION_FG = 213; // BB: button for a popup menu with functional groups
 	// static final int ACTION_EMPTY_CELL = 214; //BB: defined only to avoid
 	// highliting when click on it, to be removed?
 	static final int ACTION_IO = 214; // BB replace ACTION_EMPTY_CELL by I/O icon below info icon
 
-	static final int ACTION_RING_FURANE = 221; // nema button
-	static final int ACTION_RING_3FURYL = 223; // Alt 0
-	static final int ACTION_RING_9 = 229; // nema button
+//	static final int JMEBuilder.ACTION_RING_FURANE = 221
+//	... see JMEBUilder 
+//	static final int ACTION_RING_9 = 229; // nema button
+
 	static final int ACTION_TEMPLATE = 230;
 
-	static final int ACTION_GROUP_MIN = 233; // BB first entry in the substituents (FG)
-	static final int ACTION_GROUP_TBU = 233;
-	static final int ACTION_GROUP_NITRO = 234;
-	static final int ACTION_GROUP_COO = 235;
-	static final int ACTION_GROUP_CF3 = 236;
-	static final int ACTION_GROUP_CCL3 = 237;
-	static final int ACTION_GROUP_CC = 238;
-	static final int ACTION_GROUP_SULFO = 239;
-	static final int ACTION_GROUP_COOME = 240;
-	static final int ACTION_GROUP_OCOME = 241;
-	static final int ACTION_GROUP_CYANO = 242;
-	static final int ACTION_GROUP_NME2 = 243;
-	static final int ACTION_GROUP_NHSO2ME = 244;
-	static final int ACTION_GROUP_CCC = 245;
-	static final int ACTION_GROUP_C2 = 246;
-	static final int ACTION_GROUP_C3 = 247;
-	static final int ACTION_GROUP_C4 = 248;
-	static final int ACTION_GROUP_COH = 249;
-	static final int ACTION_GROUP_dO = 250; // =O
-	static final int ACTION_GROUP_PO3H2 = 251;
-	static final int ACTION_GROUP_SO2NH2 = 252;
-	static final int ACTION_GROUP_TEMPLATE = 253;
-	static final int ACTION_GROUP_CF = 254;
-	static final int ACTION_GROUP_CL = 255;
-	static final int ACTION_GROUP_CB = 256;
-	static final int ACTION_GROUP_CI = 257;
-	static final int ACTION_GROUP_CN = 258;
-	static final int ACTION_GROUP_CO = 259;
-	static final int ACTION_GROUP_CON = 260; // BB
-	static final int ACTION_GROUP_NCO = 261; // BB
-	static final int ACTION_GROUP_MAX = 262; // last+1 len na < test
+//	static final int ACTION_GROUP_MIN = 233; // BB first entry in the substituents (FG)
+//  [see JMEBuilder]
+//	...
+//	static final int JMEBuilder.ACTION_GROUP_MAX = 262; // last+1 len na < test
 
 	static final int ACTION_AN_C = 301;
 	static final int ACTION_AN_N = 401;
@@ -515,7 +484,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	MultiBox smilesBox = null, atomxBox = null, aboutBox = null;
 	QueryBox queryBox;
-	boolean spiroAdding = false;
 	boolean movingAtom = false; // BB
 
 	String molText = null;
@@ -529,8 +497,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	InspectorEvent inspectorEvent;
 
-	String template = null; // template as jme string
-	JMEmol templateMolecule = null; // template molecule - functional groups?
 	static final int maxParts = 99;
 
 	// protected JMEmol moleculeParts[] = new JMEmol[maxParts]; // when multipart,
@@ -1440,6 +1406,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			aboutBox.dispose();
 		if (queryBox != null)
 			queryBox.dispose();
+		builder = null;
 		// moleculeParts = null; // memory leak ?
 
 	}
@@ -1885,41 +1852,18 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public void setTemplate(String t, String name) {
 		// clear();
 		afterClear = false; // otherwise problems in undo
-		MoleculeHandlingParameters pars = new MoleculeHandlingParameters();
-		pars.mark = true; // needed otherwise the atom map will be ignored
-		// boolean savedStar = this.moleculeHandlingParameters.mark; // BB
-		// this.moleculeHandlingParameters.mark = true; // BB to avoid a side effect
-		// linked to atom mapping (marked atom)
 		try {
-			templateMolecule = new JMEmol(this, t, SupportedFileFormat.JME, pars);
-			templateMolecule.internalBondLengthScaling(); // June 2020: JMEmol does not do it automatically. SHould be a
-															// parameter rom readJMEstringInput?
+			String err = getBuilder(activeMol).setTemplate(t);
+			if (err == null) {
+				info(name);
+				action = JMEBuilder.ACTION_GROUP_TEMPLATE;
+			} else {
+				showError(err);
+			}
+			// parameter rom readJMEstringInput?
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			// e.printStackTrace();
 			info(e.getMessage());
 			return;
-		} // defined globally
-			// this.moleculeHandlingParameters.mark = savedStar; // BB - restore
-			// templateMolecule.complete(); //BB: not needed because the call above does
-			// call complete()
-			// now waiting for atom or free space click
-		action = ACTION_GROUP_TEMPLATE;
-
-		// mol.center();
-		// numberofMoleculeParts = 1; actualMoleculePartIndex = 1; moleculeParts[1] =
-		// mol;
-
-		// TODO
-		// check if the the template has a marked atom or atom map, otherwise, show a
-		// message
-
-		if (!templateMolecule.hasMappedOrMarkedAtom()) {
-			// console warning
-			showError("template molecule has no mapped atom");
-
-		} else {
-			info(name);
 		}
 		repaint(); // needed to display status line
 	}
@@ -3019,39 +2963,39 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			pressed = ACTION_BOND_SINGLE;
 			s = "";
 		} else if (s.equals("-C(=O)OH"))
-			pressed = ACTION_GROUP_COO;
+			pressed = JMEBuilder.ACTION_GROUP_COO;
 		else if (s.equals("-C(=O)OMe"))
-			pressed = ACTION_GROUP_COOME;
+			pressed = JMEBuilder.ACTION_GROUP_COOME;
 		else if (s.equals("-C(=O)N"))
-			pressed = ACTION_GROUP_CON;
+			pressed = JMEBuilder.ACTION_GROUP_CON;
 		else if (s.equals("-NC=O"))
-			pressed = ACTION_GROUP_NCO;
+			pressed = JMEBuilder.ACTION_GROUP_NCO;
 		else if (s.equals("-OC(=O)Me"))
-			pressed = ACTION_GROUP_OCOME;
+			pressed = JMEBuilder.ACTION_GROUP_OCOME;
 		else if (s.equals("-CMe3"))
-			pressed = ACTION_GROUP_TBU;
+			pressed = JMEBuilder.ACTION_GROUP_TBU;
 		else if (s.equals("-CF3"))
-			pressed = ACTION_GROUP_CF3;
+			pressed = JMEBuilder.ACTION_GROUP_CF3;
 		else if (s.equals("-CCl3"))
-			pressed = ACTION_GROUP_CCL3;
+			pressed = JMEBuilder.ACTION_GROUP_CCL3;
 		else if (s.equals("-NO2"))
-			pressed = ACTION_GROUP_NITRO;
+			pressed = JMEBuilder.ACTION_GROUP_NITRO;
 		else if (s.equals("-NMe2"))
-			pressed = ACTION_GROUP_NME2;
+			pressed = JMEBuilder.ACTION_GROUP_NME2;
 		else if (s.equals("-SO2-NH2"))
-			pressed = ACTION_GROUP_SO2NH2;
+			pressed = JMEBuilder.ACTION_GROUP_SO2NH2;
 		else if (s.equals("-NH-SO2-Me"))
-			pressed = ACTION_GROUP_NHSO2ME;
+			pressed = JMEBuilder.ACTION_GROUP_NHSO2ME;
 		else if (s.equals("-SO3H"))
-			pressed = ACTION_GROUP_SULFO;
+			pressed = JMEBuilder.ACTION_GROUP_SULFO;
 		else if (s.equals("-PO3H2"))
-			pressed = ACTION_GROUP_PO3H2;
+			pressed = JMEBuilder.ACTION_GROUP_PO3H2;
 		else if (s.equals("-C#N"))
-			pressed = ACTION_GROUP_CYANO;
+			pressed = JMEBuilder.ACTION_GROUP_CYANO;
 		else if (s.equals("-C#C-Me"))
-			pressed = ACTION_GROUP_CCC;
+			pressed = JMEBuilder.ACTION_GROUP_CCC;
 		else if (s.equals("-C#CH"))
-			pressed = ACTION_GROUP_CC;
+			pressed = JMEBuilder.ACTION_GROUP_CC;
 
 		if (pressed > 0) {
 			menuAction(pressed);
@@ -3128,7 +3072,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected boolean ignoreBonds() {
 		return ((options.starNothing || options.starAtomOnly) && action == ACTION_MARK) || action == ACTION_MOVE_AT
 				|| action == ACTION_CHAIN || action == ACTION_SPIRO || action == ACTION_CHARGE
-				|| (action >= ACTION_GROUP_MIN && action <= ACTION_AN_R_LAST
+				|| (action >= JMEBuilder.ACTION_GROUP_MIN && action <= ACTION_AN_R_LAST
 
 						|| (action == ACTION_MARK && !params.mark) // case for 123 button - atom
 																	// mapping June 2020
@@ -3661,7 +3605,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		// BB: redraw the FG menu cell if a substituent had been selected
 		int savedAction = action;
-		if (ACTION_GROUP_MIN <= action && action <= ACTION_GROUP_MAX) {
+		if (JMEBuilder.ACTION_GROUP_MIN <= action && action <= JMEBuilder.ACTION_GROUP_MAX) {
 			action = ACTION_FG;
 		}
 		for (int i = 1; i <= TOP_MENU_NUMBER_OF_CELLS; i++) {
@@ -4250,7 +4194,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// the addRing function can handle both bond and atom
 			// duplicated code
 			// this works as well for addition of phenyl (KB shortcut is "1")
-			if (action >= ACTION_RING_3 && action <= ACTION_RING_9) {
+			if (action >= JMEBuilder.ACTION_RING_3 && action <= JMEBuilder.ACTION_RING_9) {
 
 				// fusing ring to bond
 				lastAction = LA_RING; // in addRing may be set to 0
@@ -4334,7 +4278,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	private JMEBuilder getBuilder(JMEmol mol) {
 		if (builder == null)
 			builder = new JMEBuilder(this);
-		return builder.set(mol, action);
+		return builder.set(mol, action, mouseShift);
 	}
 
 	/**
@@ -4837,25 +4781,25 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						xstart + marginFromCellBorder / 2 * 7,
 						ystart + marginFromCellBorder * 2 - marginFromCellBorder / 3);
 				break;
-			case ACTION_RING_3: // klesnute o 2
+			case JMEBuilder.ACTION_RING_3: // klesnute o 2
 				drawRingIcon(g, xstart, ystart + 2, 3);
 				break;
-			case ACTION_RING_4:
+			case JMEBuilder.ACTION_RING_4:
 				drawRingIcon(g, xstart, ystart, 4);
 				break;
-			case ACTION_RING_5:
+			case JMEBuilder.ACTION_RING_5:
 				drawRingIcon(g, xstart, ystart, 5);
 				break;
-			case ACTION_RING_PH:
+			case JMEBuilder.ACTION_RING_PH:
 				drawRingIcon(g, xstart, ystart, 1);
 				break;
-			case ACTION_RING_6:
+			case JMEBuilder.ACTION_RING_6:
 				drawRingIcon(g, xstart, ystart, 6);
 				break;
-			case ACTION_RING_7:
+			case JMEBuilder.ACTION_RING_7:
 				drawRingIcon(g, xstart, ystart, 7);
 				break;
-			case ACTION_RING_8:
+			case JMEBuilder.ACTION_RING_8:
 				drawRingIcon(g, xstart, ystart, 8);
 				break;
 
@@ -5507,7 +5451,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		clearInfo();
 		// int x = e.getX(); int y = e.getY();
-		this.mouseShift = e.isShiftDown(); // because of numbering
+		mouseShift = e.isShiftDown(); // because of numbering
 
 		movePossible = false;
 
@@ -5518,7 +5462,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// Should this be moved to menuAction(action)?
 			// empty buttons not considered
 			if (action == ACTION_SPIRO) {
-				spiroAdding = true;
+				getBuilder(null).spiroAdding = true;
 				info("Next ring will be added as spiro");
 				repaint();
 				this.mouseDownWasUsed = true;
@@ -5666,7 +5610,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 					}
 
-				} else if (action >= ACTION_RING_3 && action <= ACTION_RING_9) {
+				} else if (action >= JMEBuilder.ACTION_RING_3 && action <= JMEBuilder.ACTION_RING_9) {
 					lastAction = LA_RING; // in addRing may be set to 0
 					getBuilder(activeMol).addRing();
 					this.recordAtomEvent(ADD_RING);
@@ -5676,7 +5620,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					lastAction = LA_GROUP;
 					this.recordAtomEvent(ADD_TEMPLATE);
 
-				} else if (action >= ACTION_GROUP_MIN && action < ACTION_GROUP_MAX) {
+				} else if (action >= JMEBuilder.ACTION_GROUP_MIN && action < JMEBuilder.ACTION_GROUP_MAX) {
 
 					getBuilder(activeMol).addGroup(false);
 					this.recordAtomEvent(ADD_GROUP);
@@ -5832,7 +5776,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 					this.recordBondEvent(SET_BOND_TRIPLE);
 
-				} else if (action >= ACTION_RING_3 && action <= ACTION_RING_9) {
+				} else if (action >= JMEBuilder.ACTION_RING_3 && action <= JMEBuilder.ACTION_RING_9) {
 					// fusing ring to bond
 					lastAction = LA_RING; // in addRing may be set to 0
 					getBuilder(activeMol).addRing();
@@ -5939,7 +5883,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						this.recordBondEvent(ADD_BOND);
 
 					}
-				} else if (action >= ACTION_RING_3 && action <= ACTION_RING_9) {
+				} else if (action >= JMEBuilder.ACTION_RING_3 && action <= JMEBuilder.ACTION_RING_9) {
 					activeMol.xorg = screenToDrawingX(x);
 					activeMol.yorg = screenToDrawingY(y);
 					lastAction = LA_RING;
@@ -5963,10 +5907,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					this.recordAtomEvent(ADD_ATOM);
 
 				} else if (action == ACTION_TEMPLATE) {
-					readMolecule(template);
+					readMolecule(getBuilder(null).getTemplateString());
 					this.recordAfterStructureChangedEvent(ADD_TEMPLATE);
 
-				} else if (action >= ACTION_GROUP_MIN && action < ACTION_GROUP_MAX) {
+				} else if (action >= JMEBuilder.ACTION_GROUP_MIN && action < JMEBuilder.ACTION_GROUP_MAX) {
 					// adding first atom (to which group will be connected)
 					activeMol.createAtom();
 					activeMol.nbonds = 0;
@@ -6922,13 +6866,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		case 't':
 		case 'T':
 			if (action == ACTION_AN_F) {
-				pressed = ACTION_GROUP_CF3;
+				pressed = JMEBuilder.ACTION_GROUP_CF3;
 				info("-CF3");
 			} else if (action == ACTION_AN_CL) {
-				pressed = ACTION_GROUP_CCL3;
+				pressed = JMEBuilder.ACTION_GROUP_CCL3;
 				info("-CCl3");
 			} else {
-				pressed = ACTION_GROUP_TBU;
+				pressed = JMEBuilder.ACTION_GROUP_TBU;
 				info("-tBu"); // TODO: consistent naming with the FG's
 			}
 			break;
@@ -6937,7 +6881,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (meta) { // BB - does not work in Java
 				pressed = ACTION_REDO;
 			} else {
-				pressed = ACTION_GROUP_NITRO;
+				pressed = JMEBuilder.ACTION_GROUP_NITRO;
 				info("-NO2");
 			}
 			break;
@@ -6946,7 +6890,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (meta) { // BB - does not work in Java
 				pressed = ACTION_UNDO;
 			} else {
-				pressed = ACTION_GROUP_SULFO;
+				pressed = JMEBuilder.ACTION_GROUP_SULFO;
 				info("-SO3H");
 			}
 
@@ -6954,12 +6898,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		case 'a':
 		case 'A':
-			pressed = ACTION_GROUP_COO;
+			pressed = JMEBuilder.ACTION_GROUP_COO;
 			info("-COOH");
 			break;
 		case 'e':
 		case 'E':
-			pressed = ACTION_GROUP_CC;
+			pressed = JMEBuilder.ACTION_GROUP_CC;
 			info("-C#CH");
 			break;
 		case 'u':
@@ -6968,7 +6912,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			break;
 		case 'q':
 		case 'Q':
-			pressed = ACTION_GROUP_CYANO;
+			pressed = JMEBuilder.ACTION_GROUP_CYANO;
 			info("-C#N");
 			break;
 		// case 'g': // used for testing
@@ -6979,22 +6923,22 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		case '-':
 			// check here that an was changed and then cancell this -X ???
 			if (action == ACTION_AN_F) {
-				pressed = ACTION_GROUP_CF;
+				pressed = JMEBuilder.ACTION_GROUP_CF;
 				info("-F");
 			} else if (action == ACTION_AN_CL) {
-				pressed = ACTION_GROUP_CL;
+				pressed = JMEBuilder.ACTION_GROUP_CL;
 				info("-Cl");
 			} else if (action == ACTION_AN_BR) {
-				pressed = ACTION_GROUP_CB;
+				pressed = JMEBuilder.ACTION_GROUP_CB;
 				info("-Br");
 			} else if (action == ACTION_AN_I) {
-				pressed = ACTION_GROUP_CI;
+				pressed = JMEBuilder.ACTION_GROUP_CI;
 				info("-I");
 			} else if (action == ACTION_AN_O) {
-				pressed = ACTION_GROUP_CO;
+				pressed = JMEBuilder.ACTION_GROUP_CO;
 				info("-OH");
 			} else if (action == ACTION_AN_N) {
-				pressed = ACTION_GROUP_CN;
+				pressed = JMEBuilder.ACTION_GROUP_CN;
 				info("-NH2");
 			} else
 				pressed = ACTION_BOND_SINGLE;
@@ -7003,7 +6947,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		/*
 		 * case '=':'
 		 * 
-		 * if (action == ACTION_AN_O) { pressed = ACTION_GROUP_dO; info("=O"); } else
+		 * if (action == ACTION_AN_O) { pressed = JMEBuilder.ACTION_GROUP_dO; info("=O"); } else
 		 * pressed = ACTION_BOND_DOUBLE; break;
 		 */
 		// new BB shortcut
@@ -7021,10 +6965,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				updateMark(0);
 			else {
 				if (!alt) {
-					pressed = ACTION_RING_FURANE;
+					pressed = JMEBuilder.ACTION_RING_FURANE;
 					info("-Furyl");
 				} else {
-					pressed = ACTION_RING_3FURYL;
+					pressed = JMEBuilder.ACTION_RING_3FURYL;
 					info("-3-Furyl");
 				}
 			}
@@ -7033,7 +6977,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (action == ACTION_MARK)
 				updateMark(1);
 			else
-				pressed = ACTION_RING_PH;
+				pressed = JMEBuilder.ACTION_RING_PH;
 			break;
 		case '2':
 		case '=':
@@ -7042,7 +6986,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// BB added October 2015 : create a double bond
 			// duplacade code with = TODO:
 			else if (action == ACTION_AN_O) {
-				pressed = ACTION_GROUP_dO;
+				pressed = JMEBuilder.ACTION_GROUP_dO;
 				info("=O");
 			} else
 				pressed = ACTION_BOND_DOUBLE;
@@ -7051,44 +6995,44 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (action == ACTION_MARK)
 				updateMark(3);
 			else
-				pressed = ACTION_RING_3;
+				pressed = JMEBuilder.ACTION_RING_3;
 			break;
 		case '4':
 			if (action == ACTION_MARK)
 				updateMark(4);
 			else
-				pressed = ACTION_RING_4;
+				pressed = JMEBuilder.ACTION_RING_4;
 			break;
 		case '5':
 			if (action == ACTION_MARK)
 				updateMark(5);
 			else
-				pressed = ACTION_RING_5;
+				pressed = JMEBuilder.ACTION_RING_5;
 			break;
 		case '6':
 			if (action == ACTION_MARK)
 				updateMark(6);
 			else
-				pressed = ACTION_RING_6;
+				pressed = JMEBuilder.ACTION_RING_6;
 			break;
 		case '7':
 			if (action == ACTION_MARK)
 				updateMark(7);
 			else
-				pressed = ACTION_RING_7;
+				pressed = JMEBuilder.ACTION_RING_7;
 			break;
 		case '8':
 			if (action == ACTION_MARK)
 				updateMark(8);
 			else
-				pressed = ACTION_RING_8;
+				pressed = JMEBuilder.ACTION_RING_8;
 			break;
 		case '9':
 			if (action == ACTION_MARK)
 				updateMark(9);
 			else {
 				info("9 ring");
-				pressed = ACTION_RING_9;
+				pressed = JMEBuilder.ACTION_RING_9;
 			}
 			break;
 		case 'd':

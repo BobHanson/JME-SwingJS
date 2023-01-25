@@ -2,7 +2,63 @@ package jme;
 
 import java.util.Arrays;
 
+import jme.JME.SupportedFileFormat;
+
 class JMEBuilder {
+
+	static final int ACTION_RING_3 = 206;
+	static final int ACTION_RING_4 = 207;
+	static final int ACTION_RING_5 = 208;
+	static final int ACTION_RING_PH = 209;
+	static final int ACTION_RING_6 = 210;
+	static final int ACTION_RING_7 = 211;
+	static final int ACTION_RING_8 = 212;
+
+	static final int ACTION_RING_FURANE = 221; // nema button
+	static final int ACTION_RING_3FURYL = 223; // Alt 0
+	static final int ACTION_RING_9 = 229; // nema button
+
+	static final int ACTION_GROUP_MIN = 233; // BB first entry in the substituents (FG)
+	static final int ACTION_GROUP_TBU = 233;
+	static final int ACTION_GROUP_NITRO = 234;
+	static final int ACTION_GROUP_COO = 235;
+	static final int ACTION_GROUP_CF3 = 236;
+	static final int ACTION_GROUP_CCL3 = 237;
+	static final int ACTION_GROUP_CC = 238;
+	static final int ACTION_GROUP_SULFO = 239;
+	static final int ACTION_GROUP_COOME = 240;
+	static final int ACTION_GROUP_OCOME = 241;
+	static final int ACTION_GROUP_CYANO = 242;
+	static final int ACTION_GROUP_NME2 = 243;
+	static final int ACTION_GROUP_NHSO2ME = 244;
+	static final int ACTION_GROUP_CCC = 245;
+	static final int ACTION_GROUP_C2 = 246;
+	static final int ACTION_GROUP_C3 = 247;
+	static final int ACTION_GROUP_C4 = 248;
+	static final int ACTION_GROUP_COH = 249;
+	static final int ACTION_GROUP_dO = 250; // =O
+	static final int ACTION_GROUP_PO3H2 = 251;
+	static final int ACTION_GROUP_SO2NH2 = 252;
+	static final int ACTION_GROUP_TEMPLATE = 253;
+	static final int ACTION_GROUP_CF = 254;
+	static final int ACTION_GROUP_CL = 255;
+	static final int ACTION_GROUP_CB = 256;
+	static final int ACTION_GROUP_CI = 257;
+	static final int ACTION_GROUP_CN = 258;
+	static final int ACTION_GROUP_CO = 259;
+	static final int ACTION_GROUP_CON = 260; // BB
+	static final int ACTION_GROUP_NCO = 261; // BB
+	static final int ACTION_GROUP_MAX = 262; // last+1 len na < test
+
+	//from JME: 
+	static final int TOUCH_LIMIT = JME.TOUCH_LIMIT; // 50 pixels
+    static final int LA_FAILED = JME.LA_FAILED;
+	
+	/**
+	 * spiroAdding set in JME, but only used here; alternatively, just MOUSE_SHIFT
+	 * will do spiro ring addition.
+	 */
+	boolean spiroAdding = false;
 
 	private JME jme;
 	private JMEmol mol;
@@ -11,18 +67,25 @@ class JMEBuilder {
 	private int touchedAtom;
 	private int touchedBond;
 	private int action;
+	private boolean spiroMode;
+	private JMEmol templateMolecule;
+	private String templateString;
 
 	JMEBuilder(JME jme) {
 		this.jme = jme;
 	}
 
-	public JMEBuilder set(JMEmol mol, int action) {
-		this.mol = mol;
-		this.atoms = mol.atoms;
-		this.bonds = mol.bonds;
-		this.touchedAtom = mol.touchedAtom;
-		this.touchedBond = mol.touchedBond;
-		this.action = action;
+	public JMEBuilder set(JMEmol mol, int action, boolean spiroMode) {
+		if (mol != null) {
+			// just the essentials
+			this.mol = mol;
+			this.atoms = mol.atoms;
+			this.bonds = mol.bonds;
+			this.touchedAtom = mol.touchedAtom;
+			this.touchedBond = mol.touchedBond;
+			this.action = action;
+			this.spiroMode = spiroMode; // SHIFT_LEFT mouse
+		}
 		return this;
 	}
 
@@ -41,28 +104,28 @@ class JMEBuilder {
 
 		int nmembered = 6;
 		switch (action) {
-		case JME.ACTION_RING_3:
+		case ACTION_RING_3:
 			nmembered = 3;
 			break;
-		case JME.ACTION_RING_4:
+		case ACTION_RING_4:
 			nmembered = 4;
 			break;
-		case JME.ACTION_RING_5:
-		case JME.ACTION_RING_FURANE:
-		case JME.ACTION_RING_3FURYL:
+		case ACTION_RING_5:
+		case ACTION_RING_FURANE:
+		case ACTION_RING_3FURYL:
 			nmembered = 5;
 			break;
-		case JME.ACTION_RING_6:
-		case JME.ACTION_RING_PH:
+		case ACTION_RING_6:
+		case ACTION_RING_PH:
 			nmembered = 6;
 			break;
-		case JME.ACTION_RING_7:
+		case ACTION_RING_7:
 			nmembered = 7;
 			break;
-		case JME.ACTION_RING_8:
+		case ACTION_RING_8:
 			nmembered = 8;
 			break;
-		case JME.ACTION_RING_9:
+		case ACTION_RING_9:
 			nmembered = 9;
 			break;
 		}
@@ -75,49 +138,45 @@ class JMEBuilder {
 			// --- adding ring at the end of the bond
 			if (a.nv < 2) {
 				addRingToBond(nmembered, diel, rc);
-			} else {
-				if (!jme.mouseShift && !jme.spiroAdding) {
-					// adding bond and ring
-					returnTouch = touchedAtom;
-					addBond();
-					touchedAtom = mol.natoms;
-					addRingToBond(nmembered, diel, rc);
-				} else {
-					// checking whether cad do spiro
-					jme.spiroAdding = false;
-					if (action == JME.ACTION_RING_PH || action == JME.ACTION_RING_FURANE
-							|| action == JME.ACTION_RING_3FURYL) {
-						mol.info("ERROR - cannot add aromatic spiro ring !", JME.LA_FAILED);
+			} else if (spiroMode || spiroAdding) {
+				spiroAdding = false;
+				// checking whether can do spiro
+				if (action == ACTION_RING_PH || action == ACTION_RING_FURANE || action == ACTION_RING_3FURYL) {
+					mol.info("ERROR - cannot add aromatic spiro ring !", LA_FAILED);
+					return;
+				}
+				for (int i = 1; i <= a.nv; i++) {
+					// int bo = bondType[bondIdentity(touchedAtom,v(touchedAtom)[i])];
+					int bo = mol.bondIdentityBond(touchedAtom, a.v[i]).bondType;
+					if (i > 2 || bo != Bond.SINGLE) {
+						mol.info("ERROR - spiro ring not possible here !", LA_FAILED);
 						return;
 					}
-					for (int i = 1; i <= a.nv; i++) {
-						// int bo = bondType[bondIdentity(touchedAtom,v(touchedAtom)[i])];
-						int bo = mol.bondIdentityBond(touchedAtom, a.v[i]).bondType;
-						if (i > 2 || bo != Bond.SINGLE) {
-							mol.info("ERROR - spiro ring not possible here !", JME.LA_FAILED);
-							return;
-						}
-					}
-					// --- adding spiro ring
-					double[] newPoint = new double[2];
-					mol.getNewPoint(touchedAtom, rc, newPoint);
-					dx = a.x - newPoint[0];
-					dy = a.y - newPoint[1];
-					rx = Math.sqrt(dx * dx + dy * dy);
-					if (rx < 0.001)
-						rx = 0.001;
-					sina = dy / rx;
-					cosa = dx / rx;
-					for (int i = 1; i <= nmembered; i++) {
-						Atom newAtom = createAtom();
-						uhol = diel * i + Math.PI * .5;
-						// x[natoms]=newPoint[0]+rc*(Math.sin(uhol)*cosa-Math.cos(uhol)*sina);
-						// y[natoms]=newPoint[1]+rc*(Math.cos(uhol)*cosa+Math.sin(uhol)*sina);
-						mol.XY(newAtom, newPoint[0] + rc * (Math.sin(uhol) * cosa - Math.cos(uhol) * sina),
-								newPoint[1] + rc * (Math.cos(uhol) * cosa + Math.sin(uhol) * sina));
-					}
 				}
+				// --- adding spiro ring
+				double[] newPoint = new double[2];
+				mol.getNewPoint(touchedAtom, rc, newPoint);
+				dx = a.x - newPoint[0];
+				dy = a.y - newPoint[1];
+				rx = Math.sqrt(dx * dx + dy * dy);
+				if (rx < 0.001)
+					rx = 0.001;
+				sina = dy / rx;
+				cosa = dx / rx;
+				for (int i = 1; i <= nmembered; i++) {
+					Atom newAtom = createAtom();
+					uhol = diel * i + Math.PI * .5;
+					mol.XY(newAtom, newPoint[0] + rc * (Math.sin(uhol) * cosa - Math.cos(uhol) * sina),
+							newPoint[1] + rc * (Math.cos(uhol) * cosa + Math.sin(uhol) * sina));
+				}
+			} else {
+				// adding bond and ring
+				returnTouch = touchedAtom;
+				addBond();
+				touchedAtom = mol.natoms;
+				addRingToBond(nmembered, diel, rc);
 			}
+
 		}
 
 		// fusing ring
@@ -261,7 +320,7 @@ class JMEBuilder {
 		b = bonds[touchedBond];
 		// alternating double bonds for phenyl and furane template
 		// 2007.12 fixed problematic adding
-		if (action == JME.ACTION_RING_PH) {
+		if (action == ACTION_RING_PH) {
 			setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE);
 			if (touchedBond > 0) {
 				if (b.isSingle()) {
@@ -285,7 +344,8 @@ class JMEBuilder {
 							if ((bonds[i].va == atom3 && bonds[i].vb == atom)
 									|| (bonds[i].va == atom && bonds[i].vb == atom3)) {
 								if (!mol.isSingle(i)) {
-									setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.TRIPLE, Bond.SINGLE);
+									setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.TRIPLE,
+											Bond.SINGLE);
 								}
 								break;
 							}
@@ -293,7 +353,7 @@ class JMEBuilder {
 					setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE);
 				}
 			}
-		} else if (action == JME.ACTION_RING_FURANE || action == JME.ACTION_RING_3FURYL) {
+		} else if (action == ACTION_RING_FURANE || action == ACTION_RING_3FURYL) {
 			if (touchedBond > 0) {
 				if (b.bondType == Bond.SINGLE) {
 					Atom va = atoms[b.va];
@@ -319,7 +379,7 @@ class JMEBuilder {
 				bonds[mol.nbonds - 4].bondType = Bond.DOUBLE;
 				mol.AN(mol.natoms - 2, Atom.AN_O);
 			} else if (touchedAtom > 0) {
-				if (action == JME.ACTION_RING_FURANE) {
+				if (action == ACTION_RING_FURANE) {
 					setBonds(Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE);
 					mol.AN(mol.natoms - 1, Atom.AN_O);
 				} else {
@@ -345,7 +405,7 @@ class JMEBuilder {
 		bonds = mol.bonds;
 		return b;
 	}
-	
+
 	private Atom createAtom() {
 		Atom a = mol.createAtom();
 		atoms = mol.atoms;
@@ -376,13 +436,13 @@ class JMEBuilder {
 		// zistuje, ci sa nejake nove atomy dotykaju so starymi
 		for (int i = mol.natoms - nmembered + 1; i <= mol.natoms; i++) { // loop over new ring atoms
 			parent[i] = 0;
-			double min = JME.TOUCH_LIMIT + 1;
+			double min = TOUCH_LIMIT + 1;
 			int tooCloseAtom = 0;
 			for (int j = 1; j <= mol.natoms - nmembered; j++) { // loop over older atoms
 				double dx = mol.x(i) - mol.x(j);
 				double dy = mol.y(i) - mol.y(j);
 				double rx = dx * dx + dy * dy;
-				if (rx < JME.TOUCH_LIMIT)
+				if (rx < TOUCH_LIMIT)
 					if (rx < min) {
 						min = rx;
 						tooCloseAtom = j;
@@ -450,27 +510,24 @@ class JMEBuilder {
 
 	}
 
-	// adding template store in jme.tmol to clicked atom
-// anchor atom in the template is marked by :1
-// emptyCanvas indicates that (artificial) touchedAtom should be deleted
+	/**
+	 * Adding template store in jme.tmol to clicked atom anchor atom in the template
+	 * is marked by :1 emptyCanvas indicates that (artificial) touchedAtom should be
+	 * deleted. 
+	 * 
+	 * BH: How about using ChemDraw NicKName files? 
+	 * 
+	 */
 	int addGroupTemplate(boolean emptyCanvas) {
 		// finding mark:1 in template
-		// qw
 
-		JMEmol tmol = jme.templateMolecule;
-
-		// BB: without the next two lines, the GWT optimizer fails (one can still
-		// compile with the option -draftCompile and -XenableClosureCompiler)
+		JMEmol tmol = templateMolecule;
 		if (tmol == null || tmol.natoms == 0)
 			return 0;
 
 		int mark1 = 0;
 
 		// find the atom that is marked in the template: this is the joining atom
-		// for (int k=1;k<=tmol.nmarked;k++) {
-		// int atom = tmol.mark[k][0];
-		// if (tmol.mark[k][1] == 1) mark1 = atom;
-		// }
 
 		mark1 = tmol.findFirstMappdedOrMarkedAtom(); // bug fix 2022-02
 
@@ -575,137 +632,136 @@ class JMEBuilder {
 		mol.touched_org = touchedAtom;
 		int nadded = 0;
 		switch (action) {
-		case JME.ACTION_GROUP_TBU:
-		case JME.ACTION_GROUP_CCL3:
-		case JME.ACTION_GROUP_CF3:
-		case JME.ACTION_GROUP_SULFO:
-		case JME.ACTION_GROUP_PO3H2:
-		case JME.ACTION_GROUP_SO2NH2:
+		case ACTION_GROUP_TBU:
+		case ACTION_GROUP_CCL3:
+		case ACTION_GROUP_CF3:
+		case ACTION_GROUP_SULFO:
+		case ACTION_GROUP_PO3H2:
+		case ACTION_GROUP_SO2NH2:
 			addBonds(touchedAtom, LINEAR_ON, 0, LINEAR_OFF, -1, -2);
 			switch (action) {
-			case JME.ACTION_GROUP_CCL3:
+			case ACTION_GROUP_CCL3:
 				setAtoms(Atom.AN_CL, Atom.AN_CL, Atom.AN_CL);
 				break;
-			case JME.ACTION_GROUP_CF3:
+			case ACTION_GROUP_CF3:
 				setAtoms(Atom.AN_F, Atom.AN_F, Atom.AN_F);
 				break;
-			case JME.ACTION_GROUP_SULFO:
+			case ACTION_GROUP_SULFO:
 				setAtoms(Atom.AN_S, Atom.AN_O, Atom.AN_O, Atom.AN_O);
 				setBonds(Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE, Bond.DOUBLE);
 				break;
-			case JME.ACTION_GROUP_SO2NH2:
+			case ACTION_GROUP_SO2NH2:
 				setAtoms(Atom.AN_S, Atom.AN_N, Atom.AN_O, Atom.AN_O);
 				setBonds(Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE, Bond.DOUBLE);
 				break;
-			case JME.ACTION_GROUP_PO3H2:
+			case ACTION_GROUP_PO3H2:
 				setAtoms(Atom.AN_P, Atom.AN_O, Atom.AN_O, Atom.AN_O);
 				setBonds(Bond.SINGLE, Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE);
 				break;
 			}
 			nadded = 4;
 			break;
-		case JME.ACTION_GROUP_NHSO2ME:
+		case ACTION_GROUP_NHSO2ME:
 			addBonds(touchedAtom, 0, LINEAR_ON, 0, LINEAR_OFF, -1, -2);
 			nadded = setAtoms(Atom.AN_N, Atom.AN_S, Atom.AN_C, Atom.AN_O, Atom.AN_O);
 			setBonds(Bond.SINGLE, Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE, Bond.DOUBLE);
 			break;
-		case JME.ACTION_GROUP_NITRO:
+		case ACTION_GROUP_NITRO:
 			addBonds(touchedAtom, 0, -1);
 			nadded = setAtoms(Atom.AN_N, Atom.AN_O, Atom.AN_O);
 			setBonds(Bond.SINGLE, Bond.DOUBLE, jme.options.polarnitro ? Bond.SINGLE : Bond.DOUBLE);
 			if (jme.options.polarnitro) {
-				mol.changeCharge(mol.natoms - 2, 1);
-				mol.changeCharge(mol.natoms, -1);
+				setCharges(-1);
 			}
 			break;
-		case JME.ACTION_GROUP_COO:
+		case ACTION_GROUP_COO:
 			addBonds(touchedAtom, 0, -1);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_O, Atom.AN_O);
 			setBonds(Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE);
 			break;
-		case JME.ACTION_GROUP_COOME:
+		case ACTION_GROUP_COOME:
 			addBonds(touchedAtom, 0, 0, -2);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_O, Atom.AN_C, Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case JME.ACTION_GROUP_CON:
+		case ACTION_GROUP_CON:
 			addBonds(touchedAtom, 0, -1);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_N, Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case JME.ACTION_GROUP_NCO:
+		case ACTION_GROUP_NCO:
 			addBonds(touchedAtom, 0, 0);
 			nadded = setAtoms(Atom.AN_N, Atom.AN_C, Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case JME.ACTION_GROUP_OCOME:
+		case ACTION_GROUP_OCOME:
 			addBonds(touchedAtom, 0, 0, -1);
 			nadded = setAtoms(Atom.AN_O, Atom.AN_C, Atom.AN_C, Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case JME.ACTION_GROUP_NME2:
+		case ACTION_GROUP_NME2:
 			addBonds(touchedAtom, 0, -1);
 			nadded = setAtoms(Atom.AN_N, Atom.AN_C, Atom.AN_C);
 			break;
-		case JME.ACTION_GROUP_CC:
+		case ACTION_GROUP_CC:
 			addBonds(touchedAtom, LINEAR_ON, 0, LINEAR_OFF);
 			setBonds(Bond.TRIPLE);
 			nadded = 2;
 			break;
-		case JME.ACTION_GROUP_COH:
+		case ACTION_GROUP_COH:
 			addBonds(touchedAtom, 0);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case JME.ACTION_GROUP_dO:
+		case ACTION_GROUP_dO:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case JME.ACTION_GROUP_CCC:
+		case ACTION_GROUP_CCC:
 			addBonds(touchedAtom, LINEAR_ON, 0, 0, LINEAR_OFF);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_C, Atom.AN_C);
 			setBonds(Bond.TRIPLE, Bond.SINGLE);
 			break;
-		case JME.ACTION_GROUP_CYANO:
+		case ACTION_GROUP_CYANO:
 			addBonds(touchedAtom, LINEAR_ON, 0, LINEAR_OFF);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_N);
 			setBonds(Bond.TRIPLE);
 			break;
-		case JME.ACTION_GROUP_CF:
+		case ACTION_GROUP_CF:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_F);
 			break;
-		case JME.ACTION_GROUP_CL:
+		case ACTION_GROUP_CL:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_CL);
 			break;
-		case JME.ACTION_GROUP_CB:
+		case ACTION_GROUP_CB:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_BR);
 			break;
-		case JME.ACTION_GROUP_CI:
+		case ACTION_GROUP_CI:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_I);
 			break;
-		case JME.ACTION_GROUP_CN:
+		case ACTION_GROUP_CN:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_N);
 			break;
-		case JME.ACTION_GROUP_CO:
+		case ACTION_GROUP_CO:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_O);
 			break;
-		case JME.ACTION_GROUP_C2:
+		case ACTION_GROUP_C2:
 			addBonds(touchedAtom, 0);
 			break;
-		case JME.ACTION_GROUP_C3:
+		case ACTION_GROUP_C3:
 			addBonds(touchedAtom, 0, 0);
 			break;
-		case JME.ACTION_GROUP_C4:
+		case ACTION_GROUP_C4:
 			addBonds(touchedAtom, 0, 0, 0);
 			break;
-		case JME.ACTION_GROUP_TEMPLATE:
+		case ACTION_GROUP_TEMPLATE:
 			nadded = addGroupTemplate(emptyCanvas);
 			break;
 		}
@@ -718,10 +774,18 @@ class JMEBuilder {
 
 	private final static int LINEAR_ON = Integer.MAX_VALUE;
 	private final static int LINEAR_OFF = Integer.MIN_VALUE;
-	
-	private void addBonds(int...b) {
-		System.out.println("addBonds " + Arrays.toString(b));
-		
+
+	/**
+	 * Process a sequence of bond creation instructions.
+	 * 
+	 * This does NOT increment mol.touchedBond or mol.touchedAtom.
+	 * 
+	 * @param b an array of directives, including b[i] == Integer.MAX_VALUE
+	 *          (linearAdding start), Integer.MIN_VALUE (linearAdding stop), b[i] >
+	 *          0 target atom, b[i] < 0 counting from the end of the atom set,
+	 *          mol.natoms
+	 */
+	private void addBonds(int... b) {
 		for (int i = 0; i < b.length; i++) {
 			int mode = b[i];
 			switch (mode) {
@@ -732,33 +796,64 @@ class JMEBuilder {
 				mol.linearAdding = false;
 				break;
 			default:
-				if (mode > 0) {
-					mol.addBondToAtom(touchedAtom, 0);
-				} else {
-					mol.addBondToAtom(mol.natoms + mode, 0);
-				}
+				mol.addBondToAtom(mode > 0 ? mode : mol.natoms + mode, 0);
 				bonds = mol.bonds;
 				break;
 			}
 		}
 	}
 
+	/**
+	 * Set the bond types of a sequence of newly created bonds, from first- to
+	 * last-created. Pad with Bond.SINGLE as necesssary.
+	 * 
+	 * 
+	 * @param bo
+	 */
 	private void setBonds(int... bo) {
-		System.out.println("setBonds " + Arrays.toString(bo));
-		int pt = mol.nbonds - bo.length + 1;
-		for (int i = 0; i < bo.length; i++) {
+		for (int i = 0, pt = mol.nbonds - bo.length + 1; i < bo.length; i++) {
 			mol.bonds[pt++].bondType = bo[i];
 		}
 	}
 
+	/**
+	 * Set the atomic number of recently added atoms, from first-created to
+	 * last-created. Pad with AN_C as necessary.
+	 * 
+	 * Note that this does NOT increment mol.touchedAtom.
+	 * 
+	 * @param an
+	 * @return
+	 */
 	private int setAtoms(int... an) {
 		int n = an.length;
-		int pt = mol.natoms - n + 1;
-		for (int i = 0; i < n; i++) {
+		for (int i = 0, pt = mol.natoms - n + 1; i < n; i++) {
 			mol.atoms[pt++].an = an[i];
 		}
 		return n;
 	}
 
+	private void setCharges(int... ch) {
+		for (int i = 0, pt = mol.natoms - ch.length + 1; i < ch.length; i++) {
+			mol.atoms[pt++].q = ch[i];
+		}
+	}
+
+	public String setTemplate(String t) throws Exception {
+		templateString = t;
+		MoleculeHandlingParameters pars = new MoleculeHandlingParameters();
+		pars.mark = true; // needed otherwise the atom map will be ignored
+		templateMolecule = new JMEmol(jme, t, SupportedFileFormat.JME, pars);		templateMolecule.internalBondLengthScaling();		
+		if (!templateMolecule.hasMappedOrMarkedAtom()) {
+			// console warning
+			return "template molecule has no mapped atom";
+			// June 2020: JMEmol does not do it automatically. 
+		}
+		return null;
+	}
+
+	public String getTemplateString() {
+		return templateString;
+	}
 
 }
