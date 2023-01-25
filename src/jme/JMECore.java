@@ -1,16 +1,28 @@
 package jme;
-public class JMEcore {
+public class JMECore {
 
-	public static class MoleculeHandlingParameters {
+	public static class Parameters {
 		
-		public class SmilesParameters {
+		public class SmilesParams {
 			
-			public boolean stereo      = true;
-			public boolean canonize    = true;
-			public boolean autoez      = true;
-			public boolean allHs       = false;
-			public boolean star        = false;
-			public boolean polarnitro  = false;
+			/**
+			 * set false to generate fully Kekule SMILES (for SMARTS target)
+			 * set true to generate fully aromatic SMILES (for SMARTS pattern)
+			 */
+			public boolean allowaromatic = true;
+			/**
+			 * ??
+			 */
+			public boolean stereo        = true;
+			
+			public boolean canonize      = true;
+			/**
+			 * ??
+			 */
+			public boolean autoez        = true;
+			public boolean allHs         = false;
+			public boolean star          = false;
+			public boolean polarnitro    = false;
 			
 		}
 
@@ -19,7 +31,7 @@ public class JMEcore {
 		 * @author bruno
 		 *
 		 */
-		public class HydrogenParameters {		
+		public class HydrogenParams {		
 
 			public boolean keepStereoHs     = true;
 			public boolean keepMappedHs     = true;
@@ -34,8 +46,8 @@ public class JMEcore {
 
 		}
 
-		public SmilesParameters smilesParams     = new SmilesParameters();
-		public HydrogenParameters hydrogenParams = new HydrogenParameters();
+		public SmilesParams smilesParams     = new SmilesParams();
+		public HydrogenParams hydrogenParams = new HydrogenParams();
 		public boolean computeValenceState       = true;
 		public boolean ignoreStereo              = false; // not implemented
 		public boolean mark                      = false;
@@ -61,7 +73,7 @@ public class JMEcore {
 	static final int NSTART_SIZE_ATOMS_BONDS = 10;
 	static final int MAX_BONDS_ON_ATOM = 6;
 
-	final static MoleculeHandlingParameters DefaultMoleculeHandlingParameters = new MoleculeHandlingParameters();
+	final static Parameters DefaultParameters = new Parameters();
 
 
 	/**
@@ -75,22 +87,22 @@ public class JMEcore {
 	int natoms = 0;
 	int nbonds = 0;
 
-	public MoleculeHandlingParameters moleculeHandlingParameters;
+	public Parameters parameters;
 
-	public JMEcore(JMEcore mol, int part) {
+	public JMECore(JMECore mol, int part) {
 		setPart(mol, part);
 	}
 
-	public JMEcore(JMEStatusListener jmesl, MoleculeHandlingParameters pars) {
+	public JMECore(JMEStatusListener jmesl, Parameters pars) {
 		this.jmesl = jmesl;
-		moleculeHandlingParameters = (pars == null ? new MoleculeHandlingParameters() : pars);
+		parameters = (pars == null ? new Parameters() : pars);
 		atoms[0] = new Atom();
 		natoms = 0;
 		nbonds = 0;
 	}
 
-	public JMEcore(JMEcore m) {
-		moleculeHandlingParameters = m.moleculeHandlingParameters;
+	public JMECore(JMECore m) {
+		parameters = m.parameters;
 		natoms = m.natoms;
 		nbonds = m.nbonds;
 		atoms = new Atom[natoms + 1];
@@ -226,7 +238,7 @@ public class JMEcore {
 		atoms[i].nv = nv;
 	}
 
-	public void setPart(JMEcore m, int part) {
+	public void setPart(JMECore m, int part) {
 		int newAtomIndexMap[] = new int[m.natoms + 1]; // cislovanie stare -> nove
 		for (int i = 1; i <= m.natoms; i++) {
 			if (m.atoms[i].partIndex != part)
@@ -315,7 +327,7 @@ public class JMEcore {
 					Q(atom2, 0);
 					bondType++;
 					bond.bondType = bondType; // needed because valenceState computes sum bond orders
-					valenceState();
+					setValenceState();
 				}
 			}
 
@@ -328,7 +340,7 @@ public class JMEcore {
 					bondType = Bond.DOUBLE;
 				// System.err.println("CPB2");
 				bond.bondType = bondType; // needed because valenceState computes sum bond orders
-				valenceState();
+				setValenceState();
 			}
 
 			// this fixes rare WebME problems (Jun 09)
@@ -365,19 +377,19 @@ public class JMEcore {
 	}
 
 	// ----------------------------------------------------------------------------
-	void valenceState() {
-		// System.out.println("@@@@ valence state");
+	void setValenceState() {
 		for (int i = 1; i <= natoms; i++) {
-			atoms[i].sbo = sumBondOrders(i);
-			atomValenceState(i);
+			setAtomValenceState(i);
 		}
 	}
 
-	// ----------------------------------------------------------------------------
-	void atomValenceState(int i) {
+	/**
+	 * determine atom.nh and atom.q from atom.sbo (sum of bond ordes)
+	 * @param i
+	 */
+	void setAtomValenceState(int i) {
 		Atom atom = atoms[i];
-		int sbo = atom.sbo; // sum bond orders to nonhydrogen atoms
-
+		int sbo = atom.sbo = sumBondOrders(i); // sum bond orders to nonhydrogen atoms
 		if (sbo == -1) {
 			atom.nh = 0;
 			return;
@@ -634,16 +646,16 @@ public class JMEcore {
 
 	void complete(boolean computeValenceState) {
 		setNeighborsFromBonds();
-		findBondCenters();
+		setBondCenters();
 		// March 2020: do valenceState() only if requested by the editor
 		if (computeValenceState) {
-			valenceState(); // nh a upravi q
+			setValenceState(); // nh a upravi q
 		}
 	}
 
-	protected void findBondCenters() {
+	protected void setBondCenters() {
 		for (int b = 1; b <= nbonds; b++) {
-			bonds[b].initBondCenter(atoms);
+			bonds[b].setBondCenter(atoms);
 		}
 	}
 
@@ -738,7 +750,7 @@ public class JMEcore {
 		int map = 0;
 		if (atomIndex > 0 && atomIndex <= this.nAtoms()) {
 			Atom atom = this.atoms[atomIndex];
-			map = atom.getMapOrMark(!moleculeHandlingParameters.mark);
+			map = atom.getMapOrMark(!parameters.mark);
 		}
 
 		return map;
@@ -775,7 +787,7 @@ public class JMEcore {
 			if (atom1 != delatom && atom2 != delatom) {
 				j++;
 				Bond bondJ = bonds[j]; // BondJ is replacing BondI
-				bondI.initOtherFromMe(bondJ);
+				bondI.copyTo(bondJ);
 				bondJ.va = atom1;
 				if (atom1 > delatom)
 					bondJ.va--;
@@ -818,7 +830,7 @@ public class JMEcore {
 
 	}
 
-	boolean deleteHydrogens(MoleculeHandlingParameters.HydrogenParameters pars) {
+	boolean deleteHydrogens(Parameters.HydrogenParams pars) {
 		boolean changed = false;
 
 		if (pars.removeHs == false) {

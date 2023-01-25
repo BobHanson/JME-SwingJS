@@ -8,7 +8,7 @@ import java.awt.FontMetrics;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import jme.JMEcore.MoleculeHandlingParameters;
+import jme.JMECore.Parameters;
 
 //END GWT_IMPORT
 
@@ -167,45 +167,30 @@ public class Atom implements AtomBondCommon {
 	}
 
 	public Atom deepCopy() {
-		Atom copy = new Atom();
-
-		this.initOtherFromMe(copy);
-
-		return copy;
+		return copyTo(new Atom());
 	}
-
-	public void initOtherFromMe(Atom otherAtom) {
-
-		otherAtom.backgroundColors = AtomBondCommon.copyArray(backgroundColors);
-		otherAtom.mark = this.mark;
-
-		otherAtom.map = this.map;
-		otherAtom.iso = this.iso;
-
-		otherAtom.x = this.x;
-		otherAtom.y = this.y;
-		otherAtom.z = this.z;
-
-		otherAtom.xo = this.xo;
-		otherAtom.yo = this.yo;
-
-		otherAtom.q = this.q;
-		otherAtom.label = this.label;
-
-		otherAtom.v = AtomBondCommon.copyArray(this.v);
-		otherAtom.nv = this.nv;
-
-		otherAtom.an = this.an;
-		otherAtom.atag = this.atag;
-
-		otherAtom.nh = this.nh;
-		otherAtom.sbo = this.sbo;
-
-		otherAtom.partIndex = this.partIndex;
-		otherAtom.deleteFlag = this.deleteFlag;
-
-		// otherAtom.backgroundColorIndex = this.backgroundColorIndex;
-
+	
+	public Atom copyTo(Atom a) {
+		a.backgroundColors = AtomBondCommon.copyArray(backgroundColors);
+		a.mark = this.mark;
+		a.map = this.map;
+		a.iso = this.iso;
+		a.x = this.x;
+		a.y = this.y;
+		a.z = this.z;
+		a.xo = this.xo;
+		a.yo = this.yo;
+		a.q = this.q;
+		a.label = this.label;
+		a.v = AtomBondCommon.copyArray(this.v);
+		a.nv = this.nv;
+		a.an = this.an;
+		a.atag = this.atag;
+		a.nh = this.nh;
+		a.sbo = this.sbo;
+		a.partIndex = this.partIndex;
+		a.deleteFlag = this.deleteFlag;
+		return a;
 	}
 
 	/**
@@ -389,7 +374,7 @@ public class Atom implements AtomBondCommon {
 	 * 
 	 */
 	String parseAtomicSymbolPatternIsotopMappAndCharge(String symbol,
-			MoleculeHandlingParameters moleculeHandlingParameters) {
+			Parameters parameters) {
 
 		Matcher m = atomicSymbolPatternIsotopAndCharge.matcher(symbol);
 		if (m.find()) {
@@ -453,10 +438,10 @@ public class Atom implements AtomBondCommon {
 				try {
 					int map = Integer.parseInt(atomMap);
 					if (map > 0) {
-						if (moleculeHandlingParameters.mark) {
+						if (parameters.mark) {
 							this.setMark(map);
 						}
-						if (moleculeHandlingParameters.number) {
+						if (parameters.number) {
 							this.setMap(map);
 						}
 

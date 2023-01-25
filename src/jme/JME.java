@@ -1,5 +1,8 @@
 package jme;
 
+// BH 2023.01.25 fixed mouseShift never resetting
+// BH 2023.01.25 adds smilesAromatic option (def true)
+
 // BH 2023.01.20:
 
 // - adds headless creation of PNG images
@@ -76,8 +79,8 @@ import jme.JMEUtil.RunAsyncCallback;
 import jme.JMEUtil.RunWhenDataReadyCallback;
 import jme.JMEmol.ReactionRole;
 import jme.JMEmolList.MolFileOrRxnParameters;
-import jme.JMEcore.MoleculeHandlingParameters;
-import jme.JMEcore.MoleculeHandlingParameters.HydrogenParameters;
+import jme.JMECore.Parameters;
+import jme.JMECore.Parameters.HydrogenParams;
 import jme.TextTransfer.PasteAction;
 
 // ----------------------------------------------------------------------------
@@ -266,7 +269,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// tieto parametere sa naplnaju v init (aby sa vynulovali pri starte)
 	// boolean bwMode = false;
 	
-	public MoleculeHandlingParameters params = new MoleculeHandlingParameters();
+	public Parameters params = new Parameters();
 
 	boolean pasteFromSDFstack = false;
 
@@ -1423,7 +1426,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public String smiles() {
 		String smiles;
 		try {
-			smiles = Smiles();
+			smiles = getSmiles();
 			// this.mustRedrawNothing(); //BB - info will be redrawed if changed
 		} catch (Exception e) {
 			this.info(e.getMessage());
@@ -1500,7 +1503,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public String nonisomericSmiles() {
 		boolean originalStereo = options.stereo;
 		options.stereo = false;
-		String smiles = Smiles();
+		String smiles = getSmiles();
 		options.stereo = originalStereo;
 		// BB: I commented the line below
 		// repaint(); // aby ked je chyba v smilesi, aby sa objavilo info
@@ -1509,17 +1512,16 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	// ----------------------------------------------------------------------------
-	String Smiles() {
-
-		this.updateReactionRoles();
-
-		params.smilesParams.stereo = options.stereo;
-		params.smilesParams.polarnitro = options.polarnitro;
-		params.smilesParams.canonize = options.canonize;
-		String smiles = moleculePartsList.generateSmilesOrSmirks(params);
-
-		return smiles;
-
+	String getSmiles() {
+		return getSmiles(null);
+	}
+	
+	String getSmiles(Parameters params) {
+		updateReactionRoles();
+		if (params == null) {
+			params = this.params;
+		}
+		return moleculePartsList.generateSmilesOrSmirks(params);
 	}
 
 	/*
@@ -5959,17 +5961,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public boolean mouseUp(MouseEvent e, int x, int y) {
 
 		boolean eventUsed = false;
-
-		// DUPLICATED CODE WITH BELOW
-//		if (depict && !depictActionEnabled) {
-//			if(toggleDepictEdit == true) {
-//				this.options("nodepict");
-//				this.handleAfterAfterDepictEditToggleEvent();
-//			}
-//			return true;
-//			
-//		}
-
 		if (this.movingAtom) {
 			// end of atom move
 			this.movingAtom = false;
@@ -6109,7 +6100,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			this.handleAfterAfterDepictEditToggleEvent();
 			eventUsed = true;
 		}
-
+		mouseShift = false; // BH added ? right?
 		return eventUsed;
 	}
 
@@ -7285,7 +7276,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		} else if (cmd == deleteHydrogensMoleculeAction) {
 
 			// From the user interaction, thus it is not using the settings from options()
-			HydrogenParameters options = new MoleculeHandlingParameters().hydrogenParams;
+			HydrogenParams options = new Parameters().hydrogenParams;
 			options.removeHs = true;
 			options.removeOnlyCHs = false;
 
@@ -7311,25 +7302,25 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// BB : rotation coming from the touch handling
 			// problem: unwanted interaction with the rotation
 			// Chemdoodle rotation & scaling works nice
-			if (false && this.moleculePartsList.size() == 1) {
-				long scale100 = evt.getWhen(); // I had to store the scale somewhere
-
-				setMustRedrawMolecularArea(true);
-
-				double delta = 0.05;
-				if (scale100 != 100) {
-					if (scale100 < 100) {
-						delta *= -1;
-					}
-					this.molecularAreaScalePixelsPerCoord = scale100 / 100.0;
-					// Todo : compute center of mol
-					// activeMol.scaling();
-					activeMol.center(); // TODO : translate back to previous center
-					// info("Scale " + this.depictScale );
-					lastAction = LA_SCALE;
-
-				}
-			}
+//			if (false && this.moleculePartsList.size() == 1) {
+//				long scale100 = evt.getWhen(); // I had to store the scale somewhere
+//
+//				setMustRedrawMolecularArea(true);
+//
+//				double delta = 0.05;
+//				if (scale100 != 100) {
+//					if (scale100 < 100) {
+//						delta *= -1;
+//					}
+//					this.molecularAreaScalePixelsPerCoord = scale100 / 100.0;
+//					// Todo : compute center of mol
+//					// activeMol.scaling();
+//					activeMol.center(); // TODO : translate back to previous center
+//					// info("Scale " + this.depictScale );
+//					lastAction = LA_SCALE;
+//
+//				}
+//			}
 		} else if (cmd.equals("end_gesture")) {
 			this.willPostSave(true);
 		} else {
@@ -7985,15 +7976,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// return null: do not save an empty state
 		// or save the empty save
 
-		if (true) {
+//		if (true) {
 			while (moleculePartsList.isReallyEmpty() && moleculePartsList.size() > 1) {
 				moleculePartsList.remove(0);
 			}
-		} else {
-			if (moleculePartsList.isReallyEmpty()) {
-				return null;
-			}
-		}
+//		} else {
+//			if (moleculePartsList.isReallyEmpty()) {
+//				return null;
+//			}
+//		}
 
 		SavedState state = new SavedState();
 		state.moleculePartsList = this.moleculePartsList.deepCopy();
@@ -8752,7 +8743,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param colorIndex (first value is 1)
 	 */
 	public void activateMarkerColor(int colorIndex) {
-		// this.moleculeHandlingParameters.mark = true;
+		// this.parameters.mark = true;
 
 		if (colorIndex < 1 || colorIndex > this.colorManager.numberOfBackgroundColors()) {
 			this.alert("Invalid color index: " + colorIndex);
@@ -9189,6 +9180,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// when reading a or pasting a mol: add it or replace everything in the canvas
 		/* final */ boolean allowGUIzooming = true;
 		/* final */ boolean allowZooming = true;
+		            //boolean smilesAromatic = true; // see smilesParams
+					//boolean autoez = true; // see smilesParams
 		/* final */ boolean autonumber = false;
 		/* final */ boolean contextMenuEnabledOption = true;
 		/* final */ boolean depictActionEnabled = false;
@@ -9222,18 +9215,16 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		/* final */ boolean starAtomOnly = false;
 		/* final */ boolean starBondOnly = false;
 		/* final */ boolean starNothing = false;
+		/* final */ boolean stereo = true;
 		/* final */ boolean toggleDepictEdit = false;
 		// BB
 		/* final */ boolean useOclIdCode = false;
 		// OpenChemLib option: useOclIDCode
 		/* final */ boolean useOpenChemLib = true; // for SMILES input
 
-		// default only:
-		boolean canonize = true;
 		boolean multipart = true;
 		boolean query = false;
 		boolean reaction = false;
-		boolean stereo = true;
 		boolean xButton = true;
 
 		// Applet-style parameter options
@@ -9354,6 +9345,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		 * @param args
 		 */
 		public void callback(Object f, Object args) {
+			@SuppressWarnings("unused")
 			JME jme = JME.this;
 			/**
 			 * @j2sNative
@@ -9425,7 +9417,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if ((o = parseSynonymOptions(parameters, "star", "marker")) != null) {
 				if (params.mark != o) {
 					params.number = params.mark = o; // why number?
-					// activeMarkerColorIndex = moleculeHandlingParameters.mark ? 0 : -1; //WIP
+					// activeMarkerColorIndex = parameters.mark ? 0 : -1; //WIP
 					mustRedrawEverything();
 					if (!o) // eif star is off, so is star1
 						markOnly1 = false;
@@ -9448,10 +9440,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					params.hydrogenParams.showHs = o;
 					mustReDrawMolecularArea();
 				}
-			}
-
-			if ((o = parseOption("polarnitro")) != null) {
-				polarnitro = o;
 			}
 
 			if ((o = parseOption("valencestate")) != null) {
@@ -9500,16 +9488,20 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				reaction = o;
 			}
 
-			if ((o = parseOption("autoez")) != null) {
-				// autoez = optionTest;
-				params.smilesParams.autoez = o;
+			// SMILES and general -- polarnitro and stereo
+			if ((o = parseOption("polarnitro")) != null) {
+				polarnitro = params.smilesParams.polarnitro = o;
 			}
-
 			if ((o = parseOption("stereo")) != null)
-				stereo = o;
+				stereo = params.smilesParams.stereo = o;
 
+			// SMILES only
+			if ((o = parseOption("autoez")) != null)
+				params.smilesParams.autoez = o;
+			if ((o = parseOption("smilesaromatic")) != null)
+				params.smilesParams.allowaromatic = o; 
 			if ((o = parseOption("canonize")) != null)
-				canonize = o;
+				params.smilesParams.canonize = o;
 
 			if ((o = parseOption("multipart")) != null)
 				if (multipart != o) {
@@ -9565,8 +9557,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 
 //			if ((optionTest = parseSynonymOptions(parameters, markerMultiColorOptionJLabel )) != null) {
-//				if (moleculeHandlingParameters.markerMultiColor != optionTest) {
-//					moleculeHandlingParameters.markerMultiColor = optionTest;
+//				if (parameters.markerMultiColor != optionTest) {
+//					parameters.markerMultiColor = optionTest;
 //					
 //					mustRedrawEverything();
 			//
@@ -9629,7 +9621,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				showDragAndDropIconInDepictMode = o;
 			if ((o = parseOption("addnewpart")) != null)
 				addNewPart = o;
-
 			if ((o = parseOption("exportinchi")) != null)
 				exportInchi = o;
 			if ((o = parseOption("exportinchikey")) != null)
@@ -9640,10 +9631,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				searchInchiKey = o;
 			if ((o = parseOption("exportsvg")) != null)
 				exportSVG = o;
-
 			if ((o = parseOption("exportrxnmerge")) != null)
 				exportRXNmergeOption = o;
-
 			if ((o = parseOption("contextmenu")) != null)
 				contextMenuEnabledOption = o;
 			if ((o = parseOption("fullscreenicon")) != null)
@@ -9685,14 +9674,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (parameters.indexOf("jmeh") > -1)
 				jmeh = true;
 			if (parameters.indexOf("showan") > -1)
-
 				showAtomNumbers = true;
-			// System.out.println(rButton+"
-			// "+moleculeHandlingParameters.hydrogenHandlingParameters.showHs+" "+query+"
-			// "+autoez+"
-			// "+stereo+" "+canonize+" "+reaction);
-
-			// BB
 			if ((o = parseOption("atommovebutton")) != null)
 				showAtomMoveJButton = o;
 			if ((o = parseOption("useopenchemlib")) != null)
@@ -9805,6 +9787,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 
 		public Object getInfo(String param) {
+			@SuppressWarnings("unused")
 			Object html5applet = getApplet(false);
 			/**
 			 * @j2sNative

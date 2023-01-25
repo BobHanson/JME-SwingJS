@@ -4,8 +4,6 @@ import java.awt.FontMetrics;
 import java.util.Calendar;
 import java.util.StringTokenizer;
 
-import jme.JMEUtil.RunAsyncCallback;
-
 public abstract class JMEUtil {
 
 	
@@ -145,8 +143,7 @@ public abstract class JMEUtil {
 	public static double squareEuclideanDist(double x1, double y1, double x2, double y2) {
 		double dx = x2-x1;
 		double dy = y2-y1;
-	
-		return dx*dx+dy*dy; //equal to dot product
+		return dx*dx+dy*dy;
 	}
 
 	public static double dotProduct(double x1, double y1, double x2, double y2) {

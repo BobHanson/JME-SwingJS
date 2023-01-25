@@ -13,7 +13,7 @@ import com.actelion.research.chem.StereoMolecule;
 import com.actelion.research.chem.coords.CoordinateInventor; // to compute 2D coordinates
 
 import jme.JME.SupportedFileFormat;
-import jme.JMEcore.MoleculeHandlingParameters;
+import jme.JMECore.Parameters;
 
 
 
@@ -251,7 +251,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	 *
 	 */
 	//TODO: handle input with 3D or no coordinates
-	public boolean readJMEstringInput(String molecule, MoleculeHandlingParameters pars) {
+	public boolean readJMEstringInput(String molecule, Parameters pars) {
 		
 		//| is molecular separator
 		//> is reaction separator
@@ -383,7 +383,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 					MolfileCreator mfc = new MolfileCreator(oclMol);
 					try {
 						result = new JMEmol(mol.jme, mfc.getMolfile(), JME.SupportedFileFormat.MOL,
-								mol.moleculeHandlingParameters);
+								mol.parameters);
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
@@ -487,7 +487,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	}
 
 	// can raise exception
-	public boolean readMDLstringInput(String s, MoleculeHandlingParameters pars) {
+	public boolean readMDLstringInput(String s, Parameters pars) {
 
 		this.reset();
 		isReaction = s.startsWith("$RXN");
@@ -535,7 +535,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		return true;
 	}
 
-	public boolean readJmolAdaptorInput(Object[] iterators, MoleculeHandlingParameters params) {
+	public boolean readJmolAdaptorInput(Object[] iterators, Parameters params) {
 		try {
 			add(new JMEmol(null, iterators, SupportedFileFormat.JMOL, params));
 			return true;
@@ -548,7 +548,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	/*
 	 * MDL MOL
 	 */
-	private boolean readSingleMOL(String s, MoleculeHandlingParameters pars) {
+	private boolean readSingleMOL(String s, Parameters pars) {
 		try {
 			add(new JMEmol(null, s, JME.SupportedFileFormat.MOL, pars));
 			return true;
@@ -718,7 +718,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 
 	
 	//duplicated code with generateJmeFile
-	public String generateSmilesOrSmirks(MoleculeHandlingParameters pars) {
+	public String generateSmilesOrSmirks(Parameters pars) {
 		String result = "";
 		
 		if (isReaction) {

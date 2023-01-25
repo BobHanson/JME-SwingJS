@@ -1,7 +1,7 @@
 package jme;
 
 import jme.JME.SupportedFileFormat;
-import jme.JMEcore.MoleculeHandlingParameters;
+import jme.JMECore.Parameters;
 
 class JMEBuilder {
 
@@ -426,7 +426,7 @@ class JMEBuilder {
 			int rbond = mol.nbonds - nmembered + i;
 			atoms[ratom].v[1] = ratom - 1;
 			atoms[ratom].v[2] = ratom + 1;
-			bonds[rbond].initBondCenter(atoms);
+			bonds[rbond].setBondCenter(atoms);
 		}
 		// close ring
 		int n = mol.natoms;
@@ -562,7 +562,7 @@ class JMEBuilder {
 		// add the template atoms to myself no binding yet
 		// do not yet move or rotate the template part
 		mol.addOtherMolToMe(tmol);
-		mol.complete(mol.moleculeHandlingParameters.computeValenceState);
+		mol.complete(mol.parameters.computeValenceState);
 
 		// remove the map coming from the template
 		this.atoms[nn + mark1].resetMap();
@@ -627,7 +627,7 @@ class JMEBuilder {
 			mol.deleteAtom(source);
 			mol.center();
 		}
-		mol.complete(mol.moleculeHandlingParameters.computeValenceState);
+		mol.complete(mol.parameters.computeValenceState);
 
 		return tmol.natoms; // BB needed later by avoidTouch
 	}
@@ -846,7 +846,7 @@ class JMEBuilder {
 
 	public String setTemplate(String t) throws Exception {
 		templateString = t;
-		MoleculeHandlingParameters pars = new MoleculeHandlingParameters();
+		Parameters pars = new Parameters();
 		pars.mark = true; // needed otherwise the atom map will be ignored
 		templateMolecule = new JMEmol(jme, t, SupportedFileFormat.JME, pars);		templateMolecule.internalBondLengthScaling();		
 		if (!templateMolecule.hasMappedOrMarkedAtom()) {

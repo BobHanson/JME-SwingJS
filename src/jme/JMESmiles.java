@@ -1,7 +1,9 @@
 package jme;
 
-public class JMESmiles extends JMEcore {
+public class JMESmiles extends JMECore {
 
+	// BH 2023.01.24 this class pulled out from JMEmol
+	// BH 2023.01.25 adds JMEcore.
 	/**
 	 * temporary array that holds an atom selection
 	 */
@@ -16,10 +18,7 @@ public class JMESmiles extends JMEcore {
 	private boolean isQuery;
 	private boolean autoez;
 
-	private boolean stereo;
-
-	private boolean computeValenceState;
-
+	
 	
 
 public JMESmiles(JMEmol mol, int part, boolean isQuery) {
@@ -36,15 +35,13 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 	 * 
 	 * @return
 	 */
-	String createSmilesWithSideEffect(MoleculeHandlingParameters mpars) {
+	String createSmilesWithSideEffect(Parameters mpars) {
 		if (natoms == 0)
 			return "";
-		
+
+		parameters = mpars;
 		doMark = mpars.mark;
-		computeValenceState = mpars.computeValenceState;
 		autoez = mpars.smilesParams.autoez;
-		stereo = mpars.smilesParams.stereo;
-		moleculeHandlingParameters = mpars;
 
 		int[] con1 = new int[natoms + 10]; // well a little bit too much memory
 		int[] con2 = new int[natoms + 10]; // but the code is much cleaner than Vector
@@ -66,16 +63,19 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		// asi to treba takto komplikovane
 		// btype RING_NONAROMATIC sa nepouziva ! (len aromatic)
 		if (mpars.smilesParams.canonize && !haveQueryOrCoordBonds()) {
-			// BH hydrogen deletion is taken care of in JMEmol prior to this
-			deleteHydrogens(!mpars.smilesParams.stereo);
+			Parameters.HydrogenParams pars = setHydrogenParams(mpars);
+			deleteHydrogens(pars);
 			cleanPolarBonds(mpars.smilesParams.polarnitro);
 			findRingBonds(bondMinimumRingSize);
-			findAromatic(isAromatic, bondMinimumRingSize); // naplni btype
-			canonize(); // btype[] sa tu znici
-			valenceState();
+			boolean allowAromatic = mpars.smilesParams.allowaromatic;
+			setBondTypes(isAromatic, bondMinimumRingSize, allowAromatic);
+			canonize(mpars.computeValenceState); // btype[] sa tu znici
+			setValenceState();
 			// prec
-			findRingBonds(bondMinimumRingSize); // v canonize sa to prehadze, dat to tam ?
-			findAromatic(isAromatic, bondMinimumRingSize); // znovy vypoicta btype[]
+			findRingBonds(bondMinimumRingSize);
+			// v canonize sa to prehadze, dat to tam ?
+			setBondTypes(isAromatic, bondMinimumRingSize, allowAromatic);
+			// znovy vypoicta btype[]
 		} else { // to treba pre stereochemiu
 			findRingBonds(bondMinimumRingSize);
 			btype = new int[nbonds + 1]; // inak to plni vo findAromatic
@@ -236,7 +236,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		// identification of stereo atoms
 		int slashBond[] = new int[nbonds + 1]; // info about / or \ bonds (1,0,or -1)
 		int slimak[] = new int[natoms + 1]; // info about @ or @@ (1,0,or -1)
-		if (stereo)
+		if (mpars.smilesParams.stereo)
 			smilesStereo(aa, parent, slashBond, slimak, bondMinimumRingSize, con1, con2, nconnections);
 
 		// -------- vlastne vytvaranie SMILESu
@@ -254,7 +254,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			ax[aa[i]] = i; // ax[i] - kolky sa robi atom i
 		for (int i = 1; i <= natoms; i++) {
 			atom = aa[i];
-			//assert (atom > 0);
+			// assert (atom > 0);
 			if (leftBracket[atom])
 				smiles.append("(");
 			if (parent[i] > 0)
@@ -280,6 +280,16 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		}
 
 		return smiles.toString();
+	}
+
+	private Parameters.HydrogenParams setHydrogenParams(Parameters mpars) {
+		boolean keepStereo = !mpars.smilesParams.stereo;
+		Parameters.HydrogenParams pars = new Parameters().hydrogenParams;
+		// BH TODO -- this should be allowed to be modifed based on user settings
+		pars.keepStereoHs = keepStereo;
+		pars.removeHs = true;
+		pars.removeOnlyCHs = false;
+		return pars;
 	}
 
 	// ----------------------------------------------------------------------------
@@ -1041,7 +1051,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			return;
 		// bondMinimumRingSize[bond] means no ring
 
-		if (!(bonds[bond].stereo == Bond.STEREO_EZ || autoez))
+		if (!autoez && bonds[bond].stereo != Bond.STEREO_EZ)
 			return; // BB October 2016: stereo for large rings is missing
 
 		// BB Feb 2017
@@ -1400,7 +1410,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			slimak[center] *= -1;
 	}
 
-	public static String getSmiles(JMEmol deepCopy, MoleculeHandlingParameters pars, boolean isQuery) {
+	public static String getSmiles(JMEmol deepCopy, Parameters pars, boolean isQuery) {
 		// from now on, coordination bonds will be shown with "~"
 		int nparts = deepCopy.computeMultiPartIndices();
 		JMESmiles[] parts = new JMESmiles[nparts];
@@ -1436,40 +1446,40 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 	}
 
 	// ----------------------------------------------------------------------------
-	void findAromatic(boolean isAromatic[], int minBondRingSizes[]) {
+	void setBondTypes(boolean isAromatic[], int minBondRingSizes[], boolean allowAromatic) {
 		// two pass
 
 		btype = new int[nbonds + 1];
 		boolean pa[] = new boolean[natoms + 1]; // possible aromatic
 
-		for (int i = 1; i <= natoms; i++) {
-			pa[i] = false;
-			isAromatic[i] = false;
-			if (!isInRing(i, minBondRingSizes))
-				continue;
-			// if (nv(i)+nh[i]>3) continue; // >X< nemoze byt aromaticky (ako s nabojmi?)
-			if (nv(i) + atoms[i].nh > 3)
-				continue; // >X< nemoze byt aromaticky (ako s nabojmi?)
-			switch (an(i)) {
-			case Atom.AN_C:
-			case Atom.AN_N:
-			case Atom.AN_P:
-			case Atom.AN_O:
-			case Atom.AN_S:
-			case Atom.AN_SE:
-				pa[i] = true;
-				break;
-			case Atom.AN_X:
-				// 2013.09
-				if (atoms[i].label.startsWith("A"))
-					pa[i] = false;
-				else
+		if (allowAromatic) {
+			for (int i = 1; i <= natoms; i++) {
+				pa[i] = false;
+				isAromatic[i] = false;
+				if (!isInRing(i, minBondRingSizes))
+					continue;
+				// if (nv(i)+nh[i]>3) continue; // >X< nemoze byt aromaticky (ako s nabojmi?)
+				if (nv(i) + atoms[i].nh > 3)
+					continue; // >X< nemoze byt aromaticky (ako s nabojmi?)
+				switch (an(i)) {
+				case Atom.AN_C:
+				case Atom.AN_N:
+				case Atom.AN_P:
+				case Atom.AN_O:
+				case Atom.AN_S:
+				case Atom.AN_SE:
 					pa[i] = true;
-				break;
+					break;
+				case Atom.AN_X:
+					// 2013.09
+					if (atoms[i].label.startsWith("A"))
+						pa[i] = false;
+					else
+						pa[i] = true;
+					break;
+				}
 			}
-
 		}
-
 		// 2013.09
 		if (isQuery)
 			doRingQueryCheck(isAromatic, minBondRingSizes);
@@ -1607,7 +1617,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		} // --- bondloop1 end
 	}
 
-	void canonize() {
+	void canonize(boolean computeValenceState) {
 		// #1 atom will be simplest
 		boolean ok;
 		int a[] = new int[natoms + 1]; // current ranking
@@ -1834,15 +1844,6 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			return true;
 		else
 			return false;
-	}
-
-	// used for SMILES generation
-	boolean deleteHydrogens(boolean keepStereo) {
-		MoleculeHandlingParameters.HydrogenParameters pars = new MoleculeHandlingParameters().hydrogenParams;
-		pars.keepStereoHs = keepStereo;
-		pars.removeHs = true;
-		pars.removeOnlyCHs = false;
-		return deleteHydrogens(pars);
 	}
 
 	// ----------------------------------------------------------------------------

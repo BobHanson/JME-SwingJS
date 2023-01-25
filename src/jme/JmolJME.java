@@ -323,7 +323,6 @@ public class JmolJME extends JME implements WindowListener {
 		if (activeMol.natoms == 0)
 			return "";
 		if (JMEUtil.isSwingJS) {
-			// this is an aromaticity problem with nccccc=O
 			return super.smiles();
 		} 
 		String mol = molFile();

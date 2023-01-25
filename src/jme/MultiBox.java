@@ -72,7 +72,7 @@ class MultiBox extends FrameWithLocation {
 				this.safeTranslate(smilesBoxPoint, -30, 0); // above the applet,close to the smiley
 			}
 			this.lastLocation = smilesBoxPoint;
-			initSmilesBox(jme.Smiles());
+			initSmilesBox(jme.getSmiles());
 			break;
 		case BOX_ATOMX:
 			// BB

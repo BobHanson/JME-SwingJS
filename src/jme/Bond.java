@@ -41,22 +41,21 @@ public class Bond implements AtomBondCommon {
 	}
 
 	public Bond deepCopy() {
-		Bond copy = new Bond();
-		initOtherFromMe(copy);
-		return copy;
+		return copyTo(new Bond());
 	}
 
-	public void initOtherFromMe(Bond otherBond) {
-		otherBond.backgroundColors = AtomBondCommon.copyArray(this.backgroundColors);
-		otherBond.mark = this.mark;
-		otherBond.va = this.va;
-		otherBond.vb = this.vb;
-		otherBond.bondType = this.bondType;
-		otherBond.stereo = this.stereo;
-		otherBond.btag = this.btag; // should we deep copy the string?
-		otherBond.bondCenterX = this.bondCenterX;
-		otherBond.bondCenterY = this.bondCenterY;
-		otherBond.partIndex = this.partIndex;
+	public Bond copyTo(Bond b) {
+		b.backgroundColors = AtomBondCommon.copyArray(this.backgroundColors);
+		b.mark = this.mark;
+		b.va = this.va;
+		b.vb = this.vb;
+		b.bondType = this.bondType;
+		b.stereo = this.stereo;
+		b.btag = this.btag; // should we deep copy the string?
+		b.bondCenterX = this.bondCenterX;
+		b.bondCenterY = this.bondCenterY;
+		b.partIndex = this.partIndex;
+		return b;
 	}
 
 	public static String convertBondType(int bondType) {
@@ -81,7 +80,6 @@ public class Bond implements AtomBondCommon {
 			result = "query";
 			break;
 		}
-
 		return result;
 	}
 
@@ -106,7 +104,6 @@ public class Bond implements AtomBondCommon {
 			break;
 
 		}
-
 		return result;
 	}
 
@@ -130,13 +127,9 @@ public class Bond implements AtomBondCommon {
 		return bondType == TRIPLE;
 	}
 
-	void initBondCenter(Atom atoms[]) {
-		Atom atom1 = atoms[va];
-		Atom atom2 = atoms[vb];
-
-		bondCenterX = (atom1.x + atom2.x) / 2.;
-		bondCenterY = (atom1.y + atom2.y) / 2.;
-
+	void setBondCenter(Atom atoms[]) {
+		bondCenterX = (atoms[va].x + atoms[vb].x) / 2;
+		bondCenterY = (atoms[va].y + atoms[vb].y) / 2;
 	}
 
 	void toggleNormalCrossedDoubleBond() {
@@ -144,7 +137,7 @@ public class Bond implements AtomBondCommon {
 		if (isDouble()) {
 			stereo = STEREO_EZ - stereo;
 		}
-		assert (stereo == 0 || stereo == STEREO_EZ);
+//		assert (stereo == 0 || stereo == STEREO_EZ);
 	}
 
 	public boolean isCoordination() {
