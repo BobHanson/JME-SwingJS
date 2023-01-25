@@ -8,6 +8,8 @@ import java.awt.FontMetrics;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import jme.JMEcore.MoleculeHandlingParameters;
+
 //END GWT_IMPORT
 
 /**
@@ -174,7 +176,7 @@ public class Atom implements AtomBondCommon {
 
 	public void initOtherFromMe(Atom otherAtom) {
 
-		otherAtom.backgroundColors = JMEUtil.copyArray(backgroundColors);
+		otherAtom.backgroundColors = AtomBondCommon.copyArray(backgroundColors);
 		otherAtom.mark = this.mark;
 
 		otherAtom.map = this.map;
@@ -190,7 +192,7 @@ public class Atom implements AtomBondCommon {
 		otherAtom.q = this.q;
 		otherAtom.label = this.label;
 
-		otherAtom.v = JMEUtil.copyArray(this.v);
+		otherAtom.v = AtomBondCommon.copyArray(this.v);
 		otherAtom.nv = this.nv;
 
 		otherAtom.an = this.an;
@@ -501,7 +503,7 @@ public class Atom implements AtomBondCommon {
 			}
 			;
 		}
-		backgroundColors = JMEUtil.growArray(backgroundColors, backgroundColors.length + 1);
+		backgroundColors = AtomBondCommon.growArray(backgroundColors, backgroundColors.length + 1);
 		backgroundColors[backgroundColors.length - 1] = c;
 	}
 

@@ -1,8 +1,7 @@
 package jme;
 
-import java.util.Arrays;
-
 import jme.JME.SupportedFileFormat;
+import jme.JMEcore.MoleculeHandlingParameters;
 
 class JMEBuilder {
 
@@ -338,17 +337,18 @@ class JMEBuilder {
 						if (atom3 == b.vb)
 							atom3 = mol.v(b.vb)[2];
 					}
-					if (atom3 > 0)
+					if (atom3 > 0) {
 						// checking if bond atom3-atom is multiple
-						for (int i = 1; i <= mol.nbonds; i++)
-							if ((bonds[i].va == atom3 && bonds[i].vb == atom)
-									|| (bonds[i].va == atom && bonds[i].vb == atom3)) {
-								if (!mol.isSingle(i)) {
+						for (int i = 1; i <= mol.nbonds; i++) {
+							if (bonds[i].isAB(atom, atom3)) {
+								if (!bonds[i].isSingle()) {
 									setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.TRIPLE,
 											Bond.SINGLE);
 								}
 								break;
 							}
+						}
+					}
 				} else {
 					setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE);
 				}
@@ -436,11 +436,13 @@ class JMEBuilder {
 		// zistuje, ci sa nejake nove atomy dotykaju so starymi
 		for (int i = mol.natoms - nmembered + 1; i <= mol.natoms; i++) { // loop over new ring atoms
 			parent[i] = 0;
+			Atom a = atoms[i];
 			double min = TOUCH_LIMIT + 1;
 			int tooCloseAtom = 0;
 			for (int j = 1; j <= mol.natoms - nmembered; j++) { // loop over older atoms
-				double dx = mol.x(i) - mol.x(j);
-				double dy = mol.y(i) - mol.y(j);
+				Atom b = atoms[j];
+				double dx = a.x - b.x;
+				double dy = a.y - b.y;
 				double rx = dx * dx + dy * dy;
 				if (rx < TOUCH_LIMIT)
 					if (rx < min) {
@@ -460,38 +462,41 @@ class JMEBuilder {
 		bloop: for (int i = noldbonds + 1; i <= noldbonds + nmembered; i++) {
 			int atom1 = bonds[i].va;
 			int atom2 = bonds[i].vb;
-			if (parent[atom1] > 0 && parent[atom2] > 0) { // in case of a touched bond?
+			int p1 = parent[atom1];
+			int p2 = parent[atom2];
+			if (p1 > 0 && p2 > 0) { 
+				// in case of a touched bond?
 				// ak parenty nie su viazane urobi medzi nimi novu vazbu
 				for (int k = 1; k <= noldbonds; k++) {
-					if ((bonds[k].va == parent[atom1] && bonds[k].vb == parent[atom2])
-							|| (bonds[k].vb == parent[atom1] && bonds[k].va == parent[atom2]))
+					if (bonds[k].isAB(p1, p2))
 						continue bloop;
 				}
 				// BB create bond between parent[atom1] and parent[atom2]?
-				createAndAddNewBond(parent[atom1], parent[atom2], bonds[i].bondType);
-			} else if (parent[atom1] > 0) {
+				createAndAddNewBond(p1, p2, bonds[i].bondType);
+			} else if (p1 > 0) {
 				// BB create bond between parent[atom1] and atom2?
-				createAndAddNewBond(parent[atom1], atom2, bonds[i].bondType);
-			} else if (parent[atom2] > 0) {
+				createAndAddNewBond(p1, atom2, bonds[i].bondType);
+			} else if (p2 > 0) {
 				// BB create bond between parent[atom2] and atom1?
-				createAndAddNewBond(parent[atom2], atom1, bonds[i].bondType);
+				createAndAddNewBond(p2, atom1, bonds[i].bondType);
 			}
 		}
 
 		// nakoniec vyhodi atomy, co maju parentov
 		int noldatoms = mol.natoms - nmembered;
 		for (int i = mol.natoms; i > noldatoms; i--) {
-			if (parent[i] > 0) {
+			int pi = parent[i];
+			if (pi > 0) {
 				mol.deleteAtom(i);
 				// 2007.12 checking 5-nasobnost u C
-				if (mol.an(parent[i]) == Atom.AN_C) {
+				if (atoms[pi].an == Atom.AN_C) {
 					int sum = 0;
-					for (int j = 1; j <= mol.nv(parent[i]); j++) {
-						int a2 = mol.v(parent[i])[j];
+					for (int j = 1; j <= atoms[pi].nv; j++) {
+						int aj = atoms[pi].v[j];
 						for (int k = 1; k <= mol.nbonds; k++) {
-							if ((bonds[k].va == parent[i] && bonds[k].vb == a2)
-									|| (bonds[k].va == a2 && bonds[k].vb == parent[i]))
-								sum += bonds[k].bondType;
+							Bond b = bonds[k];
+							if (b.isAB(pi, aj))
+								sum += b.bondType;
 						}
 					}
 					if (sum > 4) {

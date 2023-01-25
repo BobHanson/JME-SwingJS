@@ -1,7 +1,5 @@
 package jme;
 
-import jme.JMEUtil.GWT;
-
 class EnsembleAtom {
 	public int molIndex; // 0 based
 	public JMEmol mol;
@@ -13,7 +11,7 @@ class EnsembleAtom {
 			int atomIndex) {
 
 		if (molIndex < 0 || atomIndex < 0) {
-			GWT.log("Invalid index for getEnsembleAtom()");
+			JMEUtil.log("Invalid index for getEnsembleAtom()");
 			return null;
 		}
 

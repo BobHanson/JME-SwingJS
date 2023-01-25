@@ -38,5 +38,20 @@ public interface AtomBondCommon {
 	public void setMark(int map);
 	
 	public boolean isMarked();
+	
+	public static int[] growArray(int[] array, int newSize) {
+		int newArray[] = new int[newSize];
+		System.arraycopy(array, 0, newArray, 0, array.length);
+		return newArray;
+	}
+
+	/* shallow copy of the array */
+	public static int[] copyArray(int[] array) {
+		int copy[] = new int[array.length];
+		System.arraycopy(array, 0, copy, 0, array.length);
+		return copy;
+	}
+
+
 
 }

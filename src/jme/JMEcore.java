@@ -1,13 +1,73 @@
 package jme;
-
 public class JMEcore {
 
-	JMEStatusListener jmesl;
+	public static class MoleculeHandlingParameters {
+		
+		public class SmilesParameters {
+			
+			public boolean stereo      = true;
+			public boolean canonize    = true;
+			public boolean autoez      = true;
+			public boolean allHs       = false;
+			public boolean star        = false;
+			public boolean polarnitro  = false;
+			
+		}
+
+		/**
+		 * mainly handling of hydrogens removal
+		 * @author bruno
+		 *
+		 */
+		public class HydrogenParameters {		
+
+			public boolean keepStereoHs     = true;
+			public boolean keepMappedHs     = true;
+			public boolean keepIsotopicHs	= true;	
+			public boolean removeHs 		= false;
+			public boolean removeOnlyCHs    = false;
+		
+			/**
+			 * (on hetero OH, NH2...)
+			 */
+			public boolean showHs           = true; 
+
+		}
+
+		public SmilesParameters smilesParams     = new SmilesParameters();
+		public HydrogenParameters hydrogenParams = new HydrogenParameters();
+		public boolean computeValenceState       = true;
+		public boolean ignoreStereo              = false; // not implemented
+		public boolean mark                      = false;
+		
+		/**
+		 * atom map
+		 */
+		public boolean number                    = false; 
+			
+		public boolean showAtomMapNumberWithBackgroundColor = false; // new Jan 2020
+		// these two options are related
+		public boolean internalBondScalingForInput          = false; // internal scale the molecules from input files - only JME needs this
+
+		/**
+		 * do not invert y or center x for output
+		 * 
+		 * Interactive editor: must be false, testing suite: must be true
+		 */
+		public boolean keepSameCoordinatesForOutput         = false; 
+
+	}
 
 	static final int NSTART_SIZE_ATOMS_BONDS = 10;
 	static final int MAX_BONDS_ON_ATOM = 6;
 
 	final static MoleculeHandlingParameters DefaultMoleculeHandlingParameters = new MoleculeHandlingParameters();
+
+
+	/**
+	 * just used for info(
+	 */
+	JMEStatusListener jmesl;
 
 	Atom atoms[] = new Atom[NSTART_SIZE_ATOMS_BONDS];
 	Bond bonds[] = new Bond[NSTART_SIZE_ATOMS_BONDS];
@@ -542,11 +602,9 @@ public class JMEcore {
 
 	int bondIdentity(int atom1, int atom2) {
 		for (int i = 1; i <= nbonds; i++) {
-			Bond bond = bonds[i];
-			int va = bond.va;
-			int vb = bond.vb;
-			if (va == atom1 && vb == atom2 || va == atom2 && vb == atom1)
+			if (bonds[i].isAB(atom1, atom2)) {
 				return i;
+			}
 		}
 		return 0;
 	}

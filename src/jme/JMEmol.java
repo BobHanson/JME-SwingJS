@@ -17,7 +17,6 @@ import org.jmol.util.Edge;
 import org.jmol.util.Elements;
 
 import javajs.util.P3d;
-import jme.JMEUtil.GWT;
 
 // --------------------------------------------------------------------------
 public class JMEmol extends JMEcore implements Graphical2DObject {
@@ -2327,7 +2326,7 @@ public class JMEmol extends JMEcore implements Graphical2DObject {
 				return;
 			}
 			// atom1 - stary, atom2 - novy atom
-			if (jme.webme) {
+			if (JME.webme) {
 				// handling webme (up / down templates)
 				// just switching up/xup and down/xdown
 				if (!jme.revertStereo) {
@@ -2809,7 +2808,7 @@ public class JMEmol extends JMEcore implements Graphical2DObject {
 			}
 		} catch (Exception e) {
 			System.err.println("Error in atom coloring");
-			GWT.log("Error in atom coloring");
+			JMEUtil.log("Error in atom coloring");
 			// e.printStackTrace();
 		}
 	}

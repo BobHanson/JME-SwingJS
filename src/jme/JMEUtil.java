@@ -1,9 +1,10 @@
 package jme;
 
 import java.awt.FontMetrics;
-import java.lang.reflect.Array;
 import java.util.Calendar;
 import java.util.StringTokenizer;
+
+import jme.JMEUtil.RunAsyncCallback;
 
 public abstract class JMEUtil {
 
@@ -13,168 +14,6 @@ public abstract class JMEUtil {
 	public static final int ALIGN_LEFT = 0;
 	public static final int ALIGN_CENTER = 1;
 	public static final int ALIGN_RIGHT = 2;
-
-	public static int[] growArray(int[] array, int newSize) {
-		int newArray[] = new int[newSize];
-		System.arraycopy(array, 0, newArray, 0, array.length);
-		return newArray;
-	}
-
-	/* shallow copy of the array */
-	public static int[] copyArray(int[] array) {
-		int copy[] = new int[array.length];
-		System.arraycopy(array, 0, copy, 0, array.length);
-		return copy;
-	}
-
-// Cloning
-
-	/**
-	 * Copies the specified array, truncating or padding with nulls (if necessary)
-	 * so the copy has the specified length. For all indices that are valid in both
-	 * the original array and the copy, the two arrays will contain identical
-	 * values. For any indices that are valid in the copy but not the original, the
-	 * copy will contain <tt>null</tt>. Such indices will exist if and only if the
-	 * specified length is greater than that of the original array. The resulting
-	 * array is of exactly the same class as the original array.
-	 *
-	 * @param           <T> the class of the objects in the array
-	 * @param original  the array to be copied
-	 * @param newLength the length of the copy to be returned
-	 * @return a copy of the original array, truncated or padded with nulls to
-	 *         obtain the specified length
-	 * @throws NegativeArraySizeException if <tt>newLength</tt> is negative
-	 * @throws NullPointerException       if <tt>original</tt> is null
-	 * @since 1.6
-	 */
-	@SuppressWarnings("unchecked")
-	public static <T> T[] copyOf(T[] original, int newLength) {
-		return (T[]) copyOf(original, newLength, original.getClass());
-	}
-
-	/**
-	 * Copies the specified array, truncating or padding with nulls (if necessary)
-	 * so the copy has the specified length. For all indices that are valid in both
-	 * the original array and the copy, the two arrays will contain identical
-	 * values. For any indices that are valid in the copy but not the original, the
-	 * copy will contain <tt>null</tt>. Such indices will exist if and only if the
-	 * specified length is greater than that of the original array. The resulting
-	 * array is of the class <tt>newType</tt>.
-	 *
-	 * @param           <U> the class of the objects in the original array
-	 * @param           <T> the class of the objects in the returned array
-	 * @param original  the array to be copied
-	 * @param newLength the length of the copy to be returned
-	 * @param newType   the class of the copy to be returned
-	 * @return a copy of the original array, truncated or padded with nulls to
-	 *         obtain the specified length
-	 * @throws NegativeArraySizeException if <tt>newLength</tt> is negative
-	 * @throws NullPointerException       if <tt>original</tt> is null
-	 * @throws ArrayStoreException        if an element copied from
-	 *                                    <tt>original</tt> is not of a runtime type
-	 *                                    that can be stored in an array of class
-	 *                                    <tt>newType</tt>
-	 * @since 1.6
-	 */
-	public static <T, U> T[] copyOf(U[] original, int newLength, Class<? extends T[]> newType) {
-		@SuppressWarnings("unchecked")
-		T[] copy = ((Object) newType == (Object) Object[].class) ? (T[]) new Object[newLength]
-				: (T[]) Array.newInstance(newType.getComponentType(), newLength);
-		System.arraycopy(original, 0, copy, 0, Math.min(original.length, newLength));
-		return copy;
-	}
-
-	public static String[] growArray(String[] array, int newSize) {
-		String newArray[] = new String[newSize];
-		System.arraycopy(array, 0, newArray, 0, array.length);
-
-		return newArray;
-	}
-
-	public static double[] growArray(double[] array, int newSize) {
-		double newArray[] = new double[newSize];
-		System.arraycopy(array, 0, newArray, 0, array.length);
-
-		return newArray;
-	}
-
-	public static int[][] growArray(int[][] array, int newSize) {
-		int secondarySize = array[0].length;
-		int newArray[][] = new int[newSize][secondarySize]; // new int[newSize][secondarySize];
-		System.arraycopy(array, 0, newArray, 0, array.length);
-
-		return newArray;
-	}
-
- 	public static boolean equals(int[] a1, int[] a2) {
-		if (a1.length == a2.length) {
-			for (int i = 0; i < a1.length; i++) {
-				if (a1[i] != a2[i]) {
-					return false;
-				}
-			}
-			return true;
-		}
-
-		return false;
-	}
-
-	public static int[] intersection(int[] array1, int[] array2) {
-		int common[] = new int[0];
-		for (int v1 : array1) {
-			if (contains(array2, v1)) {
-				common = growArray(common, common.length + 1);
-				common[common.length - 1] = v1;
-			}
-		}
-
-		return common;
-
-	}
-
-	public static boolean contains(int[] array, int v) {
-		for (int each : array) {
-			if (each == v) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	public static <T> void swap(T[] array, int i, int j) {
-		T temp = array[j];
-		array[j] = array[i];
-		array[i] = temp;
-
-	}
-
-	/* shallow copy of the array */
-	public static int[] copyArray(int[] array, int n) {
-		int copy[] = new int[array.length];
-		System.arraycopy(array, 0, copy, 0, n);
-
-		return copy;
-
-	}
-
-	/* shallow copy of the array */
-	public static String[] copyArray(String[] array) {
-		String copy[] = new String[array.length];
-		System.arraycopy(array, 0, copy, 0, array.length);
-
-		return copy;
-
-	};
-
-	/* shallow copy of the array */
-	public static double[] copyArray(double[] array) {
-		double copy[] = new double[array.length];
-		System.arraycopy(array, 0, copy, 0, array.length);
-
-		return copy;
-
-	};
 
 	/**
 	 * Check if the applet is showing in highDPI or not. In a web browser, this can
@@ -186,18 +25,6 @@ public abstract class JMEUtil {
 
 	public static boolean isHighDPI() {
 		return false;
-	}
-
-	/**
-	 * Do nothing , support for JSME code splitting.
-	 */
-	public static class GWT {
-
-		public static void log(String string) {
-			// TODO Auto-generated method stub
-
-		}
-
 	}
 
 	/**
@@ -484,6 +311,11 @@ public abstract class JMEUtil {
 	 */
 	public static double stringHeight(FontMetrics fm) {
 		return fm.getAscent() - fm.getDescent();
+	}
+
+	public static void log(String string) {
+		// TODO Auto-generated method stub
+	
 	}
 
 }

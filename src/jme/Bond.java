@@ -47,7 +47,7 @@ public class Bond implements AtomBondCommon {
 	}
 
 	public void initOtherFromMe(Bond otherBond) {
-		otherBond.backgroundColors = JMEUtil.copyArray(this.backgroundColors);
+		otherBond.backgroundColors = AtomBondCommon.copyArray(this.backgroundColors);
 		otherBond.mark = this.mark;
 		otherBond.va = this.va;
 		otherBond.vb = this.vb;
@@ -108,6 +108,14 @@ public class Bond implements AtomBondCommon {
 		}
 
 		return result;
+	}
+
+	public boolean is(Bond b) {
+		return (va == b.va && vb == b.vb || va == b.vb && vb == b.va);
+	}
+	
+	public boolean isAB(int atom1, int atom2) {
+		return (va == atom1 && vb == atom2 || va == atom2 && vb == atom1);
 	}
 
 	public boolean isSingle() {
@@ -174,7 +182,7 @@ public class Bond implements AtomBondCommon {
 				return;
 			}
 		}
-		backgroundColors = JMEUtil.growArray(backgroundColors, backgroundColors.length + 1);
+		backgroundColors = AtomBondCommon.growArray(backgroundColors, backgroundColors.length + 1);
 		backgroundColors[backgroundColors.length - 1] = c;
 	}
 

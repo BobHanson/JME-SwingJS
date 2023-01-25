@@ -1,7 +1,5 @@
 package jme;
 
-import jme.JMEUtil.GWT;
-
 //kind of duplicated code with EnsembleAtom
 class EnsembleBond {
 	public int molIndex; // 0 based
@@ -14,7 +12,7 @@ class EnsembleBond {
 			int bondIndex) {
 
 		if (molIndex < 0 || bondIndex < 0) {
-			GWT.log("Invalid index for getEnsembleBond()");
+			JMEUtil.log("Invalid index for getEnsembleBond()");
 			return null;
 		}
 

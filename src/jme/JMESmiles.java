@@ -1742,7 +1742,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		for (int s = 1; s <= natoms; s++) {
 			for (int i = 1; i <= natoms; i++) {
 				if (aold[i] == s) { // changes s and i
-					JMEUtil.swap(this.atoms, i, s);
+					swap(this.atoms, i, s);
 					aold[i] = aold[s];
 					aold[s] = s;
 					break;
@@ -1789,11 +1789,19 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 					b = j;
 				}
 			}
-			JMEUtil.swap(this.bonds, i, b);
+			swap(this.bonds, i, b);
 		}
 		complete(computeValenceState);
 
 	}
+
+	public static void swap(AtomBondCommon[] array, int i, int j) {
+		AtomBondCommon temp = array[j];
+		array[j] = array[i];
+		array[i] = temp;
+
+	}
+
 
 	// ----------------------------------------------------------------------------
 	boolean canonsort(int a[], long d[]) {

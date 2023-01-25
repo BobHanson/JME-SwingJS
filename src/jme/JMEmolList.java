@@ -13,7 +13,7 @@ import com.actelion.research.chem.StereoMolecule;
 import com.actelion.research.chem.coords.CoordinateInventor; // to compute 2D coordinates
 
 import jme.JME.SupportedFileFormat;
-import jme.JMEUtil.GWT;
+import jme.JMEcore.MoleculeHandlingParameters;
 
 
 
@@ -192,7 +192,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	public JMEmolList.EnsembleAtom getEnsembleAtom( int mol, int atom) {
 		// log("computeAtomEnsembleIndex");
 		if (mol < 0 || atom < 0) {
-			GWT.log("Invalid index for getEnsembleAtom()");
+			JMEUtil.log("Invalid index for getEnsembleAtom()");
 			return null;
 		}
 
@@ -202,7 +202,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	public EnsembleBond getEnsembleBond( int mol, int bond) {
 		
 		if (mol < 0 || bond < 0) {
-			GWT.log("Invalid index for getEnsembleBond()");
+			JMEUtil.log("Invalid index for getEnsembleBond()");
 			return null;
 		}
 

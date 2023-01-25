@@ -71,13 +71,13 @@ import javax.swing.SwingUtilities;
 import jme.Box.Axis;
 import jme.ChemicalFormatDetector.MajorChemicalFormat;
 import jme.ColorManager.ColorInfo;
-import jme.JMEUtil.GWT;
 import jme.JMEUtil.JSME_RunAsyncCallback;
 import jme.JMEUtil.RunAsyncCallback;
 import jme.JMEUtil.RunWhenDataReadyCallback;
 import jme.JMEmol.ReactionRole;
 import jme.JMEmolList.MolFileOrRxnParameters;
-import jme.MoleculeHandlingParameters.HydrogenParameters;
+import jme.JMEcore.MoleculeHandlingParameters;
+import jme.JMEcore.MoleculeHandlingParameters.HydrogenParameters;
 import jme.TextTransfer.PasteAction;
 
 // ----------------------------------------------------------------------------
@@ -8719,7 +8719,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public JMEmolList.EnsembleAtom getEnsembleAtom(int molIndex, int atomIndex) {
 
 		if (molIndex < 0 || atomIndex < 0) {
-			GWT.log("Invalid index for getEnsembleAtom()");
+			JMEUtil.log("Invalid index for getEnsembleAtom()");
 			return null;
 		}
 
@@ -8734,7 +8734,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 */
 	public JMEmol getMolecule(int molIndex) {
 		if (molIndex < 0 || molIndex >= this.moleculePartsList.size()) {
-			GWT.log("Invalid index for getMolecule()");
+			JMEUtil.log("Invalid index for getMolecule()");
 			return null;
 		}
 
@@ -8911,7 +8911,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public JMEmolList.EnsembleBond getEnsembleBond(int molIndex, int bondIndex) {
 
 		if (molIndex < 0 || bondIndex < 0) {
-			GWT.log("Invalid index for getEnsembleBond()");
+			JMEUtil.log("Invalid index for getEnsembleBond()");
 			return null;
 		}
 
