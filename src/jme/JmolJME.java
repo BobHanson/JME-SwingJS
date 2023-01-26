@@ -778,17 +778,17 @@ public class JmolJME extends JME implements WindowListener {
 	}
 
 	private static void startJmolJME(JFrame frame, JmolJME jjme, String type) {
-//		if (frame == null) {
-//			frame = new JFrame("JmolJME Molecular Editor");
-//			frame.setName("JME"); // for embedding in <div id="testApplet-JME-div">
-//			frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
-//			frame.addWindowListener(new WindowAdapter() {
-//				public void windowClosing(WindowEvent evt) {
-//					System.exit(0);
-//				}
-//			});
-//		}
-//
+		if (frame == null) {
+			frame = new JFrame("JmolJME Molecular Editor");
+			frame.setName("JME"); // for embedding in <div id="testApplet-JME-div">
+			frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
+			frame.addWindowListener(new WindowAdapter() {
+				public void windowClosing(WindowEvent evt) {
+					System.exit(0);
+				}
+			});
+		}
+
 		jjme.setViewer(frame, jjme.vwr, null, type);
 		jjme.vwr.getInchi(null, null, null); // initialize InChI
 

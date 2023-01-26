@@ -291,4 +291,4 @@ C$.$static$=function(){C$.$static$=0;
 C$.VALIDATION_ERRORS_STEREO=Clazz.array(String, -1, ["Members of ESR groups must only be stereo centers with known configuration.", "Over- or under-specified stereo feature or more than one racemic type bond", "Ambiguous configuration at stereo center because of 2 parallel bonds"]);
 };
 })();
-;Clazz.setTVer('3.3.1-v5');//Created 2023-01-18 09:54:16 Java2ScriptVisitor version 3.3.1-v5 net.sf.j2s.core.jar version 3.3.1-v5
+;Clazz.setTVer('3.3.1-v5');//Created 2023-01-25 13:07:46 Java2ScriptVisitor version 3.3.1-v5 net.sf.j2s.core.jar version 3.3.1-v5
