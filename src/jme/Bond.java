@@ -127,11 +127,6 @@ public class Bond implements AtomBondCommon {
 		return bondType == TRIPLE;
 	}
 
-	void setBondCenter(Atom atoms[]) {
-		bondCenterX = (atoms[va].x + atoms[vb].x) / 2;
-		bondCenterY = (atoms[va].y + atoms[vb].y) / 2;
-	}
-
 	void toggleNormalCrossedDoubleBond() {
 		assert (isDouble());
 		if (isDouble()) {

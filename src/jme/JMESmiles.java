@@ -783,18 +783,9 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		double dx, dy, rx;
 
 		// reference angle ux-axis - center - ref0
-		dx = x(ref0) - x(center);
-		dy = y(ref0) - y(center);
-		rx = Math.sqrt(dx * dx + dy * dy);
-		if (rx < 0.001)
-			rx = 0.001;
-		double sin0 = dy / rx;
-		double cos0 = dx / rx;
-
-		// other atoms are rotated clockwise o uhol sin0, cos0
-		// dx = x * cosa + y * sina
-		// dy = y * cosa - x * sina
-
+		setCosSin(center, ref0);
+		double sin0 = cosSin[0];
+		double cos0 = cosSin[1];
 		int p[] = new int[4];
 		for (int i = 0; i < 4; i++) {
 			if (ref[i] == ref0 || ref[i] <= 0)
@@ -817,21 +808,17 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		for (int i = 1; i <= 3; i++) {
 			if (i == 3 && p[3] == 0)
 				continue;
-			dx = (x(p[i]) - x(center)) * cos0 + (y(p[i]) - y(center)) * sin0;
-			dy = (y(p[i]) - y(center)) * cos0 - (x(p[i]) - x(center)) * sin0;
-			rx = Math.sqrt(dx * dx + dy * dy);
-			if (rx < 0.001)
-				rx = 0.001;
-			sin[i] = dy / rx;
-			cos[i] = dx / rx;
+			setCosSin(center, p[i]);
+			cos[i] = cosSin[0];
+			sin[i] = cosSin[1];
 		}
 
 		// sorts p[1] - p[3] - 1 smallest
 		// 6 posible combinations
-		int c12 = JMEUtil.compareAngles(sin[1], cos[1], sin[2], cos[2]);
+		int c12 = compareAngles(sin[1], cos[1], sin[2], cos[2]);
 		if (p[3] > 0) {
-			int c23 = JMEUtil.compareAngles(sin[2], cos[2], sin[3], cos[3]);
-			int c13 = JMEUtil.compareAngles(sin[1], cos[1], sin[3], cos[3]);
+			int c23 = compareAngles(sin[2], cos[2], sin[3], cos[3]);
+			int c13 = compareAngles(sin[1], cos[1], sin[3], cos[3]);
 			if (c12 > 0 && c23 > 0) {
 				ox[1] = p[1];
 				ox[2] = p[2];
@@ -888,130 +875,12 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		ox[0] = ref0;
 		return ox;
 	}
-	// ----------------------------------------------------------------------------
-
-	// ----------------------------------------------------------------------------
-	int[] C4orderOLD(int center, int ref0, int ref[]) {
-		// vrati clockwise poradie ostatnych atomov okolo center, relativne k ref0
-		// vrati 2, alebo 3 atomy ako ox[1], ox[2] (ox[3])
-		// v ox[0] vrati ref0
-		int ox[] = new int[4];
-		double dx, dy, rx;
-
-		// referencny uhol x-axis - center - ref0
-		dx = x(ref0) - x(center);
-		dy = y(ref0) - y(center);
-		rx = Math.sqrt(dx * dx + dy * dy);
-		if (rx < 0.001)
-			rx = 0.001;
-		double sin0 = dy / rx;
-		double cos0 = dx / rx;
-
-		// ostatne atomy otaca clockwise o uhol sin0, cos0
-		// dx = x * cosa + y * sina
-		// dy = y * cosa - x * sina
-
-		// naplna p[]
-		int p[] = new int[4];
-		for (int i = 0; i < 4; i++) {
-			if (ref[i] == ref0 || ref[i] <= 0)
-				continue; // moze byt -1 ?? treba to
-			if (p[1] == 0) {
-				p[1] = ref[i];
-				continue;
-			}
-			if (p[2] == 0) {
-				p[2] = ref[i];
-				continue;
-			}
-			if (p[3] == 0) {
-				p[3] = ref[i];
-				continue;
-			}
-		}
-
-		double sin[] = new double[4], cos[] = new double[4];
-		for (int i = 1; i <= 3; i++) {
-			if (i == 3 && p[3] == 0)
-				continue;
-			dx = (x(p[i]) - x(center)) * cos0 + (y(p[i]) - y(center)) * sin0;
-			dy = (y(p[i]) - y(center)) * cos0 - (x(p[i]) - x(center)) * sin0;
-			rx = Math.sqrt(dx * dx + dy * dy);
-			if (rx < 0.001)
-				rx = 0.001;
-			sin[i] = dy / rx;
-			cos[i] = dx / rx;
-		}
-
-		// teraz zoradi p[1] - p[3] podla velkosti (najmensi bude 1, potom 2 ...)
-		// 6 moznych kombinacii
-		int c12 = JMEUtil.compareAngles(sin[1], cos[1], sin[2], cos[2]);
-		if (p[3] > 0) {
-			int c23 = JMEUtil.compareAngles(sin[2], cos[2], sin[3], cos[3]);
-			int c13 = JMEUtil.compareAngles(sin[1], cos[1], sin[3], cos[3]);
-			if (c12 > 0 && c23 > 0) {
-				ox[1] = p[1];
-				ox[2] = p[2];
-				ox[3] = p[3];
-			} else if (c13 > 0 && c23 < 0) {
-				ox[1] = p[1];
-				ox[2] = p[3];
-				ox[3] = p[2];
-			} else if (c12 < 0 && c13 > 0) {
-				ox[1] = p[2];
-				ox[2] = p[1];
-				ox[3] = p[3];
-			} else if (c23 > 0 && c13 < 0) {
-				ox[1] = p[2];
-				ox[2] = p[3];
-				ox[3] = p[1];
-			} else if (c13 < 0 && c12 > 0) {
-				ox[1] = p[3];
-				ox[2] = p[1];
-				ox[3] = p[2];
-			} else if (c23 < 0 && c12 < 0) {
-				ox[1] = p[3];
-				ox[2] = p[2];
-				ox[3] = p[1];
-			}
-		}
-		// porovnanie len 2 uhlov (2 and 3)
-		else {
-			if (c12 > 0) {
-				ox[1] = p[1];
-				ox[2] = p[2];
-			} else {
-				ox[1] = p[2];
-				ox[2] = p[1];
-			}
-			// fix for the rare stereochemistry bug (2017,07)
-			// for example: C[C@H]1CCC[C@H]2CC[C@@H]1O2
-			// need to check whether all 3 ref atoms are not on the same side
-			double u12 = angle(center, p[1], p[2]);
-			double u23 = angle(center, p[2], ref0);
-			double u13 = angle(center, p[1], ref0);
-
-			// if this is the case, the reverting stereo
-			if ((u12 + u23) < Math.PI || (u23 + u13) < Math.PI || (u12 + u13) < Math.PI) {
-				int o = ox[1];
-				ox[1] = ox[2];
-				ox[2] = o;
-			}
-			// end of the fix
-
-		}
-		// System.out.println("center = "+center+" ref = "+ref0+" order "+ox[1]+"
-		// "+ox[2]+" "+ox[3]);
-		ox[0] = ref0;
-		return ox;
-	}
 
 	private double angle(int p1, int p2, int p3) {
 		// angle according to the cosine law
-		double d;
-		double r12 = Math.sqrt((d = x(p1) - x(p2)) * d + (d = y(p1) - y(p2)) * d);
-		double r13 = Math.sqrt((d = x(p1) - x(p3)) * d + (d = y(p1) - y(p3)) * d);
-		double r23 = Math.sqrt((d = x(p2) - x(p3)) * d + (d = y(p2) - y(p3)) * d);
+		double r12 = distance(p1, p2);
+		double r13 = distance(p1, p3);
+		double r23 = distance(p2, p3);
 		return Math.acos((r12 * r12 + r13 * r13 - r23 * r23) / (2. * r12 * r13));
 	}
 
@@ -1029,6 +898,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		return neighbors;
 	}
 
+	
 	// ----------------------------------------------------------------------------
 	/**
 	 * Fails with cumulene -BB correted
@@ -1180,15 +1050,9 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		if (ref1 == 0 || ref2 == 0)
 			return; // vyhadzuje aj allene vazby
 
-		double dx = x(atom2) - x(atom1);
-		double dy = y(atom2) - y(atom1);
-		double rx = Math.sqrt(dx * dx + dy * dy);
-		if (rx < 0.001)
-			rx = 0.001;
-		double sina = dy / rx;
-		double cosa = dx / rx;
-		double y1 = (y(ref1) - y(atom1)) * cosa - (x(ref1) - x(atom1)) * sina;
-		double y2 = (y(ref2) - y(atom1)) * cosa - (x(ref2) - x(atom1)) * sina;
+		setCosSin(atom1, atom2);
+		double y1 = (y(ref1) - y(atom1)) * cosSin[0] - (x(ref1) - x(atom1)) * cosSin[1];
+		double y2 = (y(ref2) - y(atom1)) * cosSin[0] - (x(ref2) - x(atom1)) * cosSin[1];
 		if (Math.abs(y1) < 2 || Math.abs(y2) < 2) {
 			info("Not unique E/Z geometry !");
 			return;
@@ -1288,8 +1152,6 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 
 	// ----------------------------------------------------------------------------
 	private void stereoAllene(int ati, int ax[], int slimak[], int parent[], int con1[], int con2[], int nconnections) {
-		double dx, dy, rx, sina, cosa;
-
 		int cumuleneAtoms[] = this.findCumuleneChain(ati);
 		int numberCumuleneAtoms = cumuleneAtoms[0]; // kolko ich je v chaine
 
@@ -1383,16 +1245,21 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 
 		// vlastne nam treba len 1 (up alebo down) a 3 (resp opak 4 ak je 3 H)
 		// urcuje poziciu ref2
-		dx = x(cumuleneAtoms[numberCumuleneAtoms - 1]) - x(end);
-		dy = y(cumuleneAtoms[numberCumuleneAtoms - 1]) - y(end);
-		rx = Math.sqrt(dx * dx + dy * dy);
-		if (rx < 0.001)
-			rx = 0.001;
-		sina = dy / rx;
-		cosa = dx / rx;
-		double y2 = (y(ref2) - y(cumuleneAtoms[numberCumuleneAtoms - 1])) * cosa
-				- (x(ref2) - x(cumuleneAtoms[numberCumuleneAtoms - 1])) * sina;
+		int atom2 = cumuleneAtoms[numberCumuleneAtoms - 1];
+		setCosSin(end, atom2);
+		double y2 = (y(ref2) - y(atom2)) * cosSin[0] - (x(ref2) - x(atom2)) * cosSin[1];
+// BH??? dy*cos - dx*sin??
+//		dx = x(cumuleneAtoms[numberCumuleneAtoms - 1]) - x(end);
+//		dy = y(cumuleneAtoms[numberCumuleneAtoms - 1]) - y(end);
+//		rx = Math.sqrt(dx * dx + dy * dy);
+//		if (rx < 0.001)
+//			rx = 0.001;
+//		sina = dy / rx;
+//		cosa = dx / rx;
+//		double y2 = (y(ref2) - y(cumuleneAtoms[numberCumuleneAtoms - 1])) * cosa
+//				- (x(ref2) - x(cumuleneAtoms[numberCumuleneAtoms - 1])) * sina;
 
+		
 		// teraz to bude dost complikovane
 		if (y2 > 0)
 			slimak[center] = 1;
@@ -1931,6 +1798,50 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			t[3] = d;
 		}
 	}
+
+	// ----------------------------------------------------------------------------
+	public static int compareAngles(double sina, double cosa, double sinb, double cosb) {
+		// returns 1 if a < b (clockwise) -1 a > b, 0 ak a = b
+		int qa = 0, qb = 0; // kvadrant
+		if (sina >= 0. && cosa >= 0.)
+			qa = 1;
+		else if (sina >= 0. && cosa < 0.)
+			qa = 2;
+		else if (sina < 0. && cosa < 0.)
+			qa = 3;
+		else if (sina < 0. && cosa >= 0.)
+			qa = 4;
+		if (sinb >= 0. && cosb >= 0.)
+			qb = 1;
+		else if (sinb >= 0. && cosb < 0.)
+			qb = 2;
+		else if (sinb < 0. && cosb < 0.)
+			qb = 3;
+		else if (sinb < 0. && cosb >= 0.)
+			qb = 4;
+		if (qa < qb)
+			return 1;
+		else if (qa > qb)
+			return -1;
+		// su v rovnakom kvadrante
+		switch (qa) {
+		case 1:
+		case 4:
+			if (sina < sinb)
+				return 1;
+			else
+				return -1;
+		case 2:
+		case 3:
+			if (sina > sinb)
+				return 1;
+			else
+				return -1;
+		}
+		System.err.println("stereowarning #31");
+		return 0;
+	}
+
 
 
 

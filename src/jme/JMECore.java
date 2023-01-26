@@ -668,8 +668,13 @@ public class JMECore {
 
 	protected void setBondCenters() {
 		for (int b = 1; b <= nbonds; b++) {
-			bonds[b].setBondCenter(atoms);
+			setBondCenter(bonds[b]);
 		}
+	}
+
+	public void setBondCenter(Bond b) {
+		b.bondCenterX = (atoms[b.va].x + atoms[b.vb].x) / 2;
+		b.bondCenterY = (atoms[b.va].y + atoms[b.vb].y) / 2;
 	}
 
 	/**
@@ -913,6 +918,71 @@ public class JMECore {
 		return false;
 
 	}
+
+	public double distance(int atom1, int atom2) {
+		double dx = atoms[atom2].x - atoms[atom1].x;
+		double dy = atoms[atom2].y - atoms[atom1].y;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
 	
+	public double bondDistance(int i) {
+		return distance(bonds[i].va, bonds[i].vb);
+	}
+
+	public static double squareEuclideanDist(double x1, double y1, double x2, double y2) {
+		double dx = x2 - x1;
+		double dy = y2 - y1;
+		return dx * dx + dy * dy;
+	}
+
+	public static double dotProduct(double x1, double y1, double x2, double y2) {
+		return x1 * x2 + y1 * y2;
+	}
+
+	protected final double[] cosSin = new double[2];
+
+	public void setCosSin(int atom1, int atom2) {
+		double dx = x(atom2) - x(atom1);
+		double dy = y(atom2) - y(atom1);
+		double rx = Math.sqrt(dx * dx + dy * dy);
+		if (rx < 0.001)
+			rx = 0.001;
+		cosSin[0] = dx / rx;
+		cosSin[1] = dy / rx;
+	}
+
+
+	void rotate(double movex, double centerx, double centery) {
+		if (natoms == 0)
+			return; // bbox is null if the molecule has no atoms
+
+		// get original position
+		moveXY(-centerx, -centery);
+
+		// rotation
+		double sinu = Math.sin(movex * Math.PI / 180.);
+		double cosu = Math.cos(movex * Math.PI / 180.);
+		for (int i = 1; i <= natoms; i++) {
+			double xx = x(i) * cosu + y(i) * sinu;
+			double yy = -x(i) * sinu + y(i) * cosu;
+			atoms[i].x = xx;
+			atoms[i].y = yy;
+		}
+		// moving to original position
+		moveXY(centerx, centery);
+	}
+
+	/**
+	 * Move all atoms, update the bond centers
+	 * 
+	 * @param dx
+	 * @param dy
+	 */
+	public void moveXY(double dx, double dy) {
+		for (int at = 1; at <= natoms; at++) {
+			atoms[at].moveXY(dx, dy);
+		}
+		setBondCenters();
+	}
 
 }

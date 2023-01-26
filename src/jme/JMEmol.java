@@ -362,8 +362,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					}
 				}
 			}
-			// System.out.println("atom "+i+" "+an[i]+" "+x(i)+" "+y[i]);
-
 			// BB isotope -
 			if (line.length() >= 36) {
 				String s = line.substring(34, 36).trim();
@@ -430,7 +428,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		for (int i = 1; i <= nbondsx; i++) {
 			Bond bond = createAndAddNewBond();
 			line = JMEUtil.nextData(st, separator);
-			// System.out.println("bond"+line);
 			bond.va = Integer.valueOf(line.substring(0, 3).trim()).intValue();
 			bond.vb = Integer.valueOf(line.substring(3, 6).trim()).intValue();
 			int nasvx = Integer.valueOf(line.substring(6, 9).trim()).intValue();
@@ -469,8 +466,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			} // crossed bond, Feb 2017
 
 			bond.bondType = bondType;
-
-			// System.out.println("bons "+i+" "+va[i]+" "+vb[i]+" "+bonds[i].bondType);
 		}
 
 		// reading charges and other information
@@ -567,7 +562,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	      Atom a = createAtom(sym);
 	      atomMap.put(atomIterator.getUniqueID(), Integer.valueOf(natoms));
 	      P3d pt = atomIterator.getXYZ();
-	      //System.out.println("atomline"+line);
 	      a.x = pt.x;
 	      a.y = -pt.y;
 	      a.q = atomIterator.getFormalCharge();
@@ -649,13 +643,20 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	
 	protected boolean mixPastelBackGroundColors = true;
 
+	private double centerx = Double.NaN, centery;
+
 	final static boolean doTags = false; // compatibility with JMEPro
 
-	public Color getPresetPastelBackGroundColor(int ab, boolean isAtom) {
-
-		// TODO: clarify with comment
-		// What is the diff between this.colorManager and
-		// this.jme.this.parameters
+	/**
+	 * Compute the average color for the atom or bond and set the color to the
+	 * graphics use the .bacgroundColors array which is independent from the mark
+	 * 
+	 * @param og
+	 * @param ab
+	 * @param isAtom
+	 * @return
+	 */
+	protected Color setPresetPastelBackGroundColor(PreciseGraphicsAWT og, int ab, boolean isAtom) {
 		int colors[] = new int[1];
 		boolean colorIsSet = false;
 
@@ -672,15 +673,13 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			Atom atom = this.atoms[ab];
 			if (atom.isMapped()) {
 				int map = atom.getMap();
-				int max_map = this.jme.colorManager.numberOfBackgroundColors();
+				int max_map = jme.colorManager.numberOfBackgroundColors();
 				// recycle the colors if too large atom map number
 				while (map > max_map) {
 					map -= max_map;
 				}
-				//assert (map >= 1);
 				colors[0] = map;
 				colorIsSet = true;
-
 			}
 		}
 
@@ -694,42 +693,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			colors = isAtom ? this.getAtomBackgroundColors(ab) : this.getBondBackgroundColors(ab);
 		}
 
-		if (colors != null && colors.length > 0 && this.jme != null) { // the first color is fake
-			return this.jme.colorManager.averageColor(colors);
-		}
-		return null;
-
-	}
-
-	/**
-	 * Compute the average color for the atom or bond and set the color to the
-	 * graphics use the .bacgroundColors array which is independent from the mark
-	 * 
-	 * @param og
-	 * @param atom
-	 * @param isAtom
-	 * @return
-	 */
-	protected Color setPresetPastelBackGroundColor(PreciseGraphicsAWT og, int atom, boolean isAtom) {
-		Color color = getPresetPastelBackGroundColor(atom, isAtom);
+		Color color = (colors != null && colors.length > 0 ? jme.colorManager.averageColor(colors) : null);
 		if (color != null) {
 			og.setColor(color);
 		}
 		return color;
-	}
-
-	/**
-	 * Move all atoms, update the bond centers
-	 * 
-	 * @param dx
-	 * @param dy
-	 */
-	@Override
-	public void moveXY(double dx, double dy) {
-		for (int at = 1; at <= natoms; at++) {
-			atoms[at].moveXY(dx, dy);
-		}
-		setBondCenters(); // needed for mouse over
 	}
 
 	public void scaleXY(double scale) {
@@ -760,7 +728,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		newBond.va = at1;
 		newBond.vb = at2;
 		// compute bond centers
-		newBond.setBondCenter(atoms);
+		setBondCenter(newBond);
 		newBond.bondType = bondType;
 		return newBond;
 	}
@@ -933,9 +901,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		for (int i = 1; i <= nbonds; i++) {
 			Bond b = bonds[i];
-			double dx = x(b.va) - x(b.vb);
-			double dy = y(b.va) - y(b.vb);
-			double d = Math.sqrt(dx * dx + dy * dy);
+			double d = distance(b.va, b.vb);
 			sumlen += d;
 			if (d > max)
 				max = d;
@@ -949,16 +915,12 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			double average = sumlen / nbonds;
 
 			// most of the time there is no significant difference between min and max
-			if (average - min < max - average) { // a few bonds are much longer
-				scale = min;
-			} else {// a few bonds are much shorter
-				scale = max;
-			}
-
+			// a few bonds are much longer -- min
+			// a few bonds are much shorter -- max
+			scale = (average - min < max - average ? min : max);
 			scale = refBondLength / scale;
 		} else if (natoms > 1) { // disconnected structure(s)
-			scale = 3. * refBondLength
-					/ Math.sqrt((x(1) - x(2)) * (x(1) - x(2)) + (y(1) - y(2)) * (y(1) - y(2)));
+			scale = 3 * refBondLength / distance(1, 2);
 		}
 
 		this.scaleXY(scale);
@@ -1009,7 +971,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		double min = Double.MAX_VALUE;
 
 		for (int i = 1; i <= natoms; i++) {
-			double rx = JMEUtil.squareEuclideanDist(xx, yy, x(i), y(i));
+			double rx = squareEuclideanDist(xx, yy, x(i), y(i));
 			if (rx < min) {
 				min = rx;
 			}
@@ -1062,12 +1024,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		if (!ignoreBonds) {
 			for (i = 1; i <= nbonds; i++) {
-				// dx=xx-bondCenterX[i]; dy=yy-bondCenterY[i];
-				// System.out.println(bondCenterX[i]);
-				// System.out.println(bondCenterY[i]);
-				// rx=dx*dx+dy*dy;
 				Bond b = this.bonds[i];
-				rx = JMEUtil.squareEuclideanDist(xx, yy, b.bondCenterX, b.bondCenterY);
+				rx = squareEuclideanDist(xx, yy, b.bondCenterX, b.bondCenterY);
 				if (rx < min) {
 					min = rx;
 					found = -i;
@@ -1081,13 +1039,13 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					// distance between the two atoms
 					double ax = atoms[b.va].x;
 					double ay = atoms[b.va].y;
-					double dx = atoms[b.vb].x - ax;
-					double dy = atoms[b.vb].y - ay;
+					double vx = atoms[b.vb].x - ax;
+					double vy = atoms[b.vb].y - ay;
 
 					for (int third = 1; third <= 2; third++) {
-						double x3 = ax + third * dx / 3;
-						double y3 = ay + third * dy / 3;
-						rx = JMEUtil.squareEuclideanDist(xx, yy, x3, y3);
+						double x3 = ax + third * vx / 3;
+						double y3 = ay + third * vy / 3;
+						rx = squareEuclideanDist(xx, yy, x3, y3);
 						if (rx < min) {
 							min = rx;
 						}
@@ -1100,16 +1058,13 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			// Do the same for the atoms
 			// min may be smaller for an atom even if a bond was found
 			for (i = 1; i <= natoms; i++) {
-				// dx=xx-x[i]; dy=yy-y[i];
-				// rx=dx*dx+dy*dy;
-				// rx=this.squareEuclideanDist(xx, yy, x[i], y[i]);
-				rx = JMEUtil.squareEuclideanDist(xx, yy, x(i), y(i));
+				rx = squareEuclideanDist(xx, yy, x(i), y(i));
 				if (rx < min) {
 					min = rx;
 					found = i;
 				}
 			}
-		}
+		}		
 		// BB: handle case for which the bond length is larger than usual
 		// TODO: complicated, there must be a way to simplify the trigonometry
 		if (found == 0 && !ignoreBonds) {
@@ -1132,13 +1087,13 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 				double sqBondLength = at2X * at2X + at2Y * at2Y;
 				double sqDistToAtom1 = xx2 * xx2 + yy2 * yy2;
-				double sqDistToAtom2 = JMEUtil.squareEuclideanDist(xx2, yy2, at2X, at2Y);
+				double sqDistToAtom2 = squareEuclideanDist(xx2, yy2, at2X, at2Y);
 				// if too far away
 				if (sqDistToAtom1 + sqDistToAtom2 > sqBondLength + min) {
 					continue;
 				}
 
-				double dp = JMEUtil.dotProduct(xx2, yy2, at2X, at2Y);
+				double dp = dotProduct(xx2, yy2, at2X, at2Y);
 				if (dp < 0) {
 					continue; // mouse is on the other side of the bond
 				}
@@ -1193,7 +1148,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	// ----------------------------------------------------------------------------
 	public void draw(PreciseGraphicsAWT og) {
 		int atom1, atom2;
-		double xa, ya, xb, yb, dx, dy, dd, sina = 1., cosa = 1.;
+		double xa, ya, xb, yb;
 		double sirka2s, sirka2c;
 		double sirka2 = 2., sirka3 = 3.;
 
@@ -1229,24 +1184,17 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		// bonds
 		// color background for bonds (2 atoms must have a least one color in common)
-		double rs =  jme.options.bondBGrectRelativeSize;
+		double rs = jme.options.bondBGrectRelativeSize;
 		if (rs > 0) {
 			for (int i = 1; i <= nbonds; i++) {
-				atom1 = bonds[i].va;
-				atom2 = bonds[i].vb;
-
 				// setPresetPastelBackGroundColor() returns null if no bacground colors have
 				// been specified != mark
 				if (setPresetPastelBackGroundColor(og, i, false) != null) {
-					dx = x(atom2) - x(atom1);
-					dy = y(atom2) - y(atom1);
-					dd = Math.sqrt(dx * dx + dy * dy);
-					if (dd < 1.)
-						dd = 1.;
-					sina = dy / dd;
-					cosa = dx / dd;
-					sirka2s = (sirka3 * 3) * sina;
-					sirka2c = (sirka3 * 3) * cosa;
+					atom1 = bonds[i].va;
+					atom2 = bonds[i].vb;
+					setCosSin(atom1, atom2);
+					sirka2c = (sirka3 * 3) * cosSin[0];
+					sirka2s = (sirka3 * 3) * cosSin[1];
 
 					sirka2s *= rs;
 					sirka2c *= rs;
@@ -1268,31 +1216,29 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// atom + bond background coloring - done before drawing the atoms
 		// if (markColorBackground ||
 		// this.parameters.showAtomMapNumberWithBackgroundColor) {
-		{
-			double cs = sirka2 * 12;
+		double cs = sirka2 * 12;
 
-			// atoms : circle behind the atom position - does not cover the atom symbol
-			// (will be done later)
-			rs = jme.options.atomBGcircleRelativeSize;
-			if (rs > 0) {
-				for (int i = 1; i <= natoms; i++) {
-					Color backgroundColor = setPresetPastelBackGroundColor(og, i, true);
-					if (backgroundColor != null) {
-						double scs = cs * rs;
-						og.fillOval(x(i) - scs / 2., y(i) - scs / 2., scs, scs);
+		// atoms : circle behind the atom position - does not cover the atom symbol
+		// (will be done later)
+		rs = jme.options.atomBGcircleRelativeSize;
+		if (rs > 0) {
+			for (int i = 1; i <= natoms; i++) {
+				Color backgroundColor = setPresetPastelBackGroundColor(og, i, true);
+				if (backgroundColor != null) {
+					double scs = cs * rs;
+					og.fillOval(x(i) - scs / 2., y(i) - scs / 2., scs, scs);
 
-						// if we have a high resolution screen or a large zoom factor,
-						// then add a thin stroke to the text to improve readability
-						if (
-								//JMEUtil.isHighDPI() || 
-								og.currentZoomFactor() >= 2) { // or JMSE zoom factor > 100 %
-							Color contrastColor = ColorManager.contrast(backgroundColor); // the stroke color is either
-																							// white or black
-							// depending on the darkness of the backgroundColor
-							atomTextStrokeColorArray[i] = contrastColor;
-						}
-
+					// if we have a high resolution screen or a large zoom factor,
+					// then add a thin stroke to the text to improve readability
+					if (
+					// JMEUtil.isHighDPI() ||
+					og.currentZoomFactor() >= 2) { // or JMSE zoom factor > 100 %
+						Color contrastColor = ColorManager.contrast(backgroundColor); // the stroke color is either
+																						// white or black
+						// depending on the darkness of the backgroundColor
+						atomTextStrokeColorArray[i] = contrastColor;
 					}
+
 				}
 			}
 
@@ -1327,7 +1273,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 //				}
 //			}
 
-			if (bond.stereo == Bond.STEREO_XUP || bond.stereo == Bond.STEREO_XDOWN || bond.stereo == Bond.STEREO_XEITHER) // kvoli spicke vazby
+			if (bond.stereo == Bond.STEREO_XUP || bond.stereo == Bond.STEREO_XDOWN
+					|| bond.stereo == Bond.STEREO_XEITHER) // kvoli spicke vazby
 			{
 				int d = atom1;
 				atom1 = atom2;
@@ -1340,20 +1287,21 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			yb = y(atom2);
 
 			if (!(bond.isSingle() || bond.isCoordination()) || bond.stereo != 0) {
-				dx = xb - xa;
-				dy = yb - ya;
-				dd = Math.sqrt(dx * dx + dy * dy);
-				if (dd < 1.)
-					dd = 1.;
-				sina = dy / dd;
-				cosa = dx / dd;
+				setCosSin(atom1, atom2); // BH??? test distance was 1, not .001?
+//				dx = xb - xa;
+//				dy = yb - ya;
+//				dd = Math.sqrt(dx * dx + dy * dy);
+//				if (dd < 1.)
+//					dd = 1.;
+//				sina = dy / dd;
+//				cosa = dx / dd;
 			}
 			switch (bond.bondType) {
 			case Bond.DOUBLE:
 				// BB crossed bond display: not magenta anymore
 				// if (bond.stereo >= 10) og.setColor(Color.magenta); // E,Z je farebna
-				sirka2s = sirka2 * sina;
-				sirka2c = sirka2 * cosa;
+				sirka2c = sirka2 * cosSin[0];
+				sirka2s = sirka2 * cosSin[1];
 				if (bond.stereo != Bond.STEREO_EZ) {
 					og.drawLine(xa + sirka2s, ya - sirka2c, xb + sirka2s, yb - sirka2c);
 					og.drawLine(xa - sirka2s, ya + sirka2c, xb - sirka2s, yb + sirka2c);
@@ -1370,8 +1318,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				double ixb = xb;
 				double iyb = yb;
 				og.drawLine(ixa, iya, ixb, iyb);
-				double sirka3s = sirka3 * sina;
-				double sirka3c = sirka3 * cosa;
+				double sirka3c = sirka3 * cosSin[0];
+				double sirka3s = sirka3 * cosSin[1];
 				og.drawLine(ixa + sirka3s, iya - sirka3c, ixb + sirka3s, iyb - sirka3c);
 				og.drawLine(ixa - sirka3s, iya + sirka3c, ixb - sirka3s, iyb + sirka3c);
 				/*
@@ -1403,8 +1351,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				break;
 			default: // Bond.SINGLE, alebo stereo
 				if (bond.stereo == Bond.STEREO_UP || bond.stereo == Bond.STEREO_XUP) {
-					sirka2s = sirka3 * sina;
-					sirka2c = sirka3 * cosa;
+					sirka2c = sirka3 * cosSin[0];
+					sirka2s = sirka3 * cosSin[1];
 					double[] px = new double[3];
 					double[] py = new double[3];
 					px[0] = xb + sirka2s;
@@ -1415,8 +1363,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					py[2] = yb + sirka2c;
 					og.fillPolygon(px, py, 3);
 				} else if (bond.stereo == Bond.STEREO_DOWN || bond.stereo == Bond.STEREO_XDOWN) {
-					sirka2s = sirka3 * sina;
-					sirka2c = sirka3 * cosa;
+					sirka2c = sirka3 * cosSin[0];
+					sirka2s = sirka3 * cosSin[1];
 					for (double k = 0; k < 10; k++) {
 						double xax = xa - (xa - xb) / 10. * k;
 						double yax = ya - (ya - yb) / 10. * k;
@@ -1425,8 +1373,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					}
 				} else if (bond.stereo == Bond.STEREO_EITHER || bond.stereo == Bond.STEREO_XEITHER) {
 					double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-					sirka2s = sirka3 * sina;
-					sirka2c = sirka3 * cosa;
+					sirka2c = sirka3 * cosSin[0];
+					sirka2s = sirka3 * cosSin[1];
 					double m = 8;
 					for (double k = 0; k < m + 1; k += 1) {
 						double xax = xa - (xa - xb) / m * k;
@@ -1482,12 +1430,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		for (int i = 1; i <= natoms; i++) {
 
 			Atom atom = this.atoms[i];
-			
+
 			if (atom.al.noLabelAtom) {
 				continue;
 			}
 			Box r = atom.al.atomLabelBoundingBox;
-
 
 			og.setBackGroundColor(); // set default background color
 			setPresetPastelBackGroundColor(og, i, true);
@@ -1564,8 +1511,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// mark touched bond or atom, or atoms marked to delete
 		if ((touchedAtom > 0 || touchedBond > 0) && !JME.webme) {
 
-			og.setColor(jme.action == JME.ACTION_DELETE ? Color.red : 
-				// just checking: Hmm...jme.mouseShift ? Color.cyan : 
+			og.setColor(jme.action == JME.ACTION_DELETE ? Color.red :
+			// just checking: Hmm...jme.mouseShift ? Color.cyan :
 					Color.blue);
 
 			if (touchedAtom > 0 && jme.action != JME.ACTION_DELGROUP) {
@@ -1578,15 +1525,16 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 				atom1 = bonds[touchedBond].va;
 				atom2 = bonds[touchedBond].vb;
-				dx = x(atom2) - x(atom1);
-				dy = y(atom2) - y(atom1);
-				dd = Math.sqrt(dx * dx + dy * dy);
-				if (dd < 1.)
-					dd = 1.;
-				sina = dy / dd;
-				cosa = dx / dd;
-				sirka2s = (sirka3 + 1) * sina;
-				sirka2c = (sirka3 + 1) * cosa;
+				setCosSin(atom1, atom2);
+//				dx = x(atom2) - x(atom1);
+//				dy = y(atom2) - y(atom1);
+//				dd = Math.sqrt(dx * dx + dy * dy);
+//				if (dd < 1.)
+//					dd = 1.;
+//				sina = dy / dd;
+//				cosa = dx / dd;
+				sirka2c = (sirka3 + 1) * cosSin[0];
+				sirka2s = (sirka3 + 1) * cosSin[1];
 				double[] px = new double[5];
 				double[] py = new double[5];
 				px[0] = x(atom1) + sirka2s;
@@ -1721,31 +1669,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	}
 	
 	// ----------------------------------------------------------------------------
-	void rotate(double movex) {
-		if (natoms == 0)
-			return; // bbox is null if the molecule has no atoms
-
-		// get original position
-		Box bbox = computeBoundingBoxWithAtomLabels(null);
-		double centerx = bbox.getCenterX();
-		double centery = bbox.getCenterY();
-
-		// rotation
-		double sinu = Math.sin(movex * Math.PI / 180.);
-		double cosu = Math.cos(movex * Math.PI / 180.);
-		for (int i = 1; i <= natoms; i++) {
-			double xx = x(i) * cosu + y(i) * sinu;
-			double yy = -x(i) * sinu + y(i) * cosu;
-			// x[i] = xx; y[i] = yy;
-			XY(i, xx, yy);
-		}
-
-		// moving to original position
-		bbox = computeBoundingBoxWithAtomLabels(null);
-		moveXY(centerx - bbox.getCenterX(), centery - bbox.getCenterY());
-	}
-
-	// ----------------------------------------------------------------------------
 	/**
 	 * returns x and y of the center of the molecule also w and h dimensions (for
 	 * depict) returns null if the molecule has no atoms
@@ -1871,26 +1794,15 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		if (jme.action != JME.ACTION_CHAIN) { // pri chaine to blblo
 			if (atom > 0) {
 				touchedAtom = atom;
-				if (atom != touched_org) { // make bond towards existing atom
-					XY(natoms, x(atom), y(atom)); // move the new atom to the coordinate of the closest touched atom
-													// "snap"
-					// actually it does not move while it still close to the touched atom
-					// System.out.println("SNAP otheratom");
-				} else { // this was standard position of the bond
+				if (atom == touched_org) {
 					XY(natoms, xorg, yorg);// move the new atom to the coordinate of the origin atom "snap"
-					// System.out.println("SNAP origin");
+				} else {
+					XY(natoms, x(atom), y(atom)); // move the new atom to the coordinate of the closest touched atom
 				}
 			} else {
 				// bond width normal length follows mouse pointer
-				double dx = xnew - x(touched_org);
-				double dy = ynew - y(touched_org);
-				double rx = Math.sqrt(dx * dx + dy * dy);
-				if (rx < 1.0)
-					rx = 1.0;
-				double sina = dy / rx;
-				double cosa = dx / rx;
-				XY(natoms, x(touched_org) + RBOND * cosa, y(touched_org) + RBOND * sina);
-
+				setCosSin(touched_org, 0);
+				XY(natoms, x(touched_org) + RBOND * cosSin[0], y(touched_org) + RBOND * cosSin[1]);
 			}
 			return;
 		}
@@ -2534,8 +2446,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		bonds[nbonds].vb = atom;
 		incrNV(this.touched_org, -1); // the new atom was added last, thus just need to decrease the nv
 		this.addBothNeighbors(atom, touched_org);
-		bonds[nbonds].setBondCenter(atoms);
-
+		setBondCenter(bonds[nbonds]);
 	}
 
 	/**
@@ -2860,7 +2771,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			bonds[b].partIndex = 0;
 		}
 
-		NEWPART: while (true) {
+		while (true) {
 			boolean newPartAssignedToAtom = false;
 			// find first atom that has no partIndex assigned
 			for (int at = 1; at <= natoms; at++) {
@@ -2872,7 +2783,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				}
 			}
 			if (!newPartAssignedToAtom)
-				break NEWPART;
+				break;
 
 			while (newPartAssignedToAtom) {
 				newPartAssignedToAtom = false;
@@ -3855,67 +3766,83 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	}
 
 	/**
-	 * Use OCLib to recompute aromatic or query bond orders (e.g input file with bond order 4)
-	 * Return null if an error occurred . If no changes, return the same molecule object otherwise a copy 
+	 * Use OCLib to recompute aromatic or query bond orders (e.g input file with
+	 * bond order 4) Return null if an error occurred . If no changes, return the
+	 * same molecule object otherwise a copy
+	 * 
 	 * @param mol
-	 * @return
+	 * @return null if no change
 	 */
 	public static JMEmol reComputeBondOrderIfAromaticBondType(JMEmol mol) {
-		if (! hasAromaticBondType(mol)) {
+		if (!hasAromaticBondType(mol)) {
 			return mol; // no changes
 		}
 		// create a molfile
 		String molFile = mol.createMolFile("");
 		JMEmol result = mol.deepCopy();
-		
+
 		// create a OCL molecule
 		StereoMolecule oclMol = new StereoMolecule();
-		if (new MolfileParser().parse( oclMol,  molFile) ) {
-			
-			if (!(oclMol.getAllAtoms() == mol.nAtoms() && oclMol.getAllBonds() == mol.nBonds())) {
-				return null;
-			}
-			
-			boolean computeBondOrder = true;
-			
-			try {
-				AromaticityResolver bondFixer = new AromaticityResolver(oclMol);
-				bondFixer.locateDelocalizedDoubleBonds(null);
-			} catch(Exception e) {
-				computeBondOrder = false;
-				result = null;
-			}
-			
-			if (computeBondOrder) {
-				// assume that the order of the atoms is the same
-					
-				for(int b = 0; b < oclMol.getAllBonds(); b++) {
-					int bo = oclMol.getBondOrder(b);
-					int at1 = oclMol.getBondAtom(0, b);
-					int at2 = oclMol.getBondAtom(1, b);
-					int charge1 = oclMol.getAtomCharge(at1++);
-					int charge2 = oclMol.getAtomCharge(at2++);
-					if (mol.q(at1) != charge1 || mol.q(at2) != charge2) {
-						return null;
-					}
+		if (!new MolfileParser().parse(oclMol, molFile)) {
+			return mol;
+		}
 
-					Bond bond = result.bonds[b+1];
-					if ((at1 == bond.va && at2 == bond.vb)|| (at2 == bond.va && at1 == bond.vb)) {
-						bond.bondType = bo;
-					} else {
-						return null;
-					}
-					//System.out.println(bo);  // 1 or 2
+		if (!(oclMol.getAllAtoms() == mol.nAtoms() && oclMol.getAllBonds() == mol.nBonds())) {
+			return null;
+		}
+
+		boolean computeBondOrder = true;
+
+		try {
+			AromaticityResolver bondFixer = new AromaticityResolver(oclMol);
+			bondFixer.locateDelocalizedDoubleBonds(null);
+		} catch (Exception e) {
+			computeBondOrder = false;
+			result = null;
+		}
+
+		if (computeBondOrder) {
+			// assume that the order of the atoms is the same
+
+			for (int b = 0; b < oclMol.getAllBonds(); b++) {
+				int bo = oclMol.getBondOrder(b);
+				int at1 = oclMol.getBondAtom(0, b);
+				int at2 = oclMol.getBondAtom(1, b);
+				int charge1 = oclMol.getAtomCharge(at1++);
+				int charge2 = oclMol.getAtomCharge(at2++);
+				if (mol.q(at1) != charge1 || mol.q(at2) != charge2) {
+					return null;
 				}
 
-
+				Bond bond = result.bonds[b + 1];
+				if ((at1 == bond.va && at2 == bond.vb) || (at2 == bond.va && at1 == bond.vb)) {
+					bond.bondType = bo;
+				} else {
+					return null;
+				}
 			}
-			
+
 		}
-		
-		return result;		
+
+		return result;
 	}
 
+	public void clearRotation() {
+		centerx = centery = Double.NaN;
+	}
+
+	public void rotate(double movex) {
+		if (Double.isNaN(centerx)) {
+			Box bbox = computeBoundingBoxWithAtomLabels(null);
+			centerx = bbox.getCenterX();
+			centery = bbox.getCenterY();
+		}
+		rotate(movex, centerx, centery);
+	}
+	
+
+	
 
 }
+
 // ----------------------------------------------------------------------------

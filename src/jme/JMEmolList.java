@@ -927,10 +927,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		for (JMEmol mol : this) {
 			int n = mol.nbonds;
 			for (int i = 1; i <= n; i++) {
-				Bond b = mol.bonds[i];
-				double dx = mol.x(b.va) - mol.x(b.vb);
-				double dy = mol.y(b.va) - mol.y(b.vb);
-				sumlen += Math.sqrt(dx * dx + dy * dy);
+				sumlen += mol.bondDistance(i);
 			}
 			bondCount += n;
 		}
@@ -941,11 +938,8 @@ public class JMEmolList extends ArrayList<JMEmol> {
 
 		} else {
 			for (JMEmol mol : this) {
-				;
 				if (mol.nAtoms() > 1) {
-					scale = 3. * mol.RBOND() / Math.sqrt((mol.x(1) - mol.x(2)) * (mol.x(1) - mol.x(2))
-							+ (mol.y(1) - mol.y(2)) * (mol.y(1) - mol.y(2))); // BB
-
+					scale = 3. * mol.RBOND() / mol.distance(1, 2); // BB
 					break;
 				}
 

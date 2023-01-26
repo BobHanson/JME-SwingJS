@@ -72,36 +72,6 @@ public interface Graphical2DObject {
 	}
 
 	/**
-	 * https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_two_points
-	 * 
-	 * @param x0 point
-	 * @param y0 point
-	 * @param x1 line start
-	 * @param y1 line start
-	 * @param x2 line end
-	 * @param y2 line end
-	 * @return
-	 */
-	public static double closestDistancePointToLine_WRONG(double x0, double y0, double x1, double y1, double x2,
-			double y2) {
-		double result;
-		double dlX = x2 - x1;
-		double dlY = y2 - y1;
-		// if dlY is 0, then parameter x0 is irrelevant => does not work
-		double nominator = Math.abs(dlY * x0 - dlX * y0 + x2 * y1 - y2 * x1);
-		double denominator = Math.sqrt(dlY * dlY + dlX * dlX);
-
-		if (denominator > 0) {
-			result = nominator / denominator;
-		} else {
-			result = Double.MAX_VALUE;
-		}
-
-		assert (result >= 0);
-		return result;
-	}
-
-	/**
 	 * https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
 	 * modified to handle case with a line length = 0 x3, y3 is the point
 	 * 

@@ -426,7 +426,7 @@ class JMEBuilder {
 			int rbond = mol.nbonds - nmembered + i;
 			atoms[ratom].v[1] = ratom - 1;
 			atoms[ratom].v[2] = ratom + 1;
-			bonds[rbond].setBondCenter(atoms);
+			mol.setBondCenter(bonds[rbond]);
 		}
 		// close ring
 		int n = mol.natoms;

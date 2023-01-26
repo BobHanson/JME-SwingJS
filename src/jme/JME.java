@@ -2833,7 +2833,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 		// Feb 2020
 		newMolecules.scaleInternalBondMolList();
-
 		if (newMolecules.isReaction()) {
 			options.reaction = true;
 			options.multipart = true;
@@ -3067,12 +3066,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return
 	 */
 	protected boolean ignoreBonds() {
-		return ((options.starNothing || options.starAtomOnly) && action == ACTION_MARK) || action == ACTION_MOVE_AT
-				|| action == ACTION_CHAIN || action == ACTION_SPIRO || action == ACTION_CHARGE
-				|| (action >= JMEBuilder.ACTION_GROUP_MIN && action <= ACTION_AN_R_LAST
-
-						|| (action == ACTION_MARK && !params.mark) // case for 123 button - atom
-																	// mapping June 2020
+		return 	action == ACTION_MARK && (options.starNothing || options.starAtomOnly) 
+				|| action == ACTION_MOVE_AT
+				|| action == ACTION_CHAIN 
+				|| action == ACTION_SPIRO 
+				|| action == ACTION_CHARGE
+				|| (action >= JMEBuilder.ACTION_GROUP_MIN  && action <= ACTION_AN_R_LAST
+				    || (action == ACTION_MARK && !params.mark)
+				    // case for 123 button - atom
+					// mapping June 2020
 
 				);
 	}
@@ -5398,7 +5400,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //	@Override
 	public boolean mouseDown(MouseEvent e, int x, int y) {
 		// 02.06 niektotre return true zmenene na false (aby events aj v mipc)
-
+		
 		// this.mouseDownWasUsed = false;
 		this.mouseDownWasUsed = false;
 		// BB popup menu for copy&paste
@@ -5488,13 +5490,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// }
 
 			returnStatus = menuAction(action); // has its own paint() call
-		}
-
-		else if (!isDepict() && (y > dimension.height - infoAreaHeight())) { // --- info area clicked
+		} else if (!isDepict() && (y > dimension.height - infoAreaHeight())) { // --- info area clicked
 			return eventNotUsed;
-		}
-
-		else { // --- mouse click in the drawing area
+		} else { // --- mouse click in the drawing area
 				// ---------------------------
 			activeGraphicalObject = findClosestGraphicalObject(xold, yold);
 //			if(m>0) {
@@ -5511,6 +5509,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// fragments
 			// int m = findClosestMol(x,y);
 			activeMol = findClosestMol(xold, yold);
+			activeMol.clearRotation();
+			
 
 			if (activeGraphicalObject == reactionArrow) {
 				activeMol.touchedAtom = 0; // probably not needed
@@ -6324,7 +6324,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 			// mol.atomRubberBanding(drawingAreaX, drawingAreaY);
 			activeMol.XY(activeMol.touchedAtom, drawingAreaX, drawingAreaY);
-
+			activeMol.setBondCenters();
 		} else if (e.isShiftDown() || e.isMetaDown()) {
 			// else if (e.isShiftDown() || e.isMetaDown()) {
 			activeMol.rotate(drawingAreaMoveX);
@@ -6360,7 +6360,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return true;
 	}
 
-//	protected boolean isMoleculeCompletelyOutsideDrawingArea(JMEmol mol) {
+	//	protected boolean isMoleculeCompletelyOutsideDrawingArea(JMEmol mol) {
 //
 //		if (mol.nAtoms() == 0)
 //			return false;
@@ -6704,6 +6704,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //	@Override
 	public boolean keyDown(KeyEvent e, int key) {
 
+		if (key == KeyEvent.VK_SHIFT) {
+			activeMol.clearRotation();
+		}
 		// BB
 		this.mustReDrawInfo = false;
 		// this.log("Key code: " + key);
@@ -7190,6 +7193,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			long deltaRotation = rotation - lastRotation;
 
 			if (Math.abs(deltaRotation) < 10) {
+				activeMol.clearRotation();
 				activeMol.rotate((int) deltaRotation);
 			}
 			// mustRedrawNothing();
