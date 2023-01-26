@@ -24,7 +24,6 @@
 package jme;
 
 import java.awt.Component;
-import java.awt.Point;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.dnd.DnDConstants;
@@ -53,10 +52,8 @@ public class FileDropper implements DropTargetListener {
 	
 	private PropertyChangeSupport fd_propSupport;
 	private PropertyChangeListener pcl;
-	private PropertyChangeListener fileDropListener;
 
 	public FileDropper(PropertyChangeListener fileDropListener) {
-		this.fileDropListener = fileDropListener;
 		fd_propSupport = new PropertyChangeSupport(this);
 		addPropertyChangeListener(fileDropListener);
 		addPropertyChangeListener((pcl = new PropertyChangeListener() {
@@ -75,7 +72,6 @@ public class FileDropper implements DropTargetListener {
 		pcl = null;
 		fd_propSupport.removePropertyChangeListener(null);
 		fd_propSupport = null;
-		fileDropListener = null;
 	}
 
 	private void loadFile(String fname) {

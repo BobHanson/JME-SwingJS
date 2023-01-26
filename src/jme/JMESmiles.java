@@ -282,7 +282,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		return smiles.toString();
 	}
 
-	private Parameters.HydrogenParams setHydrogenParams(Parameters mpars) {
+	private static Parameters.HydrogenParams setHydrogenParams(Parameters mpars) {
 		boolean keepStereo = !mpars.smilesParams.stereo;
 		Parameters.HydrogenParams pars = new Parameters().hydrogenParams;
 		// BH TODO -- this should be allowed to be modifed based on user settings

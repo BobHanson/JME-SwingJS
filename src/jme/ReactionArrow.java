@@ -105,7 +105,6 @@ class ReactionArrow implements Graphical2DObject {
 	public double closestDistance(double x, double y) {
 		double min = Double.MAX_VALUE;		
 		for(Line2D.Double eachLine : this.lines ) {
-			@SuppressWarnings("static-access")
 			double d = Graphical2DObject.closestDistancePointToLine(x, y, eachLine);
 			min = Math.min(d, min);
 		}

@@ -95,7 +95,7 @@ public class ColorManager {
 		initDefaultBackGroundColorPaletteIfNeeded();
 		String result[] = new String[psColor.length - 1];
 		for(int i = 1 ; i < psColor.length; i++) {
-			result[i - 1] = this.makeHexColor(psColor[i].color);
+			result[i - 1] = makeHexColor(psColor[i].color);
 		}
 	
 		
@@ -174,7 +174,7 @@ public class ColorManager {
 		psColor[0] = firstColor;
 		
 		for(int i = 0 ; i < palette.length; i++) {
-			psColor[i + 1] = new ColorInfo(this.parseHexColor(palette[i].color), palette[i].label, i + 1);
+			psColor[i + 1] = new ColorInfo(parseHexColor(palette[i].color), palette[i].label, i + 1);
 		}		
 
 
@@ -228,7 +228,7 @@ public class ColorManager {
 	 * @param hex #FF00DD
 	 * @return
 	 */
-	public Color parseHexColor(String hex) {
+	public static Color parseHexColor(String hex) {
 		Color c = Color.white;
 		try {
 			if (!hex.startsWith("#"))
@@ -244,7 +244,7 @@ public class ColorManager {
 		}
 	}
 	
-	public String makeHexColor(Color c) {
+	public static String makeHexColor(Color c) {
 		String hex = "#" + byteToHexString(c.getRed()) + byteToHexString(c.getGreen())
 							+ byteToHexString(c.getBlue());
 		
@@ -253,7 +253,7 @@ public class ColorManager {
 	}
 	
 	// need "00" for 0 and not "0"
-	protected String byteToHexString(int c) {
+	protected static String byteToHexString(int c) {
 		String hex =  Integer.toHexString(c);
 		if (hex.length() == 1) {
 			hex = "0" + hex;

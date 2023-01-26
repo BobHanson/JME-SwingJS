@@ -1,6 +1,5 @@
 package jme;
 
-import java.awt.Event;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -45,7 +44,7 @@ class FrameWithLocation extends JFrame {
 		// the window
 		this.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent evt) {
-				hide();
+				setVisible(false);
 			}
 		});
 
@@ -97,7 +96,7 @@ class FrameWithLocation extends JFrame {
 //	}
 
 	// avoid a x < 0 or y <
-	public void safeTranslate(Point location, int deltaX, int deltaY) {
+	public static void safeTranslate(Point location, int deltaX, int deltaY) {
 		location.translate(deltaX, deltaY);
 		location.x = location.x < 0 ? 0 : location.x;
 		location.y = location.y < 0 ? 0 : location.y;

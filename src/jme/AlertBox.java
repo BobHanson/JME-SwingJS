@@ -36,7 +36,7 @@ class AlertBox extends FrameWithLocation {
 			this.pack(); // the translation must be done after the pack() otherwise the size of the
 							// window (myself) is not known (=0)
 
-			this.safeTranslate(this.lastLocation, source.getWidth() / 2 - this.getWidth() / 2,
+			safeTranslate(this.lastLocation, source.getWidth() / 2 - this.getWidth() / 2,
 					source.getHeight() / 2 - this.getHeight() / 2);
 		}
 		if (backgroundColor != null) {

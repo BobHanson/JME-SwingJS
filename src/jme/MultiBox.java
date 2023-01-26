@@ -69,7 +69,7 @@ class MultiBox extends FrameWithLocation {
 			// BB
 			if (smilesBoxPoint == null) {
 				smilesBoxPoint = new Point(jmeLocation);
-				this.safeTranslate(smilesBoxPoint, -30, 0); // above the applet,close to the smiley
+				safeTranslate(smilesBoxPoint, -30, 0); // above the applet,close to the smiley
 			}
 			this.lastLocation = smilesBoxPoint;
 			initSmilesBox(jme.getSmiles());
@@ -79,7 +79,7 @@ class MultiBox extends FrameWithLocation {
 			if (atomxBoxPoint == null) {
 				// BB
 				atomxBoxPoint = new Point(jmeLocation);
-				this.safeTranslate(atomxBoxPoint, -50, (int) jme.menuCellSize * 13 - 80); // left side of the atom X
+				safeTranslate(atomxBoxPoint, -50, (int) jme.menuCellSize * 13 - 80); // left side of the atom X
 																							// menu cell
 			}
 			this.lastLocation = atomxBoxPoint;
@@ -89,7 +89,7 @@ class MultiBox extends FrameWithLocation {
 			// BB
 			if (aboutBoxPoint == null) {
 				aboutBoxPoint = new Point(jmeLocation);
-				this.safeTranslate(aboutBoxPoint, (int) jme.menuCellSize * 5, 0); // right side next to the info menu
+				safeTranslate(aboutBoxPoint, (int) jme.menuCellSize * 5, 0); // right side next to the info menu
 																					// cell
 			}
 			initAboutBox();
@@ -250,7 +250,7 @@ class MultiBox extends FrameWithLocation {
 //	
 //	}
 
-	private void showURL(URL url) throws IOException, URISyntaxException {
+	private static void showURL(URL url) throws IOException, URISyntaxException {
 		Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
 		if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
 			desktop.browse(url.toURI());

@@ -16,6 +16,12 @@ import org.jmol.api.JmolAdapterBondIterator;
 import org.jmol.util.Edge;
 import org.jmol.util.Elements;
 
+import com.actelion.research.chem.AromaticityResolver;
+import com.actelion.research.chem.MolfileCreator;
+import com.actelion.research.chem.MolfileParser;
+import com.actelion.research.chem.StereoMolecule;
+import com.actelion.research.chem.coords.CoordinateInventor;
+
 import javajs.util.P3d;
 
 // --------------------------------------------------------------------------
@@ -2805,16 +2811,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return (b > 0 && b <= nbonds ? bonds[b].getBackgroundColors() : null);
 	}
 
-	protected void resetChemicalObjectColors(AtomBondCommon chemicalObjects[]) {
-		for (AtomBondCommon chemicalObject : chemicalObjects) {
-
-			if (chemicalObject != null) {
-				chemicalObject.resetBackgroundColors();
-			}
-		}
-	}
-
-
 	// ----------------------------------------------------------------------------
 	Bond createAndAddNewBond() {
 		return createAndAddBondFromOther(null);
@@ -3158,7 +3154,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param isV3000
 	 * @return
 	 */
-	protected String mdlStereoBond(Bond bond, boolean isV3000) {
+	protected static String getMOLStereoBond(Bond bond, boolean isV3000) {
 
 		int bondType = bond.bondType;
 		int a1 = bond.va;
@@ -3359,7 +3355,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		}
 		// bonds
 		for (int i = 1; i <= nbonds; i++) {
-			s += mdlStereoBond(this.bonds[i], false) + JME.separator;
+			s += getMOLStereoBond(this.bonds[i], false) + JME.separator;
 			;
 		}
 
@@ -3451,7 +3447,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		s += mv30 + "BEGIN BOND" + JME.separator;
 		// bonds
 		for (int i = 1; i <= nbonds; i++) {
-			s += mv30 + i + " " + mdlStereoBond(this.bonds[i], true) + JME.separator;
+			s += mv30 + i + " " + getMOLStereoBond(this.bonds[i], true) + JME.separator;
 		}
 		s += mv30 + "END BOND" + JME.separator;
 
@@ -3484,21 +3480,20 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				orlists.set(n, l);
 			}
 		}
-		s += addCollection("MDLV30/STEABS", abs, mv30);
+		s += appendMOLCollection("MDLV30/STEABS", abs, mv30);
 		if (orlists.size() > 0)
 			for (int i = 1; i < orlists.size(); i++)
-				s += addCollection("MDLV30/STEREL" + i, orlists.get(i), mv30);
+				s += appendMOLCollection("MDLV30/STEREL" + i, orlists.get(i), mv30);
 		if (mixlists.size() > 0)
 			for (int i = 1; i < mixlists.size(); i++)
-				s += addCollection("MDLV30/STERAC" + i, mixlists.get(i), mv30);
+				s += appendMOLCollection("MDLV30/STERAC" + i, mixlists.get(i), mv30);
 
 		s += mv30 + "END CTAB" + JME.separator;
 		s += "M  END" + JME.separator;
 		return s;
 	}
 
-	// ----------------------------------------------------------------------------
-	String addCollection(String name, ArrayList<Integer> list, String mv30) {
+	static String appendMOLCollection(String name, ArrayList<Integer> list, String mv30) {
 		if (list == null || list.size() == 0)
 			return "";
 		String s = "";
@@ -3778,6 +3773,149 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		info(msg);
 		jme.lastAction = laFailed;
 	}
+
+	public static JMEmol compute2DcoordinatesIfMissing(JMEmol mol)  {
+		return (mol.has2Dcoordinates() ? null : compute2Dcoordinates(mol));
+	}
+
+	/**
+	 * In most cases, the returned molecule is the same as the input one. If OCL lib
+	 * changfed the number of atoms, then another molecule is returned. Return null
+	 * if 2D fails.
+	 * 
+	 * @param mol
+	 * @return
+	 */
+	public static JMEmol compute2Dcoordinates(final JMEmol mol) {
+
+		if (mol.nAtoms() <= 1) {
+			return mol;
+		}
+
+		JMEmol result = mol;
+		JMEmol molCopy = mol;
+
+		// OenCHemLib issue: the hydrogens are placed at the end of the CT, thus atom
+		// arder is changed
+		boolean hasExplicitHydrogens = mol.hasHydrogen();
+		if (hasExplicitHydrogens) {
+			molCopy = mol.deepCopy();
+			for (int i = 1; i <= molCopy.natoms; i++) {
+				Atom atom = molCopy.getAtom(i);
+				if (atom.an == Atom.AN_H) { // replace hydrogen
+					atom.an = Atom.AN_X;
+					atom.iso = 0;
+					atom.label = "A" + i;
+				}
+			}
+		}
+
+		// create a molfile
+		String molFile = molCopy.createMolFile("");
+
+		// create a OCL molecule
+		StereoMolecule oclMol = new StereoMolecule();
+		if (new MolfileParser().parse(oclMol, molFile)) {
+			boolean computed2D = true;
+			// generate 2D - can fail
+			try {
+				// argument: do not remove explicit H
+				new CoordinateInventor(0).invent(oclMol);
+			} catch (Exception e) {
+				computed2D = false;
+				result = null;
+			}
+
+			if (computed2D) {
+				// assume that the order of the atoms is the same
+				if (oclMol.getAllAtoms() == mol.nAtoms()) {
+					for (int i = 0; i < oclMol.getAllAtoms(); i++) {
+						mol.XY(i + 1, oclMol.getAtomX(i), oclMol.getAtomY(i));
+					}
+					mol.internalBondLengthScaling();
+				} else {
+					// TODO: test case:
+					MolfileCreator mfc = new MolfileCreator(oclMol);
+					try {
+						result = new JMEmol(mol.jme, mfc.getMolfile(), JME.SupportedFileFormat.MOL,
+								mol.parameters);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+					result.chiralFlag = mol.chiralFlag; // is this needed? TODO
+					result.internalBondLengthScaling();
+
+				}
+			}
+
+		}
+
+		return result;
+
+	}
+
+	/**
+	 * Use OCLib to recompute aromatic or query bond orders (e.g input file with bond order 4)
+	 * Return null if an error occurred . If no changes, return the same molecule object otherwise a copy 
+	 * @param mol
+	 * @return
+	 */
+	public static JMEmol reComputeBondOrderIfAromaticBondType(JMEmol mol) {
+		if (! hasAromaticBondType(mol)) {
+			return mol; // no changes
+		}
+		// create a molfile
+		String molFile = mol.createMolFile("");
+		JMEmol result = mol.deepCopy();
+		
+		// create a OCL molecule
+		StereoMolecule oclMol = new StereoMolecule();
+		if (new MolfileParser().parse( oclMol,  molFile) ) {
+			
+			if (!(oclMol.getAllAtoms() == mol.nAtoms() && oclMol.getAllBonds() == mol.nBonds())) {
+				return null;
+			}
+			
+			boolean computeBondOrder = true;
+			
+			try {
+				AromaticityResolver bondFixer = new AromaticityResolver(oclMol);
+				bondFixer.locateDelocalizedDoubleBonds(null);
+			} catch(Exception e) {
+				computeBondOrder = false;
+				result = null;
+			}
+			
+			if (computeBondOrder) {
+				// assume that the order of the atoms is the same
+					
+				for(int b = 0; b < oclMol.getAllBonds(); b++) {
+					int bo = oclMol.getBondOrder(b);
+					int at1 = oclMol.getBondAtom(0, b);
+					int at2 = oclMol.getBondAtom(1, b);
+					int charge1 = oclMol.getAtomCharge(at1++);
+					int charge2 = oclMol.getAtomCharge(at2++);
+					if (mol.q(at1) != charge1 || mol.q(at2) != charge2) {
+						return null;
+					}
+
+					Bond bond = result.bonds[b+1];
+					if ((at1 == bond.va && at2 == bond.vb)|| (at2 == bond.va && at1 == bond.vb)) {
+						bond.bondType = bo;
+					} else {
+						return null;
+					}
+					//System.out.println(bo);  // 1 or 2
+				}
+
+
+			}
+			
+		}
+		
+		return result;		
+	}
+
 
 }
 // ----------------------------------------------------------------------------

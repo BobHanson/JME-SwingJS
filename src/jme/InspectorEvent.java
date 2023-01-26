@@ -3,8 +3,6 @@ package jme;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-import jme.JMEUtil.JSME_RunAsyncCallback;
-
 class InspectorEvent implements ActionListener {
 	JMEmol mol;
 	int atomIndex;

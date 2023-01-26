@@ -1,14 +1,12 @@
 package jme;
 
 import java.awt.Color;
-import java.awt.Event;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-import javax.swing.AbstractButton;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
@@ -24,7 +22,7 @@ class QueryBox extends FrameWithLocation {
 	static JButton c, n, o, s, p, f, cl, br, i, any, anyec, halogen, aromatic, nonaromatic, ring, nonring;
 	static JButton anyBond, aromaticBond, ringBond, nonringBond, sdBond;
 	
-	static JComboBox choiced, choiceh;
+	static JComboBox<String> choiced, choiceh;
 	Color bgc;
 	boolean isBondQuery = false;
 	JME jme; // reference to parent
@@ -42,7 +40,7 @@ class QueryBox extends FrameWithLocation {
 			// setup the first position of dialog box close to the applet
 			Point jmeLocation = jme.getLocationOnScreen();
 			myLocation = new Point(jmeLocation);
-			this.safeTranslate(myLocation, -150, 10);
+			safeTranslate(myLocation, -150, 10);
 
 		}
 		this.lastLocation = myLocation;
@@ -105,7 +103,7 @@ class QueryBox extends FrameWithLocation {
 		JPanel p4 = new JPanel();
 		p4.setLayout(new FlowLayout(FlowLayout.LEFT, 3, 1));
 		if (first) {
-			choiceh = new JComboBox();
+			choiceh = new JComboBox<String>();
 			choiceh.addItem("Any");
 			choiceh.addItem("0");
 			choiceh.addItem("1");
@@ -120,7 +118,7 @@ class QueryBox extends FrameWithLocation {
 		JPanel p5 = new JPanel();
 		p5.setLayout(new FlowLayout(FlowLayout.LEFT, 3, 1));
 		if (first) {
-			choiced = new JComboBox();
+			choiced = new JComboBox<String>();
 			choiced.addItem("Any");
 			choiced.addItem("0");
 			choiced.addItem("1");
@@ -251,7 +249,7 @@ class QueryBox extends FrameWithLocation {
 				doSmarts();
 			} else if (b instanceof JComboBox) {
 				resetBondType();
-				JComboBox choice = (JComboBox) (b);
+				JComboBox<?> choice = (JComboBox<?>) b;
 				if (choice.getSelectedIndex() == 0)
 					choice.setBackground(bgc);
 				else

@@ -6,12 +6,6 @@ package jme;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
-import com.actelion.research.chem.AromaticityResolver;
-import com.actelion.research.chem.MolfileCreator;
-import com.actelion.research.chem.MolfileParser;
-import com.actelion.research.chem.StereoMolecule;
-import com.actelion.research.chem.coords.CoordinateInventor; // to compute 2D coordinates
-
 import jme.JME.SupportedFileFormat;
 import jme.JMECore.Parameters;
 
@@ -165,12 +159,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		super.clear();
 	}
 	
-	protected  String makeErrorMessage(Exception e) {
-		
-		return JME.makeErrorMessage(e);
-
-	}
-
 	/**
 	 * 
 	 * @return null if there are no errors
@@ -180,7 +168,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		if(errorMsg !=null)
 			return errorMsg;
 		if(error != null)
-			return makeErrorMessage(error);
+			return JME.makeErrorMessage(error);
 		
 		return null;
 	}
@@ -290,7 +278,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 				}
 		
 			} catch(Exception e) {
-				this.errorMsg = makeErrorMessage(e) + ": " + s;
+				this.errorMsg = JME.makeErrorMessage(e) + ": " + s;
 				return false;
 			}
 			
@@ -304,186 +292,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		}
 
 		return true;
-	}
-
-	/**
-	 * compute 2D coordinates using openchem lib
-	 *  Return null if 2D fails.
-	 * @param mol
-	 * 
-	 * HACK!!!: does not use GWT.async !!!!
-	 */
-	public JMEmol compute2DcoordinatesIfMissing(JMEmol mol)  {
-		if (! mol.has2Dcoordinates()) {
-			return this.compute2Dcoordinates(mol);
-		} else {
-			return mol;
-		}
-		
-		
-	}
-
-	/**
-	 * In most cases, the returned molecule is the same as the input one. If OCL lib
-	 * changfed the number of atoms, then another molecule is returned. Return null
-	 * if 2D fails.
-	 * 
-	 * @param mol
-	 * @return
-	 */
-	public JMEmol compute2Dcoordinates(final JMEmol mol) {
-
-		if (mol.nAtoms() <= 1) {
-			return mol;
-		}
-
-		JMEmol result = mol;
-		JMEmol molCopy = mol;
-
-		// OenCHemLib issue: the hydrogens are placed at the end of the CT, thus atom
-		// arder is changed
-		boolean hasExplicitHydrogens = mol.hasHydrogen();
-		if (hasExplicitHydrogens) {
-			molCopy = mol.deepCopy();
-			for (int i = 1; i <= molCopy.natoms; i++) {
-				Atom atom = molCopy.getAtom(i);
-				if (atom.an == Atom.AN_H) { // replace hydrogen
-					atom.an = Atom.AN_X;
-					atom.iso = 0;
-					atom.label = "A" + i;
-				}
-			}
-		}
-
-		// create a molfile
-		String molFile = molCopy.createMolFile("");
-
-		// create a OCL molecule
-		StereoMolecule oclMol = new StereoMolecule();
-		if (new MolfileParser().parse(oclMol, molFile)) {
-			boolean computed2D = true;
-			// generate 2D - can fail
-			try {
-				// argument: do not remove explicit H
-				new CoordinateInventor(0).invent(oclMol);
-			} catch (Exception e) {
-				computed2D = false;
-				result = null;
-			}
-
-			if (computed2D) {
-				// assume that the order of the atoms is the same
-				if (oclMol.getAllAtoms() == mol.nAtoms()) {
-					for (int i = 0; i < oclMol.getAllAtoms(); i++) {
-						mol.XY(i + 1, oclMol.getAtomX(i), oclMol.getAtomY(i));
-					}
-					mol.internalBondLengthScaling();
-				} else {
-					// TODO: test case:
-					MolfileCreator mfc = new MolfileCreator(oclMol);
-					try {
-						result = new JMEmol(mol.jme, mfc.getMolfile(), JME.SupportedFileFormat.MOL,
-								mol.parameters);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-					result.chiralFlag = mol.chiralFlag; // is this needed? TODO
-					result.internalBondLengthScaling();
-
-				}
-			}
-
-		}
-
-		return result;
-
-	}
-
-	public boolean hasAromaticBondType(JMEmol mol) {
-		if (mol.nBonds() < 1 ) {
-			return false;
-		}
-		
-		for(int b = 1; b <= mol.nBonds(); b++) {
-			Bond bond = mol.bonds[b];
-			if( bond.bondType == 4 || bond.bondType == Bond.AROMATIC || bond.bondType == Bond.QUERY) { //TODO: molfile reader should use AROMATIC?
-				return true;
-			}
-		}
-		
-		return false;
-
-	}
-	
-	/**
-	 * Use OCLib to recompute aromatic or query bond orders (e.g input file with bond order 4)
-	 * Return null if an error occurred . If no changes, return the same molecule object otherwise a copy 
-	 * @param mol
-	 * @return
-	 */
-	public JMEmol reComputeBondOrderIfAromaticBondType(JMEmol mol) {
-		if (! hasAromaticBondType(mol)) {
-			return mol; // no changes
-		}
-		// create a molfile
-		String molFile = mol.createMolFile("");
-		JMEmol result = mol.deepCopy();
-		
-		// create a OCL molecule
-		StereoMolecule oclMol = new StereoMolecule();
-		if (new MolfileParser().parse( oclMol,  molFile) ) {
-			
-			if (!(oclMol.getAllAtoms() == mol.nAtoms() && oclMol.getAllBonds() == mol.nBonds())) {
-				return null;
-			}
-			
-			boolean computeBondOrder = true;
-			
-			try {
-				AromaticityResolver bondFixer = new AromaticityResolver(oclMol);
-				bondFixer.locateDelocalizedDoubleBonds(null);
-			} catch(Exception e) {
-				computeBondOrder = false;
-				result = null;
-			}
-			
-			if (computeBondOrder) {
-				// assume that the order of the atoms is the same
-					
-				for(int b = 0; b < oclMol.getAllBonds(); b++) {
-					int bo = oclMol.getBondOrder(b);
-					int at1 = oclMol.getBondAtom(0, b);
-					int at2 = oclMol.getBondAtom(1, b);
-					int charge1 = oclMol.getAtomCharge(at1);
-					int charge2 = oclMol.getAtomCharge(at2);
-					
-					
-					
-					at1++;
-					at2++;
-					
-					if (mol.q(at1) != charge1 || mol.q(at2) != charge2) {
-						return null;
-					}
-
-					Bond bond = result.bonds[b+1];
-					if ((at1 == bond.va && at2 == bond.vb)|| (at2 == bond.va && at1 == bond.vb)) {
-						bond.bondType = bo;
-					} else {
-						return null;
-					}
-					//System.out.println(bo);  // 1 or 2
-				}
-
-
-			}
-			
-		}
-		
-		return result;		
-		
-		
-
 	}
 
 	// can raise exception
@@ -783,7 +591,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 				
 				for(JMEmol mol: mols) {
 					s += "$MOL" + newLine;
-					s += this.createMolfile(mol, pars);
+					s += createMolfile(mol, pars);
 				}
 			}
 				
@@ -795,23 +603,16 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			} else {
 				mol = get(0);
 			}
-			s = this.createMolfile(mol, pars);
+			s = createMolfile(mol, pars);
 
 		}
 		return s;
 	}
 
 	
-	protected String createMolfile(JMEmol mol, MolFileOrRxnParameters arg) {
-		
-		String s;
-		
-		if(! arg.isV3000) 
-			s = mol.createMolFile(arg.header, arg.stampDate);
-		else //BB
-			s = mol.createExtendedMolFile(arg.header, arg.stampDate);
-		
-		return s;
+	protected static String createMolfile(JMEmol mol, MolFileOrRxnParameters arg) {
+		return (arg.isV3000 ? mol.createExtendedMolFile(arg.header, arg.stampDate)
+				: mol.createMolFile(arg.header, arg.stampDate));
 	}
 	
 	public JMEmol last() {

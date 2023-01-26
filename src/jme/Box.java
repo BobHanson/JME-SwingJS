@@ -16,6 +16,7 @@ import java.awt.geom.Rectangle2D;
 //END GWT_IMPORT
 
 
+@SuppressWarnings("serial")
 public class Box extends Rectangle2D.Double {
 	
 	public enum Axis {X, Y};

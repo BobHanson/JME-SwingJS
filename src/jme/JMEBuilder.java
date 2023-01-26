@@ -165,7 +165,7 @@ class JMEBuilder {
 				for (int i = 1; i <= nmembered; i++) {
 					Atom newAtom = createAtom();
 					uhol = diel * i + Math.PI * .5;
-					mol.XY(newAtom, newPoint[0] + rc * (Math.sin(uhol) * cosa - Math.cos(uhol) * sina),
+					JMECore.XY(newAtom, newPoint[0] + rc * (Math.sin(uhol) * cosa - Math.cos(uhol) * sina),
 							newPoint[1] + rc * (Math.cos(uhol) * cosa + Math.sin(uhol) * sina));
 				}
 			} else {
@@ -229,22 +229,22 @@ class JMEBuilder {
 				uhol = diel * (i + .5) + Math.PI * revert;
 				// x[natoms]=xstart+rc*(Math.sin(uhol)*cosa-Math.cos(uhol)*sina);
 				// y[natoms]=ystart+rc*(Math.cos(uhol)*cosa+Math.sin(uhol)*sina);
-				mol.XY(newAtom, xstart + rc * (Math.sin(uhol) * cosa - Math.cos(uhol) * sina),
+				JMECore.XY(newAtom, xstart + rc * (Math.sin(uhol) * cosa - Math.cos(uhol) * sina),
 						ystart + rc * (Math.cos(uhol) * cosa + Math.sin(uhol) * sina));
 				// next when fusing to the "long" bond
 				if (revert == 1) {
 					if (i == nmembered) {
-						mol.XY(newAtom, a1.x, a1.y);
+						JMECore.XY(newAtom, a1.x, a1.y);
 						/* x(natoms)=x; y(natoms)=y; */}
 					if (i == nmembered - 1) {
-						mol.XY(newAtom, a2.x, a2.y);
+						JMECore.XY(newAtom, a2.x, a2.y);
 						/* x[natoms]=x(atom2); y[natoms]=y(atom2); */}
 				} else {
 					if (i == nmembered - 1) {
-						mol.XY(newAtom, a1.x, a1.y);
+						JMECore.XY(newAtom, a1.x, a1.y);
 						/* x[natoms]=x(atom1); y[natoms]=y(atom1); */}
 					if (i == nmembered) {
-						mol.XY(newAtom, a2.x, a2.y);
+						JMECore.XY(newAtom, a2.x, a2.y);
 						/* x[natoms]=x(atom2); y[natoms]=y(atom2); */}
 				}
 			}
@@ -260,7 +260,7 @@ class JMEBuilder {
 				uhol = diel * (i - helpv);
 				// x[natoms] = xorg + rc*Math.sin(uhol);
 				// y[natoms] = yorg + rc*Math.cos(uhol);
-				mol.XY(newAtom, mol.xorg + rc * Math.sin(uhol), mol.yorg + rc * Math.cos(uhol));
+				JMECore.XY(newAtom, mol.xorg + rc * Math.sin(uhol), mol.yorg + rc * Math.cos(uhol));
 			}
 		}
 

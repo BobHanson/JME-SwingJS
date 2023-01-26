@@ -27,6 +27,7 @@ import java.awt.geom.Rectangle2D;
  * @author bruno
  *
  */
+@SuppressWarnings("serial")
 public class Icon extends Rectangle2D.Double {
 
 	//the Graphics on which the icon is drawn

@@ -228,15 +228,15 @@ public class ChangeManager<T> {
 	 * 
 	 */
 
-	private class Node<T> {
+	private class Node<N> {
 
-		private Node<T> left = null;
+		private Node<N> left = null;
 
-		private Node<T> right = null;
+		private Node<N> right = null;
 
-		private final T item;
+		private final N item;
 
-		public Node(T c) {
+		public Node(N c) {
 
 			item = c;
 

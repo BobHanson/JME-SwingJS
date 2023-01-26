@@ -69,7 +69,7 @@ class AtomInspector {
 					// make the changes
 					// System.out.println("Here: " + atomicMapField.getText());
 					String newInputValue = atomicMapField.getText().trim();
-					int oldValue = AtomInspector.this.change.getAtomValue();
+					//int oldValue = AtomInspector.this.change.getAtomValue();
 					try {
 						int newValue = Integer.parseInt(newInputValue);
 						AtomInspector.this.change.setAtomValue(newValue);

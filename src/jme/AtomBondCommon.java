@@ -21,6 +21,15 @@ public interface AtomBondCommon {
 
 	public int[] getBackgroundColors();
 	
+	public static void resetChemicalObjectColors(AtomBondCommon chemicalObjects[]) {
+		for (AtomBondCommon chemicalObject : chemicalObjects) {
+
+			if (chemicalObject != null) {
+				chemicalObject.resetBackgroundColors();
+			}
+		}
+	}
+
 	
 	/**
 	 * @return true if changed

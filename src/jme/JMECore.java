@@ -195,7 +195,7 @@ public class JMECore {
 		atoms[i].y = y;
 	}
 
-	void XY(Atom atom, double x, double y) {
+	static void XY(Atom atom, double x, double y) {
 		atom.x = x;
 		atom.y = y;
 	}
@@ -899,5 +899,20 @@ public class JMECore {
 //	}
 
 
+	public static boolean hasAromaticBondType(JMECore mol) {
+		if (mol.nBonds() < 1 ) {
+			return false;
+		}
+		for(int b = 1; b <= mol.nBonds(); b++) {
+			Bond bond = mol.bonds[b];
+			if( bond.bondType == 4 || bond.bondType == Bond.AROMATIC || bond.bondType == Bond.QUERY) { //TODO: molfile reader should use AROMATIC?
+				return true;
+			}
+		}
+		
+		return false;
+
+	}
+	
 
 }
