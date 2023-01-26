@@ -780,12 +780,9 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		// if only 1 bond is up/down it os ref0
 		// if 2 bonds are up/down - nonmarked is in ref0
 		int ox[] = new int[4];
-		double dx, dy, rx;
 
 		// reference angle ux-axis - center - ref0
 		setCosSin(center, ref0);
-		double sin0 = cosSin[0];
-		double cos0 = cosSin[1];
 		int p[] = new int[4];
 		for (int i = 0; i < 4; i++) {
 			if (ref[i] == ref0 || ref[i] <= 0)
