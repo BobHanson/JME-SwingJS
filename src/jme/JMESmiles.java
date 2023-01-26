@@ -2,8 +2,9 @@ package jme;
 
 public class JMESmiles extends JMECore {
 
-	// BH 2023.01.24 this class pulled out from JMEmol
+	// BH 2023.01.26 methods moved into core; SHIFT-DRAG rotation fixed
 	// BH 2023.01.25 adds JMEcore.
+	// BH 2023.01.24 this class pulled out from JMEmol
 	/**
 	 * temporary array that holds an atom selection
 	 */
