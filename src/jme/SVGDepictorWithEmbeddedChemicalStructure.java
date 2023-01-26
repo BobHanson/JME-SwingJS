@@ -20,7 +20,10 @@ public class SVGDepictorWithEmbeddedChemicalStructure extends SVGDepictor {
 	public SVGDepictorWithEmbeddedChemicalStructure(StereoMolecule mol, String mdlMol) {
 		super(mol, "");
 		this.mdlMOL = mdlMol;
-		this.setDisplayMode(AbstractDepictor.cDModeSuppressCIPParity|AbstractDepictor.cDModeSuppressESR|AbstractDepictor.cDModeSuppressChiralText);
+		int mode = AbstractDepictor.cDModeSuppressCIPParity|AbstractDepictor.cDModeSuppressESR|AbstractDepictor.cDModeSuppressChiralText;
+		
+		this.setDisplayMode(mode);
+		
 	}
 
 	static String tag() {

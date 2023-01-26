@@ -39,6 +39,7 @@ public class OclParser implements Parser {
 		if (new MolfileParser().parse(mol, molFile)) {
 			// recipe found in openchemlib-js
 			SVGDepictor svgd = new SVGDepictorWithEmbeddedChemicalStructure(mol, molFile);
+			svgd.setLegacyMode(false); // include font information
 			svgd.validateView(null, new GenericRectangle(0, 0, width, height),
 					AbstractDepictor.cModeInflateToHighResAVBL);
 			svgd.paint(null);
