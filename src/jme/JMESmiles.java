@@ -134,7 +134,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 				int atomnew = 0;
 				// hlada nering branch
 				for (int i = 1; i <= ncandidates; i++) {
-					int b = bondIdentity(candidate[i], atom);
+					int b = getBondIndex(candidate[i], atom);
 					// zmenene oproti mgpj
 					// if (btype[b]==h.AROMATIC || btype[b]==h.RING_NONAROMATIC) continue;
 					if (isRingBond[b])
@@ -145,7 +145,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 				// ring branch = or # (aby potom closing bolo -)
 				if (atomnew == 0) { // nenaslo nonring branch
 					for (int i = 1; i <= ncandidates; i++) {
-						int b = bondIdentity(candidate[i], atom); // pozor bondType[], btype[]
+						int b = getBondIndex(candidate[i], atom); // pozor bondType[], btype[]
 						// if (isDouble(bondType[b]) || bondType[b]==TRIPLE) // !!!
 						if (btype[b] == Bond.DOUBLE || btype[b] == Bond.TRIPLE) {
 							atomnew = candidate[i];
@@ -457,7 +457,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 	// ----------------------------------------------------------------------------
 	private void smilesAddBond(int atom1, int atom2, StringBuffer smiles, int slashBond[], boolean queryMode) {
 		// adds bond to SMILES
-		int b = bondIdentity(atom1, atom2);
+		int b = getBondIndex(atom1, atom2);
 		Bond bond = bonds[b];
 		// what is the difference between btype[b] and bonds[b].bondType ?
 		// btype is computed locally and contains information about aromaticity
@@ -514,7 +514,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		for (int i = 1; i <= natoms; i++) {
 			int atom1 = aa[i]; // aa[] nie ax[] !
 			int atom2 = parent[atom1];
-			int bi = bondIdentity(atom1, atom2);
+			int bi = getBondIndex(atom1, atom2);
 			if (bi == 0)
 				continue;
 			stereoEZ(bi, ax, slashBond, bondMinimumRingSize);
@@ -533,7 +533,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 				continue;
 			int nstereo = 0, doubleBonded = 0;
 			for (int neighbor = 1; neighbor <= nv(at); neighbor++) {
-				int bi = bondIdentity(at, v(at)[neighbor]);
+				int bi = getBondIndex(at, v(at)[neighbor]);
 				if (btype[bi] == Bond.AROMATIC)
 					continue atom_loop;
 				if (bonds[bi].bondType == Bond.SINGLE && upDownBond(bonds[bi], at) != 0)
@@ -566,7 +566,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		for (int i = 0; i < 4; i++) {
 			if (ref[i] <= 0)
 				continue;
-			int bi = bondIdentity(atom, ref[i]);
+			int bi = getBondIndex(atom, ref[i]);
 			refx[i] = upDownBond(bonds[bi], atom);
 			if (refx[i] > 0) {
 				nup++;
@@ -629,7 +629,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 				ox = C4order(atom, refAtom, ref);
 				int box[] = new int[4]; // up,down info for ox[] atoms
 				for (int i = 0; i < 4; i++) {
-					int bi = bondIdentity(atom, ox[i]);
+					int bi = getBondIndex(atom, ox[i]);
 					box[i] = upDownBond(bonds[bi], atom);
 				}
 
@@ -1020,7 +1020,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		//assert (nv(atom1) <= 3);
 		for (int j = 1, n = 0; j <= nv(atom1); j++) {
 			int atomx = v(atom1)[j];
-			int bi = bondIdentity(atom1, atomx);
+			int bi = getBondIndex(atom1, atomx);
 			if (bondType(bi) == Bond.DOUBLE)
 				continue;
 			neighbors[n++] = atomx;
@@ -1124,14 +1124,14 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			ref12 = d;
 		}
 		//assert (ref11 > 0); // reff12 can be 0 (e.g. implicit H)
-		int bi = bondIdentity(atom1, ref11);
+		int bi = getBondIndex(atom1, ref11);
 		if (slashBond[bi] != 0) {
 			ref1 = ref11;
 		} else if (bondType(bi) == Bond.SINGLE && btype[bi] != Bond.AROMATIC)
 			ref1 = ref11;
 
 		if (ref1 == 0 && ref12 > 0) { // BB added ref12>0
-			bi = bondIdentity(atom1, ref12);
+			bi = getBondIndex(atom1, ref12);
 			if (slashBond[bi] != 0)
 				ref1 = ref12;
 			else if (bondType(bi) == Bond.SINGLE && btype[bi] != Bond.AROMATIC)
@@ -1168,11 +1168,11 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			ref21 = ref22;
 			ref22 = d;
 		}
-		bi = bondIdentity(atom2, ref21);
+		bi = getBondIndex(atom2, ref21);
 		if (bondType(bi) == Bond.SINGLE && btype[bi] != Bond.AROMATIC && slashBond[bi] == 0)
 			ref2 = ref21;
 		if (ref2 == 0 && ref22 > 0) { // BB added ref22>0
-			bi = bondIdentity(atom2, ref22);
+			bi = getBondIndex(atom2, ref22);
 			if (bondType(bi) == Bond.SINGLE && btype[bi] != Bond.AROMATIC)
 				ref2 = ref22; // ref2x netreba
 		}
@@ -1193,8 +1193,8 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			info("Not unique E/Z geometry !");
 			return;
 		}
-		int b1 = bondIdentity(ref1, atom1);
-		int b2 = bondIdentity(ref2, atom2);
+		int b1 = getBondIndex(ref1, atom1);
+		int b2 = getBondIndex(ref2, atom2);
 		int newSlash = 1;
 		if (slashBond[b1] == 0) {
 			// ceknut, ci nove stereo neprotireci uz exisujucej na ref1
@@ -1202,7 +1202,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 				int atomx = v(ref1)[j];
 				if (atomx == atom1)
 					continue;
-				bi = bondIdentity(ref1, atomx);
+				bi = getBondIndex(ref1, atomx);
 				if (slashBond[bi] != 0) {
 					// zalezi od toho ci ta co uz je ma ax[atomx] <> ax[ref1]
 					if (ax[atomx] > ax[ref1])
@@ -1272,7 +1272,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 				if (atomx == cumuleneAtoms[1] || atomx == cumuleneAtoms[numberCumuleneAtoms - 1])
 					continue NEIGHBOR_LOOP;
 
-				int bi = bondIdentity(currentCumuleneAtom, atomx);
+				int bi = getBondIndex(currentCumuleneAtom, atomx);
 				if (bonds[bi].bondType == Bond.DOUBLE && btype[bi] != Bond.AROMATIC) {
 					cumuleneAtoms[++numberCumuleneAtoms] = atomx;
 					currentCumuleneAtom = atomx;
@@ -1371,10 +1371,10 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 		// int ref21x = upDownBond(bondIdentity(end,ref21),end);
 		// int ref22x = upDownBond(bondIdentity(end,ref22),end);
 		// BB bug fix for # atoms at end < 3 (implicit H)
-		int ref11x = ref11 > 0 ? upDownBond(bonds[bondIdentity(start, ref11)], start) : 0;
-		int ref12x = ref12 > 0 ? upDownBond(bonds[bondIdentity(start, ref12)], start) : 0;
-		int ref21x = ref21 > 0 ? upDownBond(bonds[bondIdentity(end, ref21)], end) : 0;
-		int ref22x = ref22 > 0 ? upDownBond(bonds[bondIdentity(end, ref22)], end) : 0;
+		int ref11x = ref11 > 0 ? upDownBond(bonds[getBondIndex(start, ref11)], start) : 0;
+		int ref12x = ref12 > 0 ? upDownBond(bonds[getBondIndex(start, ref12)], start) : 0;
+		int ref21x = ref21 > 0 ? upDownBond(bonds[getBondIndex(end, ref21)], end) : 0;
+		int ref22x = ref22 > 0 ? upDownBond(bonds[getBondIndex(end, ref22)], end) : 0;
 
 		if (Math.abs(ref11x + ref12x) > 1 || ref21x != 0 || ref22x != 0) {
 			info("Bad stereoinfo on allene !");
@@ -1439,7 +1439,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 
 	boolean isInRing(int atom, int minBondRingSizes[]) {
 		for (int i = 1; i <= nv(atom); i++) {
-			if (minBondRingSizes[bondIdentity(atom, v(atom)[i])] > 0)
+			if (minBondRingSizes[getBondIndex(atom, v(atom)[i])] > 0)
 				return true;
 		}
 		return false;
@@ -1734,7 +1734,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 						// co E,Z,stereovazby, je to OK ???
 						for (int j = 1; j <= nv(i); j++) {
 							int atom = v(i)[j];
-							d[i] *= an(atom) * btype[bondIdentity(i, atom)];
+							d[i] *= an(atom) * btype[getBondIndex(i, atom)];
 						}
 					}
 					breaklevel = 1;

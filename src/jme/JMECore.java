@@ -86,6 +86,8 @@ public class JMECore {
 
 	int natoms = 0;
 	int nbonds = 0;
+	
+	protected Boolean chiralFlag = Boolean.FALSE;
 
 	public Parameters parameters;
 
@@ -236,6 +238,10 @@ public class JMECore {
 
 	void NV(int i, int nv) {
 		atoms[i].nv = nv;
+	}
+
+	int incrNV(int i, int change) {
+		return atoms[i].nv += change;
 	}
 
 	public void setPart(JMECore m, int part) {
@@ -594,7 +600,7 @@ public class JMECore {
 
 		int sbo = 0;
 		for (int i = 1; i <= nv(atom); i++) {
-			Bond bond = bondIdentityBond(atom, v(atom)[i]);
+			Bond bond = getBond(atom, v(atom)[i]);
 			if (bond == null) {
 				// assert (bond != null);
 			}
@@ -612,23 +618,30 @@ public class JMECore {
 		return sbo;
 	}
 
-	int bondIdentity(int atom1, int atom2) {
+	/**
+	 * 
+	 * @param atom1
+	 * @param atom2
+	 * @return null if no bond was found
+	 */
+	Bond getBond(int atom1, int atom2) {
+		return this.bonds[getBondIndex(atom1, atom2)];
+	}
+
+	/**
+	 * Find the bond index between two atoms, or 0 if no bond exists.
+	 * 
+	 * @param atom1
+	 * @param atom2
+	 * @return the bond index or 0
+	 */
+	int getBondIndex(int atom1, int atom2) {
 		for (int i = 1; i <= nbonds; i++) {
 			if (bonds[i].isAB(atom1, atom2)) {
 				return i;
 			}
 		}
 		return 0;
-	}
-
-	/**
-	 * 
-	 * @param atom1
-	 * @param atom2
-	 * @return null if no bond were found
-	 */
-	Bond bondIdentityBond(int atom1, int atom2) {
-		return this.bonds[bondIdentity(atom1, atom2)];
 	}
 
 	boolean isSingle(int bond) {
@@ -855,7 +868,7 @@ public class JMECore {
 					continue atom_loop;
 				}
 
-				int bi = bondIdentity(i, parent);
+				int bi = getBondIndex(i, parent);
 				if (bonds[bi].bondType == Bond.SINGLE) {
 					if (!(pars.keepStereoHs && bonds[bi].stereo != 0)) {
 						deleteAtom(i); // deleteAtom will recompute the nv's

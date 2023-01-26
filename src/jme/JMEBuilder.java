@@ -146,7 +146,7 @@ class JMEBuilder {
 				}
 				for (int i = 1; i <= a.nv; i++) {
 					// int bo = bondType[bondIdentity(touchedAtom,v(touchedAtom)[i])];
-					int bo = mol.bondIdentityBond(touchedAtom, a.v[i]).bondType;
+					int bo = mol.getBond(touchedAtom, a.v[i]).bondType;
 					if (i > 2 || bo != Bond.SINGLE) {
 						mol.info("ERROR - spiro ring not possible here !", LA_FAILED);
 						return;
@@ -361,14 +361,14 @@ class JMEBuilder {
 					// nned to check whether it is not =C-C= bond
 					boolean isConjugated = false;
 					for (int i = 1; i <= va.nv; i++) {
-						if (mol.bondIdentityBond(b.va, va.v[i]).bondType > Bond.SINGLE) {
+						if (mol.getBond(b.va, va.v[i]).bondType > Bond.SINGLE) {
 							isConjugated = true;
 							break;
 						}
 					}
 					for (int i = 1; i <= mol.nv(b.vb); i++) {
 						int ax = vb.v[i];
-						if (mol.bondIdentityBond(b.vb, ax).bondType > Bond.SINGLE) {
+						if (mol.getBond(b.vb, ax).bondType > Bond.SINGLE) {
 							isConjugated = true;
 							break;
 						}

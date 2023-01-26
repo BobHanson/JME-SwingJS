@@ -1582,15 +1582,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public void clearMyMolecularContent() {
-		// numberofMoleculeParts = 0;
-		// JMEmol.maxMark = 0;
-		// actualMoleculePartIndex = 0;
 		activeMol = new JMEmol(this, this.params); // treba
-		activeMol.maxMark = 0;
-
 		moleculePartsList.removeAll();
 		moleculePartsList.add(activeMol);
-
 		molText = null;
 		mustReDrawMolecularArea();
 
@@ -1620,7 +1614,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					scaleDrawingToScreen(activeMol.centerY()));
 		} else {
 			activeMol = new JMEmol(this, this.params);
-			activeMol.maxMark = 0;
 			moleculePartsList.add(activeMol);
 		}
 
@@ -2941,19 +2934,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public int findMaxAtomMapAmongAllMolecules() {
-
 		return moleculePartsList.findMaxAtomMap();
-
-	}
-
-	public void setMaxMapAfterReadingInput() {
-		int max = this.findMaxAtomMapAmongAllMolecules();
-
-		// assign the max
-		for (JMEmol mol : moleculePartsList) {
-			mol.maxMark = max;
-		}
-
 	}
 
 	// --------------------------------------------------------------------------
@@ -3103,7 +3084,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// shows canonical atom numbering
 		// numbers only actual molecule !!!
 		if (activeMol != null)
-			activeMol.numberAtoms();
+			activeMol.numberAtomsSequentially();
 	}
 
 	// ----------------------------------------------------------------------------
@@ -3980,7 +3961,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					// autonumber added in 2009.09
 					if (mouseShift) { // automark all atoms, zrusi stare mark
 						mouseShift = false; // aby pridavalo cisla
-						activeMol.numberAtoms();
+						activeMol.numberAtomsSequentially();
 
 						// added Oct 2015 - not tested
 						setMustRedrawMolecularArea(true);

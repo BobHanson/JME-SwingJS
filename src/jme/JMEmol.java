@@ -52,8 +52,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	public JME jme; // parent
 
 	int chain[] = new int[101];
-	int nmarked = 0; // obsolote in reaction automarking since 2009.04, still used in other marks
-	int maxMark = 0; // updated only in autonumber
 
 	public int touchedAtom = 0; // nesmu byt static kvoli reaction (multi?)
 	int touchedBond = 0;
@@ -71,7 +69,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	Color uniColor = null;
 
-	protected Boolean chiralFlag = false;
 	private int reactionRole = ReactionRole.NOROLE;
 
 	// used for junit testing
@@ -92,7 +89,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	public JMEmol(JME jme, Parameters pars) {
 		super(jme, pars);
 		this.jme = jme;
-		nmarked = 0;
 	}
 
 	
@@ -105,7 +101,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		super((JMECore) m);
 		jme = m.jme;
 		chiralFlag = m.chiralFlag;
-		nmarked = m.nmarked;
 		reactionRole = m.reactionRole;
 	}
 
@@ -116,14 +111,13 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param mols
 	 */
 	public JMEmol(JME jme, JMEmol mols[]) {	
-		this(jme, mols.length > 0 && mols[0] != null ? mols[0].parameters : null);
-
+		this(jme, (Parameters) null);
+		if (mols.length > 0 && mols[0] != null)
+			parameters = mols[0].parameters; 
 		int nmols = mols.length;
-
 		for (int i = 0; i < nmols; i++) {
 			natoms += mols[i].natoms;
 			nbonds += mols[i].nbonds;
-			nmarked += mols[i].nmarked;
 
 			// if any is chiral, then the whole new molecule is chiral
 			if (mols[i].getChiralFlag())
@@ -146,7 +140,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			}
 			nadd = na;
 		}
-		this.setNeighborsFromBonds(); // update the adjencylist
+		setNeighborsFromBonds(); // update the adjencylist
 	}
 
 	/**
@@ -161,15 +155,17 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		m.computeMultiPartIndices(); // compute the partIndex
 		int newn[] = new int[m.natoms + 1]; // cislovanie stare -> nove
 		for (int i = 1, n = m.natoms; i <= n; i++) {
-			if (m.part(i) == part)
+			if (atoms[i].partIndex == part)
 				newn[i] = natoms;
 		}
 		for (int i = 1; i <= m.nbonds; i++) {
 			int atom1 = m.bonds[i].va;
 			int atom2 = m.bonds[i].vb;
-			if (m.part(atom1) != part && m.part(atom2) != part)
+			int p1 = atoms[atom1].partIndex;
+			int p2 = atoms[atom2].partIndex;			
+			if (p1 != part && p2 != part)
 				continue;
-			if (m.part(atom1) != part || m.part(atom2) != part) { // musia byt obidve part
+			if (p1 != p2) { // musia byt obidve part
 				System.err.println("MOL multipart inconsistency - report bug !");
 				continue;
 			}
@@ -354,17 +350,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			if (line.length() >= 62) {
 				String s = line.substring(60, 63).trim();
 				if (s.length() > 0) {
-					// 2007.03 fix not to put there 0
 					int mark = Integer.valueOf(s).intValue();
-					// if (mark > 0) {
-					// touchedAtom = i;
-					// jme.currentMark = mark;
-					// mark(true);
-					// touchedAtom = 0; // not to frame atom
-					// }
-
 					if (mark > 0) {
-						this.setAtomMapFromInput(i, mark);
+						setAtomMapFromInput(i, mark);
 					}
 				}
 			}
@@ -652,15 +640,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		return result;
 	}
-	// ----------------------------------------------------------------------------
-	int incrNV(int i, int change) {
-		return atoms[i].nv += change;
-	}
-
-	int part(int at) {
-		return atoms[at].partIndex;
-	}
-
+	
 	protected boolean mixPastelBackGroundColors = true;
 
 	final static boolean doTags = false; // compatibility with JMEPro
@@ -878,8 +858,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		for (int at = 1; at <= this.natoms; at++) {
 			hasChanged = this.atoms[at].resetMap() || hasChanged;
 		}
-		this.maxMark = 0;
-
 		return hasChanged;
 	}
 
@@ -1204,7 +1182,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	public void reset() {
 		natoms = 0;
 		nbonds = 0;
-		nmarked = 0;
 	}
 
 	// ----------------------------------------------------------------------------
@@ -1630,15 +1607,16 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					int va = bonds[touchedBond].va;
 					int vb = bonds[touchedBond].vb;
 					this.computeMultiPartIndices(touchedBond);
-					int partA = part(va);
-					int partB = part(vb);
+					int partA = atoms[va].partIndex;
+					int partB = atoms[vb].partIndex;
 					int sizeA = 0;
 					int sizeB = 0;
 
 					for (int i = 1; i <= natoms; i++) {
-						if (part(i) == partA) {
+						int pi = atoms[i].partIndex;
+						if (pi == partA) {
 							sizeA++;
-						} else if (part(i) == partB) {
+						} else if (pi == partB) {
 							sizeB++;
 						}
 					}
@@ -1648,7 +1626,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					og.setColor(Color.red);
 					for (int i = 1; i <= natoms; i++) {
 						this.atoms[i].deleteFlag = false;
-						if (part(i) == partToDelete) {
+						if (atoms[i].partIndex == partToDelete) {
 							this.atoms[i].deleteFlag = true;
 							Rectangle2D.Double r = this.atoms[i].al.atomLabelBoundingBox;
 							og.drawRect(r.x, r.y, r.width, r.height);
@@ -2439,7 +2417,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			double yy;
 			// checking for allene -N=C=S, X#C-, etc
 			// chain je ako linear !
-			Bond b = bondIdentityBond(selectedAtom, atom1);
+			Bond b = getBond(selectedAtom, atom1);
 			if (b.bondType == Bond.TRIPLE
 					|| jme.action == JME.ACTION_BOND_TRIPLE
 					|| (b.bondType != Bond.SINGLE 
@@ -2525,8 +2503,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// skutocne sa dotyka atomu atom = actually touches the Atom
 		natoms--;
 
-		int i = bondIdentity(atom, touched_org);
-		if (i != 0) {
+		int i = getBondIndex(atom, touched_org);
+		if (i > 0) {
 			nbonds--; // delete the just created new bond
 			incrNV(touched_org, -1);
 			// and increase the bond order between the two atom that were already bonded,
@@ -2538,7 +2516,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			else
 				info("Maximum allowed bond order is 3 !");
 			return;
-
 		}
 		if (nv(atom) == MAX_BONDS_ON_ATOM) {
 			nbonds--; // delete the just created new bond
@@ -3375,22 +3352,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			vv = getValenceForMolOutput(i);
 
 			z = JMEUtil.iformat(deltaIsotop, 2) + JMEUtil.iformat(charge, 3) + "  0" + JMEUtil.iformat(vv, 3) + "  0  0  0  0  0";
-
-			// adding atom mapping (if any)
-			// int lmark = -1;
-			// for (int j=1;j<=nmarked;j++)
-			// if(mark[j][0]==i) {
-			// lmark=mark[j][1];
-			// break;
-			// }
-
 			int map = this.findAtomMapForOutput(i);
-			// BB: star marking: code almost identical to createJME
-			// if (lmark == -1 && jme!=null&& jme.star && backgroundColor[i] > 0) lmark = 1;
-			// if (!atom.isMapped() && jme!=null&& jme.star && backgroundColor[i] > 0)
-			// lmark = 1;
-
-			// if (lmark > -1) z += iformat(lmark,3); else z += " 0";
 			z += JMEUtil.iformat(map, 3);
 			s += z + "  0  0" + JME.separator;
 
@@ -3468,19 +3430,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			// inverts y coordinate to match ISISDraw coord system
 			String z = getAtomLabel(i);
 			s += i + " " + z;
-
-			// int m = 0;
-			// int lmark = -1;
-			// for (int j=1;j<=nmarked;j++) if(mark[j][0]==i) {lmark=mark[j][1]; break;}
-			// if (lmark > -1) m = lmark; // ignores 0 mark
 			int m = this.findAtomMapForOutput(i);
-			;
-
 			s += " " + JMEUtil.fformat(xo(i), 0, 4) + " " + JMEUtil.fformat(yo(i), 0, 4) + " " + JMEUtil.fformat(0.0, 0, 4) + " " + m;
 			if (q(i) != 0)
 				s += " CHG=" + q(i);
 			// JME curremtly ignoring isotopes & radicals
-			// if (q[i] != 0) s+ " MASS="+q[i];
 			if (atoms[i].iso > 0) { // MAy 2020
 				s += " MASS=" + atoms[i].iso;
 			}
@@ -3809,10 +3763,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	/**
 	 * Warning: side effect: the order of the atoms is changed turned off
 	 */
-	public void numberAtoms() {
-		nmarked = 0; // vymaze marky
-		maxMark = 0; // vymaze marky
-
+	public void numberAtomsSequentially() {
 		for (int i = 1; i <= natoms; i++) {
 			this.atoms[i].setMap(i);
 		}
