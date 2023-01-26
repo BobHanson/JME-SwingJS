@@ -3,6 +3,7 @@
  */
 package jme;
 
+import com.actelion.research.chem.AbstractDepictor;
 import com.actelion.research.chem.SVGDepictor;
 import com.actelion.research.chem.StereoMolecule;
 
@@ -19,6 +20,7 @@ public class SVGDepictorWithEmbeddedChemicalStructure extends SVGDepictor {
 	public SVGDepictorWithEmbeddedChemicalStructure(StereoMolecule mol, String mdlMol) {
 		super(mol, "");
 		this.mdlMOL = mdlMol;
+		this.setDisplayMode(AbstractDepictor.cDModeSuppressCIPParity|AbstractDepictor.cDModeSuppressESR|AbstractDepictor.cDModeSuppressChiralText);
 	}
 
 	static String tag() {
