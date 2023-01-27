@@ -1,4 +1,4 @@
-package jme;
+package jme.core;
 
 public class JMESmiles extends JMECore {
 
@@ -22,7 +22,7 @@ public class JMESmiles extends JMECore {
 	
 	
 
-public JMESmiles(JMEmol mol, int part, boolean isQuery) {
+public JMESmiles(JMECore mol, int part, boolean isQuery) {
 		super(mol, part);
 		this.isQuery = isQuery;
 	}
@@ -1275,7 +1275,7 @@ public JMESmiles(JMEmol mol, int part, boolean isQuery) {
 			slimak[center] *= -1;
 	}
 
-	public static String getSmiles(JMEmol deepCopy, Parameters pars, boolean isQuery) {
+	public static String getSmiles(JMECore deepCopy, Parameters pars, boolean isQuery) {
 		// from now on, coordination bonds will be shown with "~"
 		int nparts = deepCopy.computeMultiPartIndices();
 		JMESmiles[] parts = new JMESmiles[nparts];

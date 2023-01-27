@@ -1,5 +1,7 @@
 package jme;
 
+import jme.core.Atom;
+
 class EnsembleAtom {
 	public int molIndex; // 0 based
 	public JMEmol mol;

@@ -1,5 +1,7 @@
 package jme;
 
+import jme.core.AtomBondCommon;
+
 ////START JAVA_IMPORT
 
 //import gwt_compat.JavaScriptObject;

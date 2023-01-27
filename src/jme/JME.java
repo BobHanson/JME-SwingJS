@@ -61,8 +61,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Vector;
 
 import javax.swing.JApplet;
 import javax.swing.JFrame;
@@ -72,22 +73,33 @@ import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
 
 import jme.Box.Axis;
-import jme.ChemicalFormatDetector.MajorChemicalFormat;
 import jme.ColorManager.ColorInfo;
-import jme.JMECore.Parameters;
-import jme.JMECore.Parameters.HydrogenParams;
-import jme.JMEUtil.JSME_RunAsyncCallback;
-import jme.JMEUtil.RunAsyncCallback;
-import jme.JMEUtil.RunWhenDataReadyCallback;
 import jme.JMEmol.ReactionRole;
 import jme.JMEmolList.MolFileOrRxnParameters;
-import jme.TextTransfer.PasteAction;
+import jme.core.Atom;
+import jme.core.AtomBondCommon;
+import jme.core.Bond;
+import jme.core.JMECore;
+import jme.core.JMECore.Parameters;
+import jme.core.JMECore.Parameters.HydrogenParams;
+import jme.io.JMEReader;
+import jme.io.JMEReader.MajorChemicalFormat;
+import jme.io.FileDropper;
+import jme.io.SDFstack;
+import jme.io.TextTransfer;
+import jme.io.TextTransfer.PasteAction;
+import jme.js.JSFunction;
+import jme.js.JSME_RunAsyncCallback;
+import jme.js.RunAsyncCallback;
+import jme.js.RunWhenDataReadyCallback;
 
 // ----------------------------------------------------------------------------
 // ****************************************************************************
 @SuppressWarnings("serial")
 public class JME extends JPanel implements ActionListener, MouseWheelListener, MouseListener, KeyListener,
 		MouseMotionListener, PropertyChangeListener, DragGestureListener, JMEStatusListener {
+
+	public static final String version = "2023-01-27";
 
 	public interface HTML5Applet {
 		public Object getParameter(String s);
@@ -124,7 +136,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected final Options options = new Options();
 
 	// customization
-	static final String version = "2014-06-28";
 	// static final String startInfoText = "JSME Molecular Editor by Peter Ertl and
 	// Bruno Bienfait";
 	static final String startInfoText = "Molecular Editor by Peter Ertl and Bruno Bienfait";
@@ -363,9 +374,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	boolean mustReDrawInfo = true;
 	boolean mustReDrawRightBorderImage = true;
 
-	protected String notifyStructuralChangeJSfunction = null;
-	protected String notifyAtomHighLightJSfunction = null;
-	protected String prePasteJSfunction = null;
+	protected JSFunction notifyStructuralChangeJSfunction = null;
+	protected JSFunction notifyAtomHighLightJSfunction = null;
+	protected JSFunction prePasteJSfunction = null;
 
 	protected String pasteJLabel = null;
 
@@ -540,8 +551,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 											// changeManager
 	ChangeManager<SavedState> molChangeManager;
 
-	// BB : eclipse added the <JMEmol>
-	Vector<JMEmol> molStack = new Vector<JMEmol>();
+	List<JMEmol> molStack = new ArrayList<JMEmol>();
 
 	// BB
 	SDFstack sdfStack = new SDFstack();
@@ -1346,7 +1356,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * 
 	 * For subclassses
 	 */
-	protected void handleAddiitonalParameters() {
+	protected void handleAdditionalParameters() {
 
 	}
 
@@ -1929,7 +1939,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		double scaleToFit = this.molecularAreaScalePixelsPerCoord;
 
-		double margin = JMEmol.RBOND;
+		double margin = JMECore.RBOND;
 
 		Rectangle2D.Double cdbb = getChemicalDrawingBoundingBox(graphicalObjecList); // is empty if no molecules
 		Rectangle2D.Double mabb = getMolecularAreaBoundingBox();
@@ -1973,7 +1983,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (nm <= 0 || m1 >= moleculePartsList.size() || m2 >= moleculePartsList.size())
 			return;
 
-		double spaceBetweenMolecules = JMEmol.RBOND;
+		double spaceBetweenMolecules = JMECore.RBOND;
 
 		double lastMove = 0;
 
@@ -2029,7 +2039,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		// double center[] = new double[4];
 
-		double RBOND = JMEmol.RBOND;
+		double RBOND = JMECore.RBOND;
 		double[] share = new double[99]; // share na 1 mol (used pri posune)
 		double sumx = 0., sumy = 0., maxy = 0.;
 		for (int i = m1; i <= m2; i++) {
@@ -2159,7 +2169,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public static Box getChemicalDrawingBoundingBox(Graphical2DObjectGroup<?> graphicalObjecList) {
 
 		// leave a margin around the molecule
-		double margin = (double) JMEmol.RBOND / 2;
+		double margin = (double) JMECore.RBOND / 2;
 		Box boundingBox = Graphical2DObject.newBoundingBox(graphicalObjecList);
 		if (boundingBox != null && !boundingBox.isEmpty()) {
 			boundingBox.x -= margin;
@@ -2397,7 +2407,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			return;
 		}
 
-		ChemicalFormatDetector cfd = new ChemicalFormatDetector(s);
+		JMEReader cfd = new JMEReader(s);
 		String error = null;
 		boolean runAsync = false;
 
@@ -2410,13 +2420,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		do {
 
-			if (cfd.majorChemicalFormat == ChemicalFormatDetector.MajorChemicalFormat.SVG
+			if (cfd.majorChemicalFormat == JMEReader.MajorChemicalFormat.SVG
 					&& cfd.embeddedChemicalFormat != null) {
 				// copy the embedded chemical format to cfd
 				cfd.init(cfd.embeddedChemicalFormat);
 			}
-			if (cfd.author == ChemicalFormatDetector.Author.MDL
-					&& cfd.minorChemicalFormat != ChemicalFormatDetector.MinorChemicalFormat.V3000) {
+			if (cfd.author == JMEReader.Author.MDL
+					&& cfd.minorChemicalFormat != JMEReader.MinorChemicalFormat.V3000) {
 				// bug: handling "|" as a line separator
 
 				// TODO : handleReadMolFileRXN is async because of the 2D coordinate computation
@@ -2429,7 +2439,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				break;
 			}
 
-			if (cfd.author == ChemicalFormatDetector.Author.P_ERTL) {
+			if (cfd.author == JMEReader.Author.P_ERTL) {
 				if (!readMolecule(cfd.chemicalString, false)) { // will do repaint later after event recording
 					error = "Invalid JME string";
 				} else {
@@ -2437,8 +2447,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				}
 				break;
 			}
-			if (cfd.author == ChemicalFormatDetector.Author.IUPAC
-					|| cfd.majorChemicalFormat == ChemicalFormatDetector.MajorChemicalFormat.CSRML) {
+			if (cfd.author == JMEReader.Author.IUPAC
+					|| cfd.majorChemicalFormat == JMEReader.MajorChemicalFormat.CSRML) {
 				// GWT: <set-configuration-property name="compiler.enum.obfuscate.names"
 				// value="false" /> otherwise the number of the enum is shown instead of its
 				// name
@@ -2493,14 +2503,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
-	protected void oclSuccess(ChemicalFormatDetector cfd, RunAsyncCallback sucessAndFailureHandler, boolean recordEvent,
+	protected void oclSuccess(JMEReader cfd, RunAsyncCallback sucessAndFailureHandler, boolean recordEvent,
 			boolean repaint) {
 		String error = null;
 		String convertedmolFile = null;
 		String afterStructureChangedEvent = null;
 
-		if (cfd.author == ChemicalFormatDetector.Author.MDL
-				&& cfd.minorChemicalFormat == ChemicalFormatDetector.MinorChemicalFormat.V3000) {
+		if (cfd.author == JMEReader.Author.MDL
+				&& cfd.minorChemicalFormat == JMEReader.MinorChemicalFormat.V3000) {
 			try {
 				convertedmolFile = v3000toV2000MOL(cfd.chemicalString);
 				if (convertedmolFile == null) {
@@ -2512,7 +2522,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				error = e.getMessage();
 			}
 		} else {
-			if (cfd.author == ChemicalFormatDetector.Author.DAYLIGHT) {
+			if (cfd.author == JMEReader.Author.DAYLIGHT) {
 				try {
 					convertedmolFile = SMILESorSMIRKStoMolOrRXN(cfd.chemicalString);
 					if (cfd.majorChemicalFormat == MajorChemicalFormat.SMIRKS)
@@ -2816,7 +2826,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			mol.jme = this;
 
 			//// HERE USE OCL LIB !!!!!!
-			mol = JMEmol.reComputeBondOrderIfAromaticBondType(mol);
+			mol = mol.reComputeBondOrderIfAromaticBondType();
 
 			if (mol != null) {
 				newMolecules.set(i, mol);
@@ -2825,7 +2835,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			//// HERE USE OCL LIB !!!!!!
 			// Bug: ensemble does not work correctly
 			// Feb 2020
-			mol = JMEmol.compute2DcoordinatesIfMissing(mol);
+			mol = mol.compute2DcoordinatesIfMissing();
 			if (mol != null) {
 				newMolecules.set(i, mol);
 			}
@@ -2837,7 +2847,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			options.reaction = true;
 			options.multipart = true;
 
-			double spacing = JMEmol.RBOND;
+			double spacing = JMECore.RBOND;
 			Graphical2DObjectGroup<Graphical2DObjectGroup<Graphical2DObject>> groups = new Graphical2DObjectGroup<Graphical2DObjectGroup<Graphical2DObject>>();
 
 			Graphical2DObjectGroup<Graphical2DObject> agentGroup = null;
@@ -4192,10 +4202,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				getBuilder(activeMol).addRing();
 				structureChangePerformed = true;
 				this.recordBondEvent(ADD_RING_BOND);
-			}
-
-			// BB Oct 2015: add bond & change bond without switch to double bond bond tool
-			else if (action == ACTION_BOND_SINGLE || action == ACTION_BOND_DOUBLE || action == ACTION_BOND_TRIPLE) {
+			} else if (action == ACTION_BOND_SINGLE || action == ACTION_BOND_DOUBLE || action == ACTION_BOND_TRIPLE) {
+				// BB Oct 2015: add bond & change bond without switch to double bond bond tool
 
 				if (activeMol.touchedAtom > 0) {
 					// lastAction = LA_BOND; // in addBond may be set to 0
@@ -4238,31 +4246,16 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 
 		}
-
 		if (structureChangePerformed) {
-			// this.mustRedrawNothing(); //info might have been generated
 			setMustRedrawMolecularArea(true);
-//			mocleanAfterChangedte();
-//			
-//			if(mustBeSaveToUndoStack);
-//				this.postSave();
-
-			// updateReactionParts(); // a new bond might have connected two separated
-			// molecules
-
-			action = actionOld; // BB avoid menu change during repaint() after a key press that has changed the
-								// structure, like pressing 2 , add a double bond but do not switch to db tool
+			action = actionOld;
+			// BB avoid menu change during repaint() after a key press that has changed the
+			// structure, like pressing 2 , add a double bond but do not switch to db tool
 		}
-
-		// repaintuje zbytocne vsetko - zatial nechat
 		if (mustReDrawMolecularArea) {
 			this.drawMolecularAreaRightNow();
-
 		}
-
 		repaint();
-
-		// BB
 		return status;
 	}
 
@@ -5858,7 +5851,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //						XY(mol, 2, x + JMEmol.RBOND * .866, 
 //								 y - JMEmol.RBOND * .5);
 						activeMol.XY(2, // TODO : JMEMol sould handle this
-								screenToDrawingX(x) + JMEmol.RBOND * .866, screenToDrawingY(y) - JMEmol.RBOND * .5);
+								screenToDrawingX(x) + JMECore.RBOND * .866, screenToDrawingY(y) - JMECore.RBOND * .5);
 
 						activeMol.chain[0] = 1;
 						activeMol.chain[1] = 2;
@@ -6465,36 +6458,24 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param result
 	 */
 	void findMolAndAtomOrBondWithinRadius(int x, int y, int radius, Touched result) {
-
 		result.reset();
-
-		// x = scaleCoordinate(x);
-		// y = scaleCoordinate(y);
 		double xCoord = screenToDrawingX(x);
 		double yCoord = screenToDrawingY(y);
 		double minDistance = radius;
-
+		double[] retMin = new double[1];
+		boolean ignoreAtoms = ignoreAtoms();
+		boolean ignoreBonds = ignoreBonds();
 		for (JMEmol eachMol : this.moleculePartsList) {
-			DoubleWrapper minDistanceFound = new DoubleWrapper(radius);
-			int a_or_b = eachMol.testAtomAndBondTouch(xCoord, yCoord, this.ignoreAtoms(), this.ignoreBonds(),
-					minDistanceFound);
-
-			if (minDistanceFound.value < minDistance) {
-				minDistance = minDistanceFound.value;
+			retMin[0] = radius;
+			int a_or_b = eachMol.testAtomAndBondTouch(xCoord, yCoord, ignoreAtoms, ignoreBonds, retMin);
+			if (retMin[0] < minDistance) {
+				minDistance = retMin[0];
 				result.reset();
 				result.mol = eachMol;
 				result.distance = minDistance;
-				assert a_or_b != 0;
-				;
-				if (a_or_b > 0) {
-					result.atomIndex = a_or_b;
-				} else {
-					result.bondIndex = a_or_b * -1;
-
-				}
+				result.atomIndex = (a_or_b > 0 ? a_or_b : -a_or_b);
 			}
 		}
-
 	}
 
 	// ----------------------------------------------------------------------------
@@ -7333,7 +7314,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			double centerY = activeMol.centerY();
 
 			// newActiveMol may or may not be activeMol
-			JMEmol newActiveMol = JMEmol.compute2Dcoordinates(activeMol);
+			JMEmol newActiveMol = activeMol.compute2DcoordinatesIfMissing();
 
 			if (newActiveMol != null) {
 				double dx = centerX - newActiveMol.centerX();
@@ -7634,8 +7615,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		// customized paste
 		if (getPrePasteJSfunction() != null) {
-			JSObject jsObject = JSObject.getWindow(JME.this);
-			jsObject.call(getPrePasteJSfunction(), new String[] { clipboardContent });
+			getPrePasteJSfunction().apply(this, new String[] { clipboardContent });
 			return;
 		}
 
@@ -8216,7 +8196,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * 
 	 * @return the notifyAtomHighLightJSfunction
 	 */
-	public String getNotifyAtomHighLightJSfunction() {
+	public JSFunction getNotifyAtomHighLightJSfunction() {
 		return this.notifyAtomHighLightJSfunction;
 	}
 
@@ -8226,7 +8206,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * 
 	 * @param notifyAtomHighLightJSfunction
 	 */
-	public void setNotifyAtomHighLightChangeJSfunction(String notifyAtomHighLightJSfunction) {
+	public void setNotifyAtomHighLightChangeJSfunction(JSFunction notifyAtomHighLightJSfunction) {
 		this.notifyAtomHighLightJSfunction = notifyAtomHighLightJSfunction;
 	}
 
@@ -8292,12 +8272,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (touchedAtom == -1)
 				return;
 
-			this.previousTouchedAtomForHighlight = touchedAtom;
-			// do the function call - will work in a real Java applet
-			if (this.notifyAtomHighLightJSfunction != null) {
-				JSObject jsObject = JSObject.getWindow(this);
-				jsObject.call(this.notifyAtomHighLightJSfunction,
-						new Integer[] { new Integer(this.activeMolIndex()), new Integer(touchedAtom) });
+			previousTouchedAtomForHighlight = touchedAtom;
+			if (notifyAtomHighLightJSfunction != null) {
+				notifyAtomHighLightJSfunction.apply(this, new int[] { activeMolIndex(), touchedAtom });
 			}
 			// this is for the new callback mechanism - June 2015
 			handleAtomHighLightCallBack(this.activeMolIndex(), touchedAtom);
@@ -8488,7 +8465,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	/**
 	 * @return the notifyStructuralChangeJSfunction
 	 */
-	public String getNotifyStructuralChangeJSfunction() {
+	public JSFunction getNotifyStructuralChangeJSfunction() {
 		return notifyStructuralChangeJSfunction;
 	}
 
@@ -8496,7 +8473,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param notifyStructuralChangeJSfunction the notifyStructuralChangeJSfunction
 	 *                                         to set
 	 */
-	public void setNotifyStructuralChangeJSfunction(String notifyStructuralChangeJSfunction) {
+	public void setNotifyStructuralChangeJSfunction(JSFunction notifyStructuralChangeJSfunction) {
 		this.notifyStructuralChangeJSfunction = notifyStructuralChangeJSfunction;
 	}
 
@@ -8516,17 +8493,17 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			handleAftertructureModifiedEvent(cause);
 		}
 
-		// TODO: exception handling with JSException: this function will not work
-		// outside a web browser
-		if (notifyStructuralChangeJSfunction != null) {
-			// BH this does not allow for xx.xx.f
-			JSObject jsObject = JSObject.getWindow(this);
-			jsObject.call(this.notifyStructuralChangeJSfunction, null);
+		try {
+			if (notifyStructuralChangeJSfunction != null) {
+				notifyStructuralChangeJSfunction.apply(this, null);
+			}
+		} catch (Throwable t) {
+			t.printStackTrace();
 		}
 
 	}
 
-	public String getPrePasteJSfunction() {
+	public JSFunction getPrePasteJSfunction() {
 		return prePasteJSfunction;
 	}
 
@@ -8538,7 +8515,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * 
 	 * @param prePasteJSfunction
 	 */
-	public void setPrePasteJSfunction(String prePasteJSfunction) {
+	public void setPrePasteJSfunction(JSFunction prePasteJSfunction) {
 		this.prePasteJSfunction = prePasteJSfunction;
 	}
 
@@ -9273,10 +9250,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				if (showAtomNumbers)
 					showAtomNumbers();
 
-				String jsFunction = getParameter("notify_structural_change_js_function");
-				setNotifyStructuralChangeJSfunction(jsFunction);
-
-				handleAddiitonalParameters();
+				 JSFunction f = (JSFunction) (Object) getParameter("notify_structural_change_js_function");
+				 if (f != null)
+					 setNotifyStructuralChangeJSfunction(f);
+				handleAdditionalParameters();
 
 			} catch (Exception e) {
 				System.err.println("JME:  parameters error");

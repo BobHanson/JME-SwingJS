@@ -1,14 +1,16 @@
 /**
  * 
  */
-package jme;
+package jme.ocl;
 
 import com.actelion.research.chem.AbstractDepictor;
 import com.actelion.research.chem.SVGDepictor;
 import com.actelion.research.chem.StereoMolecule;
 
+import jme.MIMEtype;
+
 /**
- * SVG contians a MDL molfile in its own XML tag
+ * SVG contains a MDL molfile in its own XML tag
  *
  */
 public class SVGDepictorWithEmbeddedChemicalStructure extends SVGDepictor {

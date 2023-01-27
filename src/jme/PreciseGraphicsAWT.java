@@ -131,16 +131,11 @@ public class PreciseGraphicsAWT {
 		 * @param             subscripts: sections of text to be subscript e.g. NH2, 2
 		 *                    must be subscript, [[2,1]]
 		 * @param superscript sections of text to be supescript, e.g Ca++ ++ must be
-		 *                    superscript. [[2,2]], 13C -> [[0.2]]
+		 *                    superscript. [[2,2]], 13C -> [[0,2]]
 		 */
 		public void drawStringWithStrokeAndBaselineShifts(String str, int x, int y, Color strokeColor, int strokeWidth,
 				int subscripts[][], int superscript[][]) {
-	
-			// TBC for Java
-	
-			// ((StringGraphics)this.baseGraphics).drawString(str, x, y, strokeColor,
-			// strokeWidth, subscripts, superscript);
-	
+			
 			baseGraphics.drawString(str, x, y);
 	
 		}

@@ -55,17 +55,15 @@ import javax.swing.SwingUtilities;
 import org.jmol.adapter.smarter.AtomSetCollection;
 import org.jmol.adapter.smarter.Resolver;
 import org.jmol.adapter.writers.CDXMLWriter;
-import org.jmol.api.Interface;
 import org.jmol.api.JmolAdapter;
 import org.jmol.api.JmolAdapterAtomIterator;
 import org.jmol.api.JmolAdapterBondIterator;
-import org.jmol.api.JmolViewer;
-import org.jmol.api.SmilesMatcherInterface;
 import org.jmol.smiles.SmilesMatcher;
 import org.jmol.viewer.JC;
 import org.jmol.viewer.Viewer;
 
 import javajs.util.PT;
+import jme.io.FileDropper;
 
 /**
  * An extension of JME that adds features of Jmol, such as many more file types for reading, 
@@ -755,7 +753,7 @@ public class JmolJME extends JME implements WindowListener {
 		parentWindow = null;
 	}
 
-	protected void handleAddiitonalParameters() {
+	protected void handleAdditionalParameters() {
 
 	}
 

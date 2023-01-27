@@ -1,7 +1,10 @@
 package jme;
 
 import jme.JME.SupportedFileFormat;
-import jme.JMECore.Parameters;
+import jme.core.JMECore.Parameters;
+import jme.core.Atom;
+import jme.core.Bond;
+import jme.core.JMECore;
 
 class JMEBuilder {
 
@@ -130,7 +133,7 @@ class JMEBuilder {
 		}
 
 		diel = Math.PI * 2. / nmembered;
-		rc = Math.sqrt(JMEmol.RBOND * JMEmol.RBOND / 2. / (1. - Math.cos(diel)));
+		rc = Math.sqrt(JMECore.RBOND * JMECore.RBOND / 2. / (1. - Math.cos(diel)));
 		Atom a = atoms[touchedAtom];
 		Bond b = bonds[touchedBond];
 		if (touchedAtom > 0) {

@@ -7,7 +7,11 @@ import java.util.ArrayList;
 import java.util.StringTokenizer;
 
 import jme.JME.SupportedFileFormat;
-import jme.JMECore.Parameters;
+import jme.core.Atom;
+import jme.core.Bond;
+import jme.core.JMECore;
+import jme.core.JMECore.Parameters;
+import jme.io.JMEWriter;
 
 
 
@@ -483,7 +487,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		
 		} else {
 			for(JMEmol mol : this) {
-				String jme = mol.createJME(showImplicitHydrogens, boundingBox);
+				String jme = JMEWriter.createJME(mol, showImplicitHydrogens, boundingBox);
 				if (jme.length() > 0) {
 					if (result.length() > 0)
 						result += "|";
@@ -611,8 +615,8 @@ public class JMEmolList extends ArrayList<JMEmol> {
 
 	
 	protected static String createMolfile(JMEmol mol, MolFileOrRxnParameters arg) {
-		return (arg.isV3000 ? mol.createExtendedMolFile(arg.header, arg.stampDate)
-				: mol.createMolFile(arg.header, arg.stampDate));
+		return (arg.isV3000 ? JMEWriter.createExtendedMolFile(mol, arg.header, arg.stampDate, null)
+				: JMEWriter.createMolFile(mol, arg.header, arg.stampDate, null));
 	}
 	
 	public JMEmol last() {
@@ -630,7 +634,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	 * @return
 	 */
 	public int[] overlap() {
-		double closeContactDist = JMEmol.RBOND/10;
+		double closeContactDist = JMECore.RBOND/10;
 		
 		int results[] = new int[this.size() * (this.size()-1)];
 		int rpos = 0;

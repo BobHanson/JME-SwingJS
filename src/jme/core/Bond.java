@@ -1,15 +1,15 @@
-package jme;
+package jme.core;
 
 public class Bond implements AtomBondCommon {
 
-	static final int SINGLE = 1, 
+	public static final int SINGLE = 1, 
 			DOUBLE = 2, 
 			TRIPLE = 3, 
 			AROMATIC = 5, 
 			QUERY = 9, 
 			COORDINATION = 0; // BH -- really? 0?
 	
-	static final int STEREO_NONE = 0,
+	public static final int STEREO_NONE = 0,
 			STEREO_UP = 1, 
 			STEREO_DOWN = 2, 
 			STEREO_XUP = 3, 
@@ -19,18 +19,18 @@ public class Bond implements AtomBondCommon {
 			STEREO_XEITHER = 6, 
 			STEREO_EZ = 10;
 
-	static final int QB_ANY = 11, QB_AROMATIC = 12, QB_RING = 13, QB_NONRING = 14;
+	public static final int QB_ANY = 11, QB_AROMATIC = 12, QB_RING = 13, QB_NONRING = 14;
 	
 	public int va;
 	public int vb;
 	public int bondType = SINGLE;
 
 	public int stereo;
-	String btag;
+	public String btag;
 	public double bondCenterX;
 	public double bondCenterY;
 
-	int partIndex;
+	public int partIndex;
 
 	public int backgroundColors[];
 
@@ -127,8 +127,7 @@ public class Bond implements AtomBondCommon {
 		return bondType == TRIPLE;
 	}
 
-	void toggleNormalCrossedDoubleBond() {
-		assert (isDouble());
+	public void toggleNormalCrossedDoubleBond() {
 		if (isDouble()) {
 			stereo = STEREO_EZ - stereo;
 		}

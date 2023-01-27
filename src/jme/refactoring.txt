@@ -1,7 +1,0 @@
-Java Vector : dynamic array, how good is the GWT imp?
-
-
-
-###################################
-
-Diiferentiate star highlight from actual atom mapping=> Atom class would have a new this.marked variable

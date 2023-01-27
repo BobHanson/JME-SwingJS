@@ -3,7 +3,12 @@
  */
 package jme;
 
+import java.awt.Color;
+import java.awt.Font;
 import java.awt.FontMetrics;
+import java.util.BitSet;
+
+import jme.core.Atom;
 
 /**
  * @author bruno
@@ -15,7 +20,7 @@ public class AtomDisplayLabel {
 	public int alignment;
 	public boolean noLabelAtom;
 
-	public Box atomLabelBoundingBox;
+	public Box box;
 	public double labelX;
 	public double labelY;
 
@@ -27,36 +32,44 @@ public class AtomDisplayLabel {
 	public double atomMapX;
 	public String mapString;
 
-	public int subscripts[][];
-	public int superscripts[][];
+	private BitSet subscripts, superscripts;
+	private BitSet bsSS;
 
-	public AtomDisplayLabel(double x, double y, String z, int an, int nv, int sbo, int nh, int q, int iso, int map,
-			int alignment, FontMetrics fm, double h, boolean showHs) {
+	public static AtomDisplayLabel create(Atom atom, int alignment, FontMetrics fm, double h,
+			boolean showHs, boolean showMap) {
+		return new AtomDisplayLabel(atom, alignment, fm, h, showHs, showMap);
+	}
+
+	
+	public AtomDisplayLabel(Atom a, int alignment, FontMetrics fm, double h, boolean showHs, boolean showMap) {
+		int map = (showMap && a.hasBeenMapped() ? a.getMap() : -1);
+		String z = a.getLabel();
+
 		if (z == null || z.length() < 1) {
 			z = "*";
 			System.err.println("Z error!");
 		}
 		this.alignment = alignment;
 
-		//boolean isCumuleneSP = (nv == 2 && sbo == 4);
+		// boolean isCumuleneSP = (nv == 2 && sbo == 4);
 		int padding = 2; // number of pixel of white space surrounding the atom labels
-		noLabelAtom = (an == Atom.AN_C && q == 0 && iso == 0 && nv > 0 && (nv != 2 || sbo != 4));
+		noLabelAtom = (a.an == Atom.AN_C && a.q == 0 && a.iso == 0 && a.nv > 0 && (a.nv != 2 || a.sbo != 4));
 
 		// BB better display for OH or o- : the bond will point at the atom symbol "O"
 		// and not at the center of the "OH"
 		String hydrogenSymbols = "";
 		if (showHs && !this.noLabelAtom) {
-			if (nh > 0) {
+			if (a.nh > 0) {
 				hydrogenSymbols += "H";
-				if (nh > 1) {
-					hydrogenSymbols += nh;
+				if (a.nh > 1) {
+					hydrogenSymbols += a.nh;
 				}
 			}
 		}
 
-		String isoSymbol = (iso == 0 ? "" : "[" + iso + "]");
+		String isoSymbol = (a.iso == 0 ? "" : "[" + a.iso + "]");
 
-		String chargeSymbols = (q == 0 ? "" : (Math.abs(q) > 1 ? "" + Math.abs(q) : "") + (q > 0 ? "+" : "-"));
+		String chargeSymbols = (a.q == 0 ? "" : (Math.abs(a.q) > 1 ? "" + Math.abs(a.q) : "") + (a.q > 0 ? "+" : "-"));
 
 		String stringForWidth = z;
 		if (alignment == JMEUtil.ALIGN_RIGHT) {
@@ -70,15 +83,61 @@ public class AtomDisplayLabel {
 			stringForWidth = z;
 		}
 
+		// place hydrogen count symbols subscript
+		if (hydrogenSymbols.length() > 1) {
+			int pos = z.indexOf(hydrogenSymbols);
+			// H2 -> 2 subscript
+			if (subscripts == null)
+				subscripts = new BitSet();
+			subscripts.set(pos + 1, pos + hydrogenSymbols.length());
+		}
+
+		// place charge symbols superscript
+		if (chargeSymbols.length() > 0) {
+			int pos = z.indexOf(chargeSymbols);
+			if (superscripts == null)
+				superscripts = new BitSet();
+			superscripts.set(pos, pos + chargeSymbols.length());
+
+		}
+
+		// place isotope symbols superscript
+		if (isoSymbol.length() > 0) {
+			int pos = z.indexOf(isoSymbol);
+			if (superscripts == null)
+				superscripts = new BitSet();
+			superscripts.set(pos, pos + isoSymbol.length());
+		}
+
+		int nsub = (subscripts == null ? 0 : subscripts.cardinality());
+		int nsup = (superscripts == null ? 0 : superscripts.cardinality());
+		double xAdj = 0, yAdj1 = 0, yAdj2 = 0;
+		if (nsub != 0 || nsup != 0) {
+			bsSS = new BitSet();
+			if (nsub > 0) {
+				bsSS.or(subscripts);
+				yAdj1 = 1;
+			}
+			if (nsup > 0) {
+				bsSS.or(superscripts);
+				yAdj2 = 1;
+			}
+			xAdj = (bsSS.cardinality() * fm.charWidth('1') * (1-0.6));
+		}
+		
+	
 		// used to position / center the atom label
 		double smallWidth = fm.stringWidth(stringForWidth);
 		// used to compute the bounding box of the atom label
-		double fullWidth = fm.stringWidth(z);
+		double fullWidth = fm.stringWidth(z) - xAdj;
 
 		this.smallAtomWidthLabel = smallWidth;
 		this.fullAtomWidthLabel = fullWidth;
 
 		int lineThickness = 1;
+
+		double x = a.x;
+		double y = a.y;
 
 		// small width is used to compute the position xstart, that is the x position of
 		// the label
@@ -91,51 +150,28 @@ public class AtomDisplayLabel {
 		// to take into account the line thickness
 		xstart -= lineThickness;
 		fullWidth += lineThickness;
-		Box box = this.atomLabelBoundingBox = new Box(xstart - padding, ystart - padding, fullWidth + 2 * padding,
-				h + 2 * padding);
+		Box box = this.box = new Box(
+				xstart - padding,
+				ystart - padding - yAdj2 * h/3, 
+				fullWidth + 2 * padding, 
+				h + 2 * padding + (yAdj1 + yAdj2)*h/3);
 		this.mapString = null;
-		this.labelX = this.atomLabelBoundingBox.x + padding + 1; // see
-		this.labelY = this.atomLabelBoundingBox.y + h + padding; // o 1 vyssie
-
-		// place hydrogen count symbols subscript
-		if (hydrogenSymbols.length() > 1) {
-			int pos = z.indexOf(hydrogenSymbols);
-			// H2 -> 2 subscript
-			int[] styleIndices = { pos + 1, hydrogenSymbols.length() - 1 };
-
-			this.subscripts = new int[][] { styleIndices };
-		}
-
-		// place charge symbols superscript
-		if (chargeSymbols.length() > 0) {
-			int pos = z.indexOf(chargeSymbols);
-			int[] styleIndices = { pos, chargeSymbols.length() };
-			this.superscripts = new int[][] { styleIndices };
-
-		}
-
-		// place isotope symbols superscript
-		if (isoSymbol.length() > 0) {
-			int pos = z.indexOf(isoSymbol);
-			int[] styleIndices = { pos, isoSymbol.length() };
-
-			if (this.superscripts == null) {
-				this.superscripts = new int[][] { styleIndices };
-			} else {
-				this.superscripts = new int[][] { this.superscripts[0], styleIndices };
-			}
-		}
+		this.labelX = xstart + 1; // see
+		this.labelY = ystart + h; // o 1 vyssie
 
 		if (map < 0)
 			return;
 
+		// BH TODO: Haven't figured out the issue with 
 		// to extend the size of the atomLabelBoundingBox
 
 		this.mapString = " " + map;
-
+		double superscriptMove = h * 0.3; // BB: move the map symbol higher
+		
+		
 		if (noLabelAtom) {
 			atomMapX = x + smallWidth / 4; // no atom symbol: put the map label closer, on the right
-			atomMapY = y - h * 0.1; // BB: move the map symbol higher
+			atomMapY = y - (h + yAdj2*0.6) * 0.1; // BB: move the map symbol higher
 		} else {
 			double atomMapStringWidth = fm.stringWidth(mapString);
 			if (alignment == JMEUtil.ALIGN_LEFT) {
@@ -146,12 +182,63 @@ public class AtomDisplayLabel {
 			}
 
 			// remember: y points down
-			double superscriptMove = h * 0.3; // BB: move the map symbol higher
 			atomMapY = y - superscriptMove;
 			box.y -= superscriptMove;
 			box.height += superscriptMove;
 			box.width += atomMapStringWidth;
+
 		}
 	}
+
+
+	/**
+	 * Draw with offsets and smaller fonts for subscripts and superscripts. 
+	 * The bitsets tell us when to start and stop subscripts and superscripts.
+	 * 
+	 * @param og
+	 * @param strokeColor
+	 * @param h
+	 * @param fm
+	 */
+	public void draw(PreciseGraphicsAWT og, Color strokeColor, double h, FontMetrics fm) {
+		double strokeWidth = h / 20;
+		if (bsSS == null) {
+			og.drawStringWithStroke(str, labelX, labelY, strokeColor, strokeWidth);
+			return;
+		}
+		Font normalFont = og.baseGraphics.getFont();
+		Font subFont = normalFont.deriveFont((float)(h * 0.8));
+		double x = labelX;
+		double y = labelY;
+		double subOffset = h / 3;
+		double superOffset = 2 * subOffset;
+		double yoff;
+		for (int i = 0; i < str.length();) {
+			int pt0 = i; 
+			int pt1 = bsSS.nextSetBit(i);
+			if (pt1 == pt0) {
+				if (subscripts.get(i)) {
+					pt1 = subscripts.nextClearBit(i + 1);
+					yoff = subOffset;
+				} else {
+					pt1 = superscripts.nextClearBit(i + 1);
+					yoff = superOffset;
+				} 
+			} else {
+				if (pt1 < 0)
+					pt1 = str.length();
+				yoff = 0;
+			}
+			String s = str.substring(pt0, pt1);
+			if (yoff != 0)	
+				og.setFont(subFont);
+			og.drawStringWithStroke(s, x,  y + yoff,  strokeColor,  strokeWidth);
+			if (yoff != 0)	
+				og.setFont(normalFont);
+			x += fm.stringWidth(s) * (yoff == 0 ? 1 : 0.6);
+			i = pt1;
+		}
+	}
+
 
 }

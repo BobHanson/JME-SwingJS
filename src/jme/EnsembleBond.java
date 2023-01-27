@@ -1,5 +1,7 @@
 package jme;
 
+import jme.core.Bond;
+
 //kind of duplicated code with EnsembleAtom
 class EnsembleBond {
 	public int molIndex; // 0 based

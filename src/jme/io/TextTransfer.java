@@ -1,7 +1,7 @@
 /**
  * 
  */
-package jme;
+package jme.io;
 
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;

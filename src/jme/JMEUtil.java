@@ -1,8 +1,9 @@
 package jme;
 
 import java.awt.FontMetrics;
-import java.util.Calendar;
 import java.util.StringTokenizer;
+
+import jme.js.RunAsyncCallback;
 
 public abstract class JMEUtil {
 
@@ -23,71 +24,6 @@ public abstract class JMEUtil {
 
 	public static boolean isHighDPI() {
 		return false;
-	}
-
-	/**
-	 * Used by JSME for code splitting
-	 * 
-	 * 
-	 * 
-	 */
-	/**
-	 * A callback meant to be used by
-	 * {@link gwt_compat.google.gwt.core.client.GWT#runAsync(RunAsyncCallback) }.
-	 */
-	public interface RunAsyncCallback {
-		/**
-		 * Called when, for some reason, the necessary code cannot be loaded. For
-		 * example, the web browser might no longer have network access.
-		 * 
-		 * @j2sAlias onFailure
-		 */
-		public void onFailure(Throwable reason);
-
-		/**
-		 * Called once the necessary code for it has been loaded.
-		 * @j2sAlias onSuccess
-		 */
-		public void onSuccess();
-	}
-
-	public static abstract class JSME_RunAsyncCallback implements RunAsyncCallback {
-
-		/**
-		 * @j2sAlias onFailure
-		 */
-		@Override
-		public void onFailure(Throwable reason) {
-			// Window.alert("Loading JS code failed");
-
-		}
-	}
-
-	public interface RunWhenDataReadyCallback {
-
-		/**
-		 * Called when, for some reason, the necessary code cannot be loaded. For
-		 * example, the web browser might no longer have network access.
-		 * 
-		 * @j2sAlias onFailure
-		 */
-		void onFailure(Throwable reason);
-
-		/**
-		 * Called once the necessary code for it has been loaded.
-		 * 
-		 * @j2sAlias onSuccess
-		 */
-		void onSuccess(String data);
-
-		/**
-		 * 
-		 * @j2sAlias onWarning
-		 * 
-		 * @param message
-		 */
-		void onWarning(String message);
-
 	}
 
 	public static void runAsync(RunAsyncCallback runAsyncCallback) {
@@ -142,46 +78,6 @@ public abstract class JMEUtil {
 
 	// ----------------------------------------------------------------------------
 	/**
-	 * See CTFile -- this line is NOT optional. It is critical in showing whether we
-	 * have a 2D or 3D MOL file.
-	 * 
-	 * @param version
-	 * @param is2d
-	 * @return SDF header line 2 with no \n
-	 */
-	public static String getSDFDateLine(String version) {
-		String mol = (version + "         ").substring(0, 10);
-		int cMM, cDD, cYYYY, cHH, cmm;
-		/**
-		 * for convenience only, no need to invoke Calendar for this simple task.
-		 * 
-		 * @j2sNative
-		 * 
-		 * 			var c = new Date(); cMM = c.getMonth(); cDD = c.getDate(); cYYYY =
-		 *            c.getFullYear(); cHH = c.getHours(); cmm = c.getMinutes();
-		 */
-		{
-			Calendar c = Calendar.getInstance();
-			cMM = c.get(Calendar.MONTH);
-			cDD = c.get(Calendar.DAY_OF_MONTH);
-			cYYYY = c.get(Calendar.YEAR);
-			cHH = c.get(Calendar.HOUR_OF_DAY);
-			cmm = c.get(Calendar.MINUTE);
-		}
-		mol += rightJustify("00", "" + (1 + cMM));
-		mol += rightJustify("00", "" + cDD);
-		mol += ("" + cYYYY).substring(2, 4);
-		mol += rightJustify("00", "" + cHH);
-		mol += rightJustify("00", "" + cmm);
-		mol += "2D 1   1.00000     0.00000     0";
-		// This line has the format:
-		// IIPPPPPPPPMMDDYYHHmmddSSssssssssssEEEEEEEEEEEERRRRRR
-		// A2<--A8--><---A10-->A2I2<--F10.5-><---F12.5--><-I6->
-		return mol;
-	}
-
-	// ----------------------------------------------------------------------------
-	/**
 	 * right-justify using spaces
 	 * 
 	 * @param number with no more than len digits
@@ -191,7 +87,7 @@ public abstract class JMEUtil {
 	public static String iformat(int number, int len) {
 		return rightJustify("        ".substring(0, len), "" + number);
 	}
-
+ 
 	public static String rightJustify(String s1, String s2) {
 		int n = s1.length() - s2.length();
 		return (n == 0 ? s2 : n > 0 ? s1.substring(0, n) + s2 : s1.substring(0, s1.length() - 1) + "?");

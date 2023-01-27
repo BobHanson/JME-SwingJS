@@ -4,9 +4,7 @@ import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.StringTokenizer;
 
@@ -16,16 +14,20 @@ import org.jmol.api.JmolAdapterBondIterator;
 import org.jmol.util.Edge;
 import org.jmol.util.Elements;
 
-import com.actelion.research.chem.AromaticityResolver;
-import com.actelion.research.chem.MolfileCreator;
-import com.actelion.research.chem.MolfileParser;
-import com.actelion.research.chem.StereoMolecule;
-import com.actelion.research.chem.coords.CoordinateInventor;
-
 import javajs.util.P3d;
+import jme.core.Atom;
+import jme.core.AtomBondCommon;
+import jme.core.AtomicElements;
+import jme.core.Bond;
+import jme.core.JMECore;
+import jme.core.JMESmiles;
+import jme.io.JMEWriter;
+import jme.ocl.OclAdapter;
+
 
 // --------------------------------------------------------------------------
 public class JMEmol extends JMECore implements Graphical2DObject {
+
 
 // constructors:
 //	public JMEmol()  
@@ -69,8 +71,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	boolean needRecentering = false;
 	boolean isQuery = false; // 2013.09
 
-	// static constants
-	public static final double RBOND = 25;
 	static boolean TESTDRAW = false;
 
 	Color uniColor = null;
@@ -229,6 +229,10 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		setNeighborsFromBonds(); // will be callsd by complete() later, disable it?
 		deleteHydrogens(pars.hydrogenParams);
 		complete(pars.computeValenceState); // este raz, zachytit zmeny
+	}
+
+	public String createJME(Box boundingBox) {
+		return JMEWriter.createJME(this, false, boundingBox);
 	}
 
 	/**
@@ -645,6 +649,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	private double centerx = Double.NaN, centery;
 
+	private AtomDisplayLabel[] atomLabels;
+
 	final static boolean doTags = false; // compatibility with JMEPro
 
 	/**
@@ -755,32 +761,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		this.reactionRole = reactionRole;
 	}
 
-	/**
-	 * @return the chiralFlag
-	 */
-	public Boolean getChiralFlag() {
-		return chiralFlag;
-	}
-
-	/**
-	 * @param chiralFlag the chiralFlag to set return true if my chiral flag has
-	 *                   been changed
-	 */
-	public boolean setChiralFlag(Boolean chiralFlag) {
-		if (this.chiralFlag != chiralFlag) {
-			this.chiralFlag = chiralFlag;
-			return true;
-		}
-
-		return false;
-	}
-
-	// was always in the code but never used
-	// public double getX(int i) {return atoms[i].x * 1.4 / RBOND;}
-	// public double getY(int i) {return atoms[i].y * 1.4 / RBOND;}
 	public void setAtomProperties(double xx, double yy, int ahc, int aq) {
-		// vztahuje sa na atom natoms
-		// x[natoms] = xx; y[natoms] = yy;
 		Atom atom = this.atoms[natoms];
 		atom.x = xx;
 		atom.y = yy;
@@ -1017,10 +998,10 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return 0;
 	}
 
-	int testAtomAndBondTouch(double xx, double yy, boolean ignoreAtoms, boolean ignoreBonds, DoubleWrapper minWrapper) {
+	int testAtomAndBondTouch(double xx, double yy, boolean ignoreAtoms, boolean ignoreBonds, double[] retMin) {
 		int i, found = 0;
 		double rx;
-		double min = minWrapper.value;
+		double min = retMin[0];
 
 		if (!ignoreBonds) {
 			for (i = 1; i <= nbonds; i++) {
@@ -1119,7 +1100,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 			}
 		}
-		minWrapper.value = min;
+		retMin[0] = min;
 		return found;
 
 	}
@@ -1428,13 +1409,10 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// draw atom background around the atom symbol if requested
 		// draw atom symbol
 		for (int i = 1; i <= natoms; i++) {
-
-			Atom atom = this.atoms[i];
-
-			if (atom.al.noLabelAtom) {
+			if (atomLabels[i].noLabelAtom) {
 				continue;
 			}
-			Box r = atom.al.atomLabelBoundingBox;
+			Box r = atomLabels[i].box;
 
 			og.setBackGroundColor(); // set default background color
 			setPresetPastelBackGroundColor(og, i, true);
@@ -1448,9 +1426,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			// color for the atom symbol
 			og.setColor(JME.color[an(i)]);
 			Color strokeColor = atomTextStrokeColorArray[i];
-
-			og.drawStringWithStrokeAndBaselineShifts(atom.al.str, atom.al.labelX, atom.al.labelY, strokeColor, h / 20,
-					atom.al.subscripts, atom.al.superscripts);
+			atomLabels[i].draw(og, strokeColor, h, jme.atomDrawingAreaFontMet);
 		}
 
 		// diplay atom maps of atoms that have been marked
@@ -1461,14 +1437,14 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			og.setFont(jme.atomMapDrawingAreaFont);
 
 			for (int i = 1; i <= natoms; i++) {
-				Atom at = this.atoms[i];
-				String mapString = at.al.mapString;
+				AtomDisplayLabel al = atomLabels[i];
+				String mapString = al.mapString;
 
 				if (mapString == null)
 					continue;
 
-				double atomMapX = at.al.atomMapX;
-				double atomMapY = at.al.atomMapY;
+				double atomMapX = al.atomMapX;
+				double atomMapY = al.atomMapY;
 
 				og.setColor(Color.magenta); // default color for atom map - could be an option
 
@@ -1494,17 +1470,18 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			og.setFont(jme.atomDrawingAreaFont);
 
 			for (int i = 1; i <= natoms; i++) {
-				if (atag(i) == null || atag(i).equals(""))
+				Atom a = atoms[i];
+				if (a.atag == null || a.atag.equals(""))
 					continue;
 				// int w = jme.atomDrawingAreaFontMet.stringWidth(zz[i]);
-				Atom at = this.atoms[i];
-				double smallWidth = at.al.smallAtomWidthLabel;
-				double fullWidth = at.al.fullAtomWidthLabel;
+				AtomDisplayLabel al = atomLabels[i];
+				double smallWidth = al.smallAtomWidthLabel;
+				double fullWidth = al.fullAtomWidthLabel;
 
-				double xstart = x(i) - smallWidth / 2.;
-				double ystart = y(i) + h / 2 - 1; // o 1 vyssie
+				double xstart = a.x - smallWidth / 2.;
+				double ystart = a.y + h / 2 - 1; // o 1 vyssie
 				og.setColor(Color.red);
-				og.drawString(" " + atag(i), xstart + fullWidth, ystart);
+				og.drawString(" " + a.atag, xstart + fullWidth, ystart);
 			}
 		}
 
@@ -1516,7 +1493,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					Color.blue);
 
 			if (touchedAtom > 0 && jme.action != JME.ACTION_DELGROUP) {
-				Rectangle2D.Double r = atoms[touchedAtom].al.atomLabelBoundingBox;
+				Rectangle2D.Double r = atomLabels[touchedAtom].box;
 				og.drawRect(r.x, r.y, r.width, r.height);
 			}
 
@@ -1582,7 +1559,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 						this.atoms[i].deleteFlag = false;
 						if (atoms[i].partIndex == partToDelete) {
 							this.atoms[i].deleteFlag = true;
-							Rectangle2D.Double r = this.atoms[i].al.atomLabelBoundingBox;
+							Rectangle2D.Double r = atomLabels[i].box;
 							og.drawRect(r.x, r.y, r.width, r.height);
 						}
 					}
@@ -1604,7 +1581,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * // bug fix November 2019: atom map
 	 * 
 	 */
-	void computeAtomLabels() {
+	synchronized void computeAtomLabels() {
 		int atom1, atom2;
 
 		boolean showHs = parameters.hydrogenParams.showHs;
@@ -1635,7 +1612,10 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// vertical positioning is currently not implemented
 		// TODO: NH2, the 2 should subscript
 		// TODO NH3+, the + should be superscript
-
+		if (atomLabels == null || atomLabels.length < natoms + 1) {
+			atomLabels = new AtomDisplayLabel[natoms + 1];
+		}
+		
 		for (int i = 1; i <= natoms; i++) {
 			int n = neighborCount[i];
 			double diff = neighborXSum[i] / neighborCount[i] - x(i);
@@ -1651,7 +1631,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			} else { 
 				alignment = (diff < 0 ? JMEUtil.ALIGN_LEFT : JMEUtil.ALIGN_RIGHT);
 			}
-			atoms[i].setDisplay(alignment, showHs, showMap, fm, h);
+			atomLabels[i] = AtomDisplayLabel.create(atoms[i], alignment, fm, h, showHs, showMap);
 		}
 	}
 
@@ -1710,47 +1690,14 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		return bbox;
 	}
-
+	
 	public Box computeBoundingBoxWithAtomLabels(Box union) {
 		if (natoms == 0)
 			return union;
 		computeAtomLabels();
 		for (int i = 1; i <= natoms; i++)
-			union = this.atoms[i].al.atomLabelBoundingBox.createUnion(union, union);
+			union = this.atomLabels[i].box.createUnion(union, union);
 		return union;
-	}
-
-	public Box computeCoordinate2DboundingBox() {
-		Box bbox = null;
-
-		if (natoms == 0)
-			return bbox;
-
-		double minx = Double.MAX_VALUE, maxx = Double.MIN_VALUE, miny = Double.MAX_VALUE, maxy = Double.MIN_VALUE;
-
-		for (int i = 1; i <= natoms; i++) {
-			double x = x(i);
-			double y = y(i);
-
-			if (x < minx)
-				minx = x;
-
-			maxx = Math.max(x, maxx);
-
-			if (y < miny)
-				miny = y;
-
-			maxy = Math.max(y, maxy);
-		}
-
-		bbox = new Box();
-		bbox.x = minx;
-		bbox.y = miny;
-
-		bbox.width = maxx - minx;
-		bbox.height = maxy - miny;
-
-		return bbox;
 	}
 
 	/**
@@ -1802,7 +1749,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			} else {
 				// bond width normal length follows mouse pointer
 				setCosSin(touched_org, 0);
-				XY(natoms, x(touched_org) + RBOND * cosSin[0], y(touched_org) + RBOND * cosSin[1]);
+				XY(natoms, x(touched_org) + JMECore.RBOND * cosSin[0], y(touched_org) + JMECore.RBOND * cosSin[1]);
 			}
 			return;
 		}
@@ -2506,7 +2453,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	// ----------------------------------------------------------------------------
 	// necessary to add "smaller" bonds in scaled molecule bt WebME
 	double RBOND() {
-		return (JME.scalingIsPerformedByGraphicsEngine ? RBOND : RBOND * jme.molecularAreaScalePixelsPerCoord);
+		return (JME.scalingIsPerformedByGraphicsEngine ? JMECore.RBOND : JMECore.RBOND * jme.molecularAreaScalePixelsPerCoord);
 	}
 
 
@@ -2734,7 +2681,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param src
 	 * @return
 	 */
-	JMEmol deepCopy() {
+	public JMEmol deepCopy() {
 		return new JMEmol(this);
 	}
 
@@ -2747,69 +2694,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	}
 
 	// ----------------------------------------------------------------------------
-
-	/**
-	 * Compute the atom and bond partIndex
-	 * 
-	 * @return the number of parts (0 if there are no atoms)
-	 */
-	public int computeMultiPartIndices() {
-
-		return computeMultiPartIndices(0);
-	}
-
-	public int computeMultiPartIndices(int bondToBeIgnored) {
-
-		int nparts = 0;
-
-		// reset the partIndex of atoms and bonds
-		for (int at = 1; at <= natoms; at++) {
-			atoms[at].partIndex = 0;
-		}
-
-		for (int b = 1; b <= nbonds; b++) {
-			bonds[b].partIndex = 0;
-		}
-
-		while (true) {
-			boolean newPartAssignedToAtom = false;
-			// find first atom that has no partIndex assigned
-			for (int at = 1; at <= natoms; at++) {
-				Atom atom = atoms[at];
-				if (atom.partIndex == 0) {
-					atom.partIndex = ++nparts;
-					newPartAssignedToAtom = true;
-					break;
-				}
-			}
-			if (!newPartAssignedToAtom)
-				break;
-
-			while (newPartAssignedToAtom) {
-				newPartAssignedToAtom = false;
-
-				// loop over the bonds - give the same part index to both atoms of the bond
-				for (int b = 1; b <= nbonds; b++) {
-					if (b == bondToBeIgnored)
-						continue;
-					Bond bond = bonds[b];
-					if (bond.partIndex > 0) {
-						continue;
-					}
-					Atom atom1 = this.atoms[bond.va];
-					Atom atom2 = this.atoms[bond.vb];
-					if (atom1.partIndex != atom2.partIndex) { // only one of the two is 0
-						bond.partIndex = atom1.partIndex = atom2.partIndex = nparts;
-						newPartAssignedToAtom = true;
-					} else {
-						bond.partIndex = atom1.partIndex; // this is a ring closure bond if atom1.partIndex > 0
-					}
-				}
-			}
-		}
-
-		return nparts;
-	}
 
 
 //	/**
@@ -2887,90 +2771,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return JMESmiles.getSmiles(deepCopy(), pars, isQuery);
 	}
 
-
-	// ----------------------------------------------------------------------------
-	/**
-	 * Crate a represenation in JME format
-	 * 
-	 * @return
-	 */
-	public String createJME(Box boundingBox) {
-		return createJME(false, boundingBox);
-	}
-
-	public String createJME(boolean jmeh, Box boundingBox) {
-		// cislovanie nezavisle od smilesu
-		// parameter jmeh urcuje pridavanie H
-		String s = "" + natoms + " " + nbonds;
-
-		this.transformAtomCoordinatesForOutput(boundingBox);
-
-		for (int i = 1; i <= natoms; i++) {
-			Atom atom = this.atoms[i];
-			int iso = atom.iso;
-			String z = "";
-
-			// BB iso
-			if (iso != 0) {
-				z += iso;
-			}
-
-			z += getAtomLabel(i);
-			// if (jme.jmeh && an[i] != Atom.AN_C && nh[i] > 0) {
-			// if (jme.jmeh && atoms[i].nh > 0) { // aj pre C
-			if ((jmeh || getValenceForMolOutput(i) > 0) && atoms[i].nh > 0) { // aj pre C
-				z += "H";
-				if (atoms[i].nh > 1)
-					z += atoms[i].nh;
-			}
-
-			// naboje
-			if (q(i) != 0) {
-				if (q(i) > 0)
-					z += "+";
-				else
-					z += "-";
-				if (Math.abs(q(i)) > 1)
-					z += Math.abs(q(i));
-			}
-			int map = this.findAtomMapForOutput(i);
-			if (map != 0)
-				z += ":" + map;
-
-			// inverts y coordinate
-			s += " " + z + " " + JMEUtil.fformat(xo(i), 0, 2) + " " + JMEUtil.fformat(yo(i), 0, 2);
-		}
-		int d;
-		for (int i = 1; i <= nbonds; i++) {
-			int a1 = bonds[i].va, a2 = bonds[i].vb, nas = bonds[i].bondType;
-			int stereo = bonds[i].stereo;
-			if (bonds[i].bondType == Bond.QUERY) {
-				nas = stereo;
-			} else {
-				switch (stereo) {
-				case Bond.STEREO_UP:
-					nas = -1;
-					break;
-				case Bond.STEREO_DOWN:
-					nas = -2;
-					break;
-				case Bond.STEREO_XUP:
-				case Bond.STEREO_XDOWN:
-					nas = (stereo == Bond.STEREO_XUP ? -1 : -2);
-					d = a1;
-					a1 = a2;
-					a2 = d;
-					break;
-				case Bond.STEREO_EZ:
-					nas = -5;
-					break;
-				}
-			}
-			s += " " + a1 + " " + a2 + " " + nas;
-		}
-		return s;
-	}
-
 	protected int findAtomChargeForOutput(int atomIndex) {
 		int charge = 0;
 		if (atomIndex > 0 && atomIndex <= this.nAtoms()) {
@@ -3008,413 +2808,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param header
 	 * @return
 	 */
-	String createMolFile(String header) {
-		return this.createMolFile(header, true);
-	}
-
-	public boolean canBeChiral() {
-
-		for (int i = 1; i <= nbonds; i++) {
-			if (bonds[i].bondType == Bond.SINGLE && bonds[i].stereo > 0) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	protected int mdlChiralFlag() {
-		return this.getChiralFlag() && this.canBeChiral() ? 1 : 0;
-	}
-
-	protected String mdlHeaderLines(String header, boolean stampDate, boolean isV3000) {
-		int writeChiralFlag = isV3000 ? 0 : mdlChiralFlag(); // for V3000, the chiral flag is set in the COUNTS line
-
-		// BH 2023.15 not allowing first line to be blank or spaces only, as that can be
-		// clipped improperly
-		String s = (header != null && (header = header.trim()).length() > 0 ? header : "_");
-		if (s.length() > 79)
-			s = s.substring(0, 76) + "...";
-		s += JME.separator;
-		// since 2006.01 added one space to header line (two newlines causes problems in
-		// tokenizer)
-
-		String versiondate = "JME" + JME.version + " " + new Date();
-
-		// the 2D/3D dimension is critical and required
-		// if(stampDate) {
-		s += JMEUtil.getSDFDateLine("JME" + JME.version) + JME.separator;
-//		} else {
-//			s += JME.separator;
-//		}
-		s += versiondate + JME.separator;
-		// counts line
-		s += JMEUtil.iformat(isV3000 ? 0 : natoms, 3) + JMEUtil.iformat(isV3000 ? 0 : nbonds, 3);
-		s += "  0  0" + JMEUtil.iformat(writeChiralFlag, 3) + "  0  0  0  0  0999 " + (isV3000 ? "V3000" : "V2000")
-				+ JME.separator;
-
-		return s;
-
-	}
-
-	/**
-	 * Generate a string for the bond. For v3000 the M 30 and the bond index must be
-	 * added
-	 * 
-	 * @param bond
-	 * @param isV3000
-	 * @return
-	 */
-	protected static String getMOLStereoBond(Bond bond, boolean isV3000) {
-
-		int bondType = bond.bondType;
-		int a1 = bond.va;
-		int a2 = bond.vb;
-		// int nas = bondType; //whatis nas?
-		// if (isSingle(i)) nas=1; else if (isDouble(i)) nas=2;
-		int stereo = 0;
-
-		/*
-		 * V2000 Single bonds: 0 = not stereo, 1 = Up, 4 = Either, 6 = Down, Double
-		 * bonds: 0 = Use x-, y-, z-coords from atom block to determine cis or trans, 3
-		 * = Cis or trans (either) double bond
-		 * 
-		 */
-		if (bondType == Bond.SINGLE || bondType == Bond.COORDINATION) {
-			switch (bond.stereo) {
-			case Bond.STEREO_UP:
-			case Bond.STEREO_XUP:
-				stereo = 1;
-				break;
-			case Bond.STEREO_DOWN:
-			case Bond.STEREO_XDOWN:
-				stereo = 6;
-				break;
-			case Bond.STEREO_EITHER:
-			case Bond.STEREO_XEITHER:
-				stereo = 4;
-			}
-			// swap atom labels if needed
-			switch (bond.stereo) {
-			case Bond.STEREO_XUP:
-			case Bond.STEREO_XDOWN:
-			case Bond.STEREO_XEITHER:
-				int t = a1;
-				a1 = a2;
-				a2 = t;
-
-			}
-		}
-		/*
-		 * V3000 0 = none (default) 1 = up 2 = either 3 = down
-		 * 
-		 */
-		if (bondType == Bond.DOUBLE && bond.stereo == Bond.STEREO_EZ) {
-			stereo = 3; // 3 = Cis or trans (either) double bond
-		}
-
-		// convert v2000 to v3000 conventions
-		if (isV3000) {
-			switch (stereo) {
-			case 6:
-				stereo = 3;
-				break;
-			case 4:
-			case 3:
-				stereo = 2;
-
-			}
-		}
-
-		if (bondType == Bond.COORDINATION) {
-			bondType = 8; // MDL CT does not support coordination, convention used here is the same as in
-							// other software, officialy 8 means any
-		} else if (bondType == Bond.QUERY || bondType == Bond.AROMATIC) { // Not sure about this convention, see test case
-																// testReadRXNwithTwoAgents
-			bondType = 4;
-		}
-		String bonds;
-		if (isV3000) {
-			bonds = bondType + " " + a1 + " " + a2;
-			if (stereo != 0)
-				bonds += " CFG=" + stereo;
-		} else {
-			bonds = JMEUtil.iformat(a1, 3) + JMEUtil.iformat(a2, 3) + JMEUtil.iformat(bondType, 3) + JMEUtil.iformat(stereo, 3) + "  0  0  0";
-		}
-
-		return bonds;
-	}
-
-	/**
-	 * Center and scale back the bond length to about 1.4 because JSME has rescaled
-	 * the bond to RBOND (internalBonsScaling) When reading a MOL, the y coordinated
-	 * were inverted, thus invert back y coordinate to match ISISDraw coord system
-	 * 
-	 * if the argument is null, then the boundingBox of the molecule will be
-	 * computed. Using this argument might be useful for a JMEmolList for which each
-	 * molecules are recentered globally, for the ensemble
-	 */
-	public void transformAtomCoordinatesForOutput(Box boundingBox) {
-
-		// atoms
-		double scale = 1.4 / RBOND; // ??? co je standard scale ???
-		// where is this coming from?
-
-		if (boundingBox == null) {
-			boundingBox = this.computeCoordinate2DboundingBox();
-		}
-
-		if (boundingBox == null) { // h appens when they are no atoms
-			return;
-		}
-
-		double ymax = boundingBox.y + boundingBox.height;
-		double xmin = boundingBox.x;
-
-		// this is used for the test suite or non GUI applications
-		if (this.parameters.keepSameCoordinatesForOutput) {
-			xmin = 0.0;
-			ymax = 0.0;
-			scale = 1.0;
-		}
-
-		for (int i = 1; i <= natoms; i++) {
-			Atom atom = atoms[i];
-			double x = x(i);
-			double y = y(i);
-
-			x = (x(i) - xmin) * scale; // center and scale
-			y = (ymax - y(i)) * scale; // inverts y coordinate to match ISISDraw coord system
-
-			atom.xo = x;
-			atom.yo = y;
-		}
-
-	}
-
-	/**
-	 * Create a MOL or RXN. The parameter header is usually the SMILES stampdate is
-	 * set to false for the tests
-	 * 
-	 * @param header
-	 * @return
-	 */
-	public String createMolFile(String header, boolean stampDate) {
-		// LP complained about this - v300 does not do it
-		// if (natoms == 0) return ""; // 2008.12
-
-		String s = mdlHeaderLines(header, stampDate, false);
-		// this.parameters;
-
-		// atoms
-		// where is this coming from?
-
-		this.transformAtomCoordinatesForOutput(null);
-
-		for (int i = 1; i <= natoms; i++) {
-			Atom atom = atoms[i];
-			double x = atom.xo;
-			double y = atom.yo;
-
-			s += JMEUtil.fformat(x, 10, 4) + JMEUtil.fformat(y, 10, 4) + JMEUtil.fformat(0.0, 10, 4);
-			String z = getAtomLabel(i);
-
-			if (z.length() == 1)
-				z += "  ";
-			else if (z.length() == 2)
-				z += " ";
-			else if (z.length() > 3)
-				z = "Q  "; // query ???
-			s += " " + z;
-
-			// isotope, charge
-			int charge = 0;
-			if (q(i) > 0 && q(i) < 4)
-				charge = 4 - q(i);
-			else if (q(i) < 0 && q(i) > -4)
-				charge = 4 - q(i);
-			// BB
-			int deltaIsotop = 0;
-			if (atom.iso != 0) {
-				int delta = AtomicElements.getDeltaIsotopicMassOfElement(getAtomLabel(i), this.atoms[i].iso);
-				if (delta >= -3 && delta <= 4) {
-					deltaIsotop = delta;
-				}
-			}
-
-			// BB: valence field vv
-			int vv = 0; // no markings
-
-			// if(atom.nh>0) {
-			// vv = atom.nh+atom.nv; //ChemWriterr OK
-			// } else {
-			// //metal like [Al]
-			// if(q(i) == 0 && JME.chargedMetalType(atom.an) !=0) {
-			// // Datawarrior does not recognise it correctly
-			// //ChemWriter shows an error
-			// //Marvin JS, ChemDoodle ignores this field
-			// vv = 15; //explicit 0 valence
-			// }
-			// }
-			vv = getValenceForMolOutput(i);
-
-			z = JMEUtil.iformat(deltaIsotop, 2) + JMEUtil.iformat(charge, 3) + "  0" + JMEUtil.iformat(vv, 3) + "  0  0  0  0  0";
-			int map = this.findAtomMapForOutput(i);
-			z += JMEUtil.iformat(map, 3);
-			s += z + "  0  0" + JME.separator;
-
-		}
-		// bonds
-		for (int i = 1; i <= nbonds; i++) {
-			s += getMOLStereoBond(this.bonds[i], false) + JME.separator;
-			;
-		}
-
-		// charges on standard atoms
-		for (int i = 1; i <= natoms; i++) {
-			if (q(i) != 0) {
-				s += "M  CHG  1" + JMEUtil.iformat(i, 4) + JMEUtil.iformat(q(i), 4) + JME.separator;
-			}
-
-			// ISO BB
-			if (this.atoms[i].iso != 0) {
-				s += "M  ISO  1" + JMEUtil.iformat(i, 4) + JMEUtil.iformat(this.atoms[i].iso, 4) + JME.separator;
-			}
-		}
-
-		// radical (X atoms)
-		/*
-		 * for (int i=1;i<=nradicals;i++) { if (an[i] == Atom.AN_X) { s += "M  RAD  1" +
-		 * iformat(radical[i],4) + iformat(2,4) + JME.separator; } }
-		 */
-
-		s += "M  END" + JME.separator;
-		return s;
-	}
-
-	int getValenceForMolOutput(int at) {
-		// Provide valence count only for metals that are handled yet by JME
-
-		int val = 0;
-		Atom atom = atoms[at];
-
-		if (atom.nh > 0 && Atom.chargedMetalType(atom.an) != 0) {
-			val = atom.nh + atom.nv;
-		}
-
-		return val;
-	}
-
-	// ----------------------------------------------------------------------------
-	String createExtendedMolFile2(String smiles) {
-		return createExtendedMolFile(smiles, true);
-	}
-
-	// ----------------------------------------------------------------------------
-	// Molfile V3000 - 2006.09
-	public String createExtendedMolFile(String header, boolean stampDate) {
-
-		// int nradicals = 0;
-		// int[] radical = new int[natoms+1);
-		// finding whether molecule is chiral
-
-		String s = mdlHeaderLines(header, stampDate, true);
-
-		// int chiral = 0;
-		// for (int i=1;i<=nbonds;i++) if (bonds[i].stereo != 0) {chiral = 1; break;}
-
-		String mv30 = "M  V30 ";
-		// header
-		s += mv30 + "BEGIN CTAB" + JME.separator;
-		// at the end should be chiral flag 1 or 0
-		s += mv30 + "COUNTS " + natoms + " " + nbonds + " 0 0 " + mdlChiralFlag() + JME.separator;
-		s += mv30 + "BEGIN ATOM" + JME.separator;
-		// atoms
-		this.transformAtomCoordinatesForOutput(null);
-
-		for (int i = 1; i <= natoms; i++) {
-			s += mv30;
-			// inverts y coordinate to match ISISDraw coord system
-			String z = getAtomLabel(i);
-			s += i + " " + z;
-			int m = this.findAtomMapForOutput(i);
-			s += " " + JMEUtil.fformat(xo(i), 0, 4) + " " + JMEUtil.fformat(yo(i), 0, 4) + " " + JMEUtil.fformat(0.0, 0, 4) + " " + m;
-			if (q(i) != 0)
-				s += " CHG=" + q(i);
-			// JME curremtly ignoring isotopes & radicals
-			if (atoms[i].iso > 0) { // MAy 2020
-				s += " MASS=" + atoms[i].iso;
-			}
-
-			int val = getValenceForMolOutput(i);
-			if (val != 0)
-				s += " VAL=" + val;
-
-			s += JME.separator;
-
-			// TODO: isotopoe handling?
-		}
-		s += mv30 + "END ATOM" + JME.separator;
-		s += mv30 + "BEGIN BOND" + JME.separator;
-		// bonds
-		for (int i = 1; i <= nbonds; i++) {
-			s += mv30 + i + " " + getMOLStereoBond(this.bonds[i], true) + JME.separator;
-		}
-		s += mv30 + "END BOND" + JME.separator;
-
-		// stereo collections
-		// MDLV30/STEABS /STERACn /STERELn
-		ArrayList<Integer> abs = new ArrayList<Integer>();
-		ArrayList<ArrayList<Integer>> orlists = new ArrayList<ArrayList<Integer>>();
-		ArrayList<ArrayList<Integer>> mixlists = new ArrayList<ArrayList<Integer>>();
-		for (int i = 0; i < 10; i++) {
-			orlists.add(null);
-			mixlists.add(null);
-		}
-		for (int i = 1; i <= natoms; i++) {
-			String atag = atoms[i].atag;
-			if (atag == null || atag.length() == 0)
-				continue;
-			if (atag.equals("abs"))
-				abs.add(new Integer(i));
-			else if (atag.startsWith("mix")) {
-				int n = Integer.parseInt(atag.substring(3));
-				ArrayList<Integer> o = (mixlists.size() > n ? mixlists.get(n) : null);
-				ArrayList<Integer> l = (o == null ? new ArrayList<Integer>() : o);
-				l.add(new Integer(i));
-				mixlists.set(n, l);
-			} else if (atag.startsWith("or")) {
-				int n = Integer.parseInt(atag.substring(2));
-				ArrayList<Integer> o = (orlists.size() > n ? orlists.get(n) : null);
-				ArrayList<Integer> l = (o == null ? new ArrayList<Integer>() : o);
-				l.add(new Integer(i));
-				orlists.set(n, l);
-			}
-		}
-		s += appendMOLCollection("MDLV30/STEABS", abs, mv30);
-		if (orlists.size() > 0)
-			for (int i = 1; i < orlists.size(); i++)
-				s += appendMOLCollection("MDLV30/STEREL" + i, orlists.get(i), mv30);
-		if (mixlists.size() > 0)
-			for (int i = 1; i < mixlists.size(); i++)
-				s += appendMOLCollection("MDLV30/STERAC" + i, mixlists.get(i), mv30);
-
-		s += mv30 + "END CTAB" + JME.separator;
-		s += "M  END" + JME.separator;
-		return s;
-	}
-
-	static String appendMOLCollection(String name, ArrayList<Integer> list, String mv30) {
-		if (list == null || list.size() == 0)
-			return "";
-		String s = "";
-		s += mv30 + "BEGIN COLLECTION" + JME.separator;
-		s += mv30 + name + " [ATOMS=(" + list.size();
-		for (Iterator<Integer> i = list.iterator(); i.hasNext();)
-			s += " " + i.next();
-		s += ")]" + JME.separator;
-		s += mv30 + "END COLLECTION" + JME.separator;
-		return s;
+	public String createMolFile(String header) {
+		return JMEWriter.createMolFile((JMECore) this, header, true, computeCoordinate2DboundingBox());
 	}
 
 	void cleanAfterChanged(boolean polarNitro) {
@@ -3685,149 +3080,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		jme.lastAction = laFailed;
 	}
 
-	public static JMEmol compute2DcoordinatesIfMissing(JMEmol mol)  {
-		return (mol.has2Dcoordinates() ? null : compute2Dcoordinates(mol));
+	public JMEmol compute2DcoordinatesIfMissing()  {
+		return (has2Dcoordinates() ? null : OclAdapter.compute2Dcoordinates(this));
 	}
 
-	/**
-	 * In most cases, the returned molecule is the same as the input one. If OCL lib
-	 * changfed the number of atoms, then another molecule is returned. Return null
-	 * if 2D fails.
-	 * 
-	 * @param mol
-	 * @return
-	 */
-	public static JMEmol compute2Dcoordinates(final JMEmol mol) {
-
-		if (mol.nAtoms() <= 1) {
-			return mol;
-		}
-
-		JMEmol result = mol;
-		JMEmol molCopy = mol;
-
-		// OenCHemLib issue: the hydrogens are placed at the end of the CT, thus atom
-		// arder is changed
-		boolean hasExplicitHydrogens = mol.hasHydrogen();
-		if (hasExplicitHydrogens) {
-			molCopy = mol.deepCopy();
-			for (int i = 1; i <= molCopy.natoms; i++) {
-				Atom atom = molCopy.getAtom(i);
-				if (atom.an == Atom.AN_H) { // replace hydrogen
-					atom.an = Atom.AN_X;
-					atom.iso = 0;
-					atom.label = "A" + i;
-				}
-			}
-		}
-
-		// create a molfile
-		String molFile = molCopy.createMolFile("");
-
-		// create a OCL molecule
-		StereoMolecule oclMol = new StereoMolecule();
-		if (new MolfileParser().parse(oclMol, molFile)) {
-			boolean computed2D = true;
-			// generate 2D - can fail
-			try {
-				// argument: do not remove explicit H
-				new CoordinateInventor(0).invent(oclMol);
-			} catch (Exception e) {
-				computed2D = false;
-				result = null;
-			}
-
-			if (computed2D) {
-				// assume that the order of the atoms is the same
-				if (oclMol.getAllAtoms() == mol.nAtoms()) {
-					for (int i = 0; i < oclMol.getAllAtoms(); i++) {
-						mol.XY(i + 1, oclMol.getAtomX(i), oclMol.getAtomY(i));
-					}
-					mol.internalBondLengthScaling();
-				} else {
-					// TODO: test case:
-					MolfileCreator mfc = new MolfileCreator(oclMol);
-					try {
-						result = new JMEmol(mol.jme, mfc.getMolfile(), JME.SupportedFileFormat.MOL,
-								mol.parameters);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-					result.chiralFlag = mol.chiralFlag; // is this needed? TODO
-					result.internalBondLengthScaling();
-
-				}
-			}
-
-		}
-
-		return result;
-
-	}
-
-	/**
-	 * Use OCLib to recompute aromatic or query bond orders (e.g input file with
-	 * bond order 4) Return null if an error occurred . If no changes, return the
-	 * same molecule object otherwise a copy
-	 * 
-	 * @param mol
-	 * @return null if no change
-	 */
-	public static JMEmol reComputeBondOrderIfAromaticBondType(JMEmol mol) {
-		if (!hasAromaticBondType(mol)) {
-			return mol; // no changes
-		}
-		// create a molfile
-		String molFile = mol.createMolFile("");
-		JMEmol result = mol.deepCopy();
-
-		// create a OCL molecule
-		StereoMolecule oclMol = new StereoMolecule();
-		if (!new MolfileParser().parse(oclMol, molFile)) {
-			return mol;
-		}
-
-		if (!(oclMol.getAllAtoms() == mol.nAtoms() && oclMol.getAllBonds() == mol.nBonds())) {
-			return null;
-		}
-
-		boolean computeBondOrder = true;
-
-		try {
-			AromaticityResolver bondFixer = new AromaticityResolver(oclMol);
-			bondFixer.locateDelocalizedDoubleBonds(null);
-		} catch (Exception e) {
-			computeBondOrder = false;
-			result = null;
-		}
-
-		if (computeBondOrder) {
-			// assume that the order of the atoms is the same
-
-			for (int b = 0; b < oclMol.getAllBonds(); b++) {
-				int bo = oclMol.getBondOrder(b);
-				int at1 = oclMol.getBondAtom(0, b);
-				int at2 = oclMol.getBondAtom(1, b);
-				int charge1 = oclMol.getAtomCharge(at1++);
-				int charge2 = oclMol.getAtomCharge(at2++);
-				if (mol.q(at1) != charge1 || mol.q(at2) != charge2) {
-					return null;
-				}
-
-				Bond bond = result.bonds[b + 1];
-				if ((at1 == bond.va && at2 == bond.vb) || (at2 == bond.va && at1 == bond.vb)) {
-					bond.bondType = bo;
-				} else {
-					return null;
-				}
-			}
-
-		}
-
-		return result;
-	}
-
-	public void clearRotation() {
+	public void clearRotation() { 
 		centerx = centery = Double.NaN;
 	}
 
@@ -3839,9 +3096,10 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		}
 		rotate(movex, centerx, centery);
 	}
-	
 
-	
+	public JMEmol reComputeBondOrderIfAromaticBondType() {
+		return OclAdapter.reComputeBondOrderIfAromaticBondType(this);
+	}
 
 }
 

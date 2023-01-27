@@ -1,4 +1,4 @@
-package jme;
+package jme.core;
 
 /**
  * Common variables and functionalities for atoms and bonds

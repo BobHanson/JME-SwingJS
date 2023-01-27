@@ -3,6 +3,8 @@ package jme;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+import jme.js.JSME_RunAsyncCallback;
+
 class InspectorEvent implements ActionListener {
 	JMEmol mol;
 	int atomIndex;
@@ -33,7 +35,7 @@ class InspectorEvent implements ActionListener {
 	@Override
 	public void actionPerformed(final ActionEvent e) {
 
-		JMEUtil.runAsync(new JMEUtil.JSME_RunAsyncCallback() {
+		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
 			@Override
 			public void onSuccess() {

@@ -1,25 +1,21 @@
 /**
  * 
  */
-package jme;
+package jme.io;
 
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import jme.ocl.SVGDepictorWithEmbeddedChemicalStructure;
+
 /**
  * @author bruno
  *
  */
-public class ChemicalFormatDetector {
-	/**
-	 * 
-	 */
-	public ChemicalFormatDetector() {
-	}
+public class JMEReader {
 
-	public ChemicalFormatDetector(String chemicalString) {
-		detectFormat(chemicalString);
+	public JMEReader() {
 	}
 
 	public enum MajorChemicalFormat {
@@ -38,7 +34,7 @@ public class ChemicalFormatDetector {
 	public MinorChemicalFormat minorChemicalFormat;
 
 	public Author author;
-	public ChemicalFormatDetector embeddedChemicalFormat;
+	public JMEReader embeddedChemicalFormat;
 
 	protected int numberOfLines = 0;
 
@@ -49,7 +45,7 @@ public class ChemicalFormatDetector {
 
 	public String chemicalString;
 
-	static protected ChemicalFormatDetector Empty = new ChemicalFormatDetector();
+	static protected JMEReader Empty = new JMEReader();
 
 	final static Pattern InchiKeyPattern = Pattern.compile("^[A-Z]{14}\\-[A-Z]{10}\\-[A-Z]$");
 
@@ -78,10 +74,9 @@ public class ChemicalFormatDetector {
 	final static Pattern URLpattern = Pattern.compile("$\\w+:\\/\\/"); // http://, file://
 
 	
-	// from Objects.equals, needed for unittests
-	public static boolean equals(Object a, Object b) {
-	        return (a == b) || (a != null && a.equals(b));
-	    }
+	public JMEReader(String chemicalString) {
+		detectFormat(chemicalString);
+	}
 
 	public void reset() {
 		init(Empty);
@@ -117,8 +112,8 @@ public class ChemicalFormatDetector {
 
 			// starts with CSRML because it is very specific
 			if (CSRMlpattern.matcher(this.chemicalString).find()) {
-				this.majorChemicalFormat = ChemicalFormatDetector.MajorChemicalFormat.CSRML;
-				this.author = ChemicalFormatDetector.Author.MolecularNetworks;
+				this.majorChemicalFormat = MajorChemicalFormat.CSRML;
+				this.author = Author.MolecularNetworks;
 
 				break;
 			}
@@ -130,7 +125,7 @@ public class ChemicalFormatDetector {
 						String mol = SVGDepictorWithEmbeddedChemicalStructure
 								.extractEmbeddedChemicalString(chemicalString);
 						if (mol != null) {
-							this.embeddedChemicalFormat = new ChemicalFormatDetector(mol);
+							this.embeddedChemicalFormat = new JMEReader(mol);
 							if (this.embeddedChemicalFormat.majorChemicalFormat != null) {
 								majorChemicalFormat = MajorChemicalFormat.SVG;
 							}
@@ -197,16 +192,16 @@ public class ChemicalFormatDetector {
 							if (isSmiles) {
 								majorChemicalFormat = MajorChemicalFormat.SMILES;
 								if (isReaction) {
-									this.majorChemicalFormat = ChemicalFormatDetector.MajorChemicalFormat.SMIRKS;
+									this.majorChemicalFormat = MajorChemicalFormat.SMIRKS;
 									this.isReaction = isReaction;
 								}
 
 								// Note: a smiles is a valid smarts, there is no way to detect the intention
 							} else 
 							if (isSmarts || canBeExtendedSmarts) {
-								this.majorChemicalFormat = ChemicalFormatDetector.MajorChemicalFormat.SMARTS;
+								this.majorChemicalFormat = MajorChemicalFormat.SMARTS;
 								if (canBeExtendedSmarts) {
-									this.minorChemicalFormat = ChemicalFormatDetector.MinorChemicalFormat.extended;
+									this.minorChemicalFormat = MinorChemicalFormat.extended;
 								}
 							}
 
@@ -302,7 +297,7 @@ public class ChemicalFormatDetector {
 		return !hasSpace;
 	}
 
-	public void init(ChemicalFormatDetector other) {
+	public void init(JMEReader other) {
 		this.author = other.author;
 		this.majorChemicalFormat = other.majorChemicalFormat;
 		this.minorChemicalFormat = other.minorChemicalFormat;
@@ -317,7 +312,7 @@ public class ChemicalFormatDetector {
 	}
 
 	// initialize my self as a MDL MOL v2000 format
-	public ChemicalFormatDetector initAsV2000MOL() {
+	public JMEReader initAsV2000MOL() {
 		reset();
 		this.author = Author.MDL;
 		this.majorChemicalFormat = MajorChemicalFormat.MOL;
@@ -329,14 +324,14 @@ public class ChemicalFormatDetector {
 	}
 
 	// initialize my self as a MDL MOL v3000 format
-	public ChemicalFormatDetector initAsV3000MOL() {
+	public JMEReader initAsV3000MOL() {
 		initAsV2000MOL();
 		this.minorChemicalFormat = MinorChemicalFormat.V3000;
 
 		return this;
 	}
 
-	public ChemicalFormatDetector initAsOClcode() {
+	public JMEReader initAsOClcode() {
 		reset();
 		author = Author.OPENCHEMLIB;
 		majorChemicalFormat = MajorChemicalFormat.OCLCODE;
@@ -358,15 +353,20 @@ public class ChemicalFormatDetector {
 		// type check and cast
 		if (getClass() != o.getClass())
 			return false;
-		ChemicalFormatDetector cfd = (ChemicalFormatDetector) o;
+		JMEReader cfd = (JMEReader) o;
 
 		// field comparison not the input chemical string
-		return ChemicalFormatDetector.equals(author, cfd.author) && ChemicalFormatDetector.equals(majorChemicalFormat, cfd.majorChemicalFormat)
-				&& ChemicalFormatDetector.equals(minorChemicalFormat, cfd.minorChemicalFormat)
-				&& ChemicalFormatDetector.equals(isReaction, cfd.isReaction)
-				&& ChemicalFormatDetector.equals(embeddedChemicalFormat, cfd.embeddedChemicalFormat);
+		return equals(author, cfd.author) && equals(majorChemicalFormat, cfd.majorChemicalFormat)
+				&& equals(minorChemicalFormat, cfd.minorChemicalFormat)
+				&& equals(isReaction, cfd.isReaction)
+				&& equals(embeddedChemicalFormat, cfd.embeddedChemicalFormat);
 		
 		
 	}
+
+	// from Objects.equals, needed for unittests
+	public static boolean equals(Object a, Object b) {
+	        return (a == b) || (a != null && a.equals(b));
+	    }
 
 }

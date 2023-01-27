@@ -1,20 +1,6 @@
 package jme;
 
-//START JAVA_IMPORT
 import java.awt.geom.Rectangle2D;
-
-
-//END JAVA_IMPORT
-
-//START GWT_IMPORT
-//import ejava.awt.geom.Rectangle2D;
-
-
-//END GWT_IMPORT
-
-
-//END GWT_IMPORT
-
 
 @SuppressWarnings("serial")
 public class Box extends Rectangle2D.Double {
@@ -27,7 +13,6 @@ public class Box extends Rectangle2D.Double {
 	}
 	
 	public Box() {
-		// TODO Auto-generated constructor stub
 	}
 	
 	public boolean isEmpty() {

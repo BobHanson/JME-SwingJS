@@ -1,4 +1,8 @@
-package jme;
+package jme.core;
+
+import jme.Box;
+import jme.JMEStatusListener;
+
 public class JMECore {
 
 	public static class Parameters {
@@ -70,8 +74,8 @@ public class JMECore {
 
 	}
 
-	static final int NSTART_SIZE_ATOMS_BONDS = 10;
-	static final int MAX_BONDS_ON_ATOM = 6;
+	public static final int NSTART_SIZE_ATOMS_BONDS = 10;
+	public static final int MAX_BONDS_ON_ATOM = 6;
 
 	final static Parameters DefaultParameters = new Parameters();
 
@@ -79,15 +83,15 @@ public class JMECore {
 	/**
 	 * just used for info(
 	 */
-	JMEStatusListener jmesl;
+	public JMEStatusListener jmesl;
 
-	Atom atoms[] = new Atom[NSTART_SIZE_ATOMS_BONDS];
-	Bond bonds[] = new Bond[NSTART_SIZE_ATOMS_BONDS];
+	public Atom atoms[] = new Atom[NSTART_SIZE_ATOMS_BONDS];
+	public Bond bonds[] = new Bond[NSTART_SIZE_ATOMS_BONDS];
 
-	int natoms = 0;
-	int nbonds = 0;
+	public int natoms = 0;
+	public int nbonds = 0;
 	
-	protected Boolean chiralFlag = Boolean.FALSE;
+	public Boolean chiralFlag = Boolean.FALSE;
 
 	public Parameters parameters;
 
@@ -147,7 +151,7 @@ public class JMECore {
 		return atoms[i].getLabel();
 	}
 
-	boolean hasHydrogen() {
+	public boolean hasHydrogen() {
 		for (int i = natoms; i >= 1; i--) {
 			if (an(i) == Atom.AN_H) {
 				return true;
@@ -158,11 +162,11 @@ public class JMECore {
 
 	}
 
-	int an(int i) {
+	public int an(int i) {
 		return atoms[i].an;
 	}
 
-	void AN(int i, int an) {
+	public void AN(int i, int an) {
 		this.atoms[i].an = an;
 	}
 
@@ -170,37 +174,29 @@ public class JMECore {
 		return atoms[i];
 	}
 
-	double x(int i) {
+	public double x(int i) {
 		return atoms[i].x;
 	}
 
-	double xo(int i) {
-		return atoms[i].xo;
-	}
-
-	double y(int i) {
+	public double y(int i) {
 		return atoms[i].y;
 	}
 
-	double yo(int i) {
-		return atoms[i].yo;
-	}
-
-	double z(int i) {
+	public double z(int i) {
 		return atoms[i].z;
 	}
 
-	void XY(int i, double x, double y) {
+	public void XY(int i, double x, double y) {
 		atoms[i].x = x;
 		atoms[i].y = y;
 	}
 
-	static void XY(Atom atom, double x, double y) {
+	public static void XY(Atom atom, double x, double y) {
 		atom.x = x;
 		atom.y = y;
 	}
 
-	void moveXY(int i, double x, double y) {
+	public void moveXY(int i, double x, double y) {
 		atoms[i].moveXY(x, y);
 	}
 
@@ -208,7 +204,7 @@ public class JMECore {
 		return atoms[i].q;
 	}
 
-	void Q(int i, int charge) {
+	public void Q(int i, int charge) {
 		atoms[i].q = charge;
 	}
 
@@ -224,24 +220,53 @@ public class JMECore {
 		return atoms[i].sbo;
 	}
 
-	String atag(int i) {
+	public String atag(int i) {
 		return atoms[i].atag;
 	}
 
-	int[] v(int i) {
+	public int[] v(int i) {
 		return atoms[i].v;
 	}
 
-	int nv(int i) {
+	public int nv(int i) {
 		return atoms[i].nv;
 	}
 
-	void NV(int i, int nv) {
+	public void NV(int i, int nv) {
 		atoms[i].nv = nv;
 	}
 
-	int incrNV(int i, int change) {
+	public int incrNV(int i, int change) {
 		return atoms[i].nv += change;
+	}
+
+	/**
+	 * @return the chiralFlag
+	 */
+	public Boolean getChiralFlag() {
+		return chiralFlag;
+	}
+
+	public boolean canBeChiral() {
+		for (int i = 1; i <= nbonds; i++) {
+			if (bonds[i].bondType == Bond.SINGLE && bonds[i].stereo > 0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @param chiralFlag the chiralFlag to set return true if my chiral flag has
+	 *                   been changed
+	 */
+	public boolean setChiralFlag(Boolean chiralFlag) {
+		if (this.chiralFlag != chiralFlag) {
+			this.chiralFlag = chiralFlag;
+			return true;
+		}
+
+		return false;
 	}
 
 	public void setPart(JMECore m, int part) {
@@ -264,7 +289,7 @@ public class JMECore {
 		this.setNeighborsFromBonds(); // update the adjencylist
 	}
 
-	Atom createAtomFromOther(Atom atomToDuplicate) {
+	protected Atom createAtomFromOther(Atom atomToDuplicate) {
 		natoms++;
 		if (natoms > atoms.length - 1) {
 			int storage = atoms.length + 20;
@@ -281,7 +306,7 @@ public class JMECore {
 	 * @param otherBond
 	 * @return new Bond
 	 */
-	Bond createAndAddBondFromOther(Bond otherBond) {
+	protected Bond createAndAddBondFromOther(Bond otherBond) {
 		nbonds++;
 		if (nbonds > bonds.length - 1) {
 			int storage = bonds.length + 10;
@@ -292,7 +317,7 @@ public class JMECore {
 		return bonds[nbonds] = (otherBond == null ? new Bond() : otherBond.deepCopy());
 	}
 
-	void cleanPolarBonds(boolean polarnitro) {
+	protected void cleanPolarBonds(boolean polarnitro) {
 		// changing [X+]-[Y-] into X=Y (such as non-symmetric nitro bonds)
 		// changing [X+]=[Y+] into X-Y (such as C+=C+ after fusing )
 		// key polarnitro added since version 2002.05
@@ -363,7 +388,7 @@ public class JMECore {
 	 * initialize the neighbor lists (adjency list) inside the atoms for a newly
 	 * created mol?
 	 */
-	void setNeighborsFromBonds() {
+	protected void setNeighborsFromBonds() {
 		// fills helper fields v[][], nv[], ??? vzdy allocates memory
 
 		for (int i = 1; i <= natoms; i++)
@@ -377,13 +402,13 @@ public class JMECore {
 		}
 	}
 
-	void addBothNeighbors(int at1, int at2) {
+	public void addBothNeighbors(int at1, int at2) {
 		atoms[at1].addNeighbor(at2);
 		atoms[at2].addNeighbor(at1);
 	}
 
 	// ----------------------------------------------------------------------------
-	void setValenceState() {
+	public void setValenceState() {
 		for (int i = 1; i <= natoms; i++) {
 			setAtomValenceState(i);
 		}
@@ -393,7 +418,7 @@ public class JMECore {
 	 * determine atom.nh and atom.q from atom.sbo (sum of bond ordes)
 	 * @param i
 	 */
-	void setAtomValenceState(int i) {
+	public void setAtomValenceState(int i) {
 		Atom atom = atoms[i];
 		int sbo = atom.sbo = sumBondOrders(i); // sum bond orders to nonhydrogen atoms
 		if (sbo == -1) {
@@ -596,7 +621,7 @@ public class JMECore {
 	 * @param atom
 	 * @return
 	 */
-	int sumBondOrders(int atom) {
+	public int sumBondOrders(int atom) {
 
 		int sbo = 0;
 		for (int i = 1; i <= nv(atom); i++) {
@@ -624,7 +649,7 @@ public class JMECore {
 	 * @param atom2
 	 * @return null if no bond was found
 	 */
-	Bond getBond(int atom1, int atom2) {
+	public Bond getBond(int atom1, int atom2) {
 		return this.bonds[getBondIndex(atom1, atom2)];
 	}
 
@@ -635,7 +660,7 @@ public class JMECore {
 	 * @param atom2
 	 * @return the bond index or 0
 	 */
-	int getBondIndex(int atom1, int atom2) {
+	public int getBondIndex(int atom1, int atom2) {
 		for (int i = 1; i <= nbonds; i++) {
 			if (bonds[i].isAB(atom1, atom2)) {
 				return i;
@@ -644,12 +669,12 @@ public class JMECore {
 		return 0;
 	}
 
-	boolean isSingle(int bond) {
+	public boolean isSingle(int bond) {
 		return bonds[bond].isSingle();
 
 	}
 
-	boolean isDouble(int bond) {
+	public boolean isDouble(int bond) {
 		return this.bonds[bond].isDouble();
 	}
 
@@ -657,7 +682,7 @@ public class JMECore {
 		return bonds[bond].bondType;
 	}
 
-	void complete(boolean computeValenceState) {
+	public void complete(boolean computeValenceState) {
 		setNeighborsFromBonds();
 		setBondCenters();
 		// March 2020: do valenceState() only if requested by the editor
@@ -666,7 +691,7 @@ public class JMECore {
 		}
 	}
 
-	protected void setBondCenters() {
+	public void setBondCenters() {
 		for (int b = 1; b <= nbonds; b++) {
 			setBondCenter(bonds[b]);
 		}
@@ -761,17 +786,11 @@ public class JMECore {
 	 * star mode and the atom has a specified background color, then returns 1.
 	 * Returns 0 if no mapping.
 	 * 
-	 * @param atomIndex
+	 * @param i
 	 * @return the map
 	 */
-	protected int findAtomMapForOutput(int atomIndex) {
-		int map = 0;
-		if (atomIndex > 0 && atomIndex <= this.nAtoms()) {
-			Atom atom = this.atoms[atomIndex];
-			map = atom.getMapOrMark(!parameters.mark);
-		}
-
-		return map;
+	public int findAtomMapForOutput(int i) {
+		return (i > 0 && i <= natoms ? atoms[i].getMapOrMark(!parameters.mark) : 0);
 	}
 
 	public boolean haveQueryOrCoordBonds() {
@@ -848,7 +867,7 @@ public class JMECore {
 
 	}
 
-	boolean deleteHydrogens(Parameters.HydrogenParams pars) {
+	public boolean deleteHydrogens(Parameters.HydrogenParams pars) {
 		boolean changed = false;
 
 		if (pars.removeHs == false) {
@@ -887,7 +906,7 @@ public class JMECore {
 		return changed;
 	}
 
-	protected void info(String msg) {
+	public void info(String msg) {
 		if (jmesl != null)
 			jmesl.info(msg);
 		else
@@ -904,19 +923,17 @@ public class JMECore {
 //	}
 
 
-	public static boolean hasAromaticBondType(JMECore mol) {
-		if (mol.nBonds() < 1 ) {
+	public boolean hasAromaticBondType() {
+		if (nbonds < 1 ) {
 			return false;
 		}
-		for(int b = 1; b <= mol.nBonds(); b++) {
-			Bond bond = mol.bonds[b];
+		for(int b = 1; b <= nbonds; b++) {
+			Bond bond = bonds[b];
 			if( bond.bondType == 4 || bond.bondType == Bond.AROMATIC || bond.bondType == Bond.QUERY) { //TODO: molfile reader should use AROMATIC?
 				return true;
 			}
 		}
-		
 		return false;
-
 	}
 
 	public double distance(int atom1, int atom2) {
@@ -940,6 +957,8 @@ public class JMECore {
 	}
 
 	protected final double[] cosSin = new double[2];
+	// static constants
+	public static final double RBOND = 25;
 
 	public void setCosSin(int atom1, int atom2) {
 		double dx = x(atom2) - x(atom1);
@@ -952,7 +971,7 @@ public class JMECore {
 	}
 
 
-	void rotate(double movex, double centerx, double centery) {
+	protected void rotate(double movex, double centerx, double centery) {
 		if (natoms == 0)
 			return; // bbox is null if the molecule has no atoms
 
@@ -984,5 +1003,102 @@ public class JMECore {
 		}
 		setBondCenters();
 	}
+
+	/**
+	 * Compute the atom and bond partIndex
+	 * 
+	 * @return the number of parts (0 if there are no atoms)
+	 */
+	public int computeMultiPartIndices() {
+
+		return computeMultiPartIndices(0);
+	}
+
+	public int computeMultiPartIndices(int bondToBeIgnored) {
+
+		int nparts = 0;
+
+		// reset the partIndex of atoms and bonds
+		for (int at = 1; at <= natoms; at++) {
+			atoms[at].partIndex = 0;
+		}
+
+		for (int b = 1; b <= nbonds; b++) {
+			bonds[b].partIndex = 0;
+		}
+
+		while (true) {
+			boolean newPartAssignedToAtom = false;
+			// find first atom that has no partIndex assigned
+			for (int at = 1; at <= natoms; at++) {
+				Atom atom = atoms[at];
+				if (atom.partIndex == 0) {
+					atom.partIndex = ++nparts;
+					newPartAssignedToAtom = true;
+					break;
+				}
+			}
+			if (!newPartAssignedToAtom)
+				break;
+
+			while (newPartAssignedToAtom) {
+				newPartAssignedToAtom = false;
+
+				// loop over the bonds - give the same part index to both atoms of the bond
+				for (int b = 1; b <= nbonds; b++) {
+					if (b == bondToBeIgnored)
+						continue;
+					Bond bond = bonds[b];
+					if (bond.partIndex > 0) {
+						continue;
+					}
+					Atom atom1 = this.atoms[bond.va];
+					Atom atom2 = this.atoms[bond.vb];
+					if (atom1.partIndex != atom2.partIndex) { // only one of the two is 0
+						bond.partIndex = atom1.partIndex = atom2.partIndex = nparts;
+						newPartAssignedToAtom = true;
+					} else {
+						bond.partIndex = atom1.partIndex; // this is a ring closure bond if atom1.partIndex > 0
+					}
+				}
+			}
+		}
+
+		return nparts;
+	}
+
+	public Box computeCoordinate2DboundingBox() {
+		Box bbox = null;
+
+		if (natoms == 0)
+			return bbox;
+
+		double minx = Double.MAX_VALUE, maxx = Double.MIN_VALUE, miny = Double.MAX_VALUE, maxy = Double.MIN_VALUE;
+
+		for (int i = 1; i <= natoms; i++) {
+			double x = x(i);
+			double y = y(i);
+
+			if (x < minx)
+				minx = x;
+
+			maxx = Math.max(x, maxx);
+
+			if (y < miny)
+				miny = y;
+
+			maxy = Math.max(y, maxy);
+		}
+
+		bbox = new Box();
+		bbox.x = minx;
+		bbox.y = miny;
+
+		bbox.width = maxx - minx;
+		bbox.height = maxy - miny;
+
+		return bbox;
+	}
+
 
 }

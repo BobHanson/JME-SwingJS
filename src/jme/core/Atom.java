@@ -1,16 +1,14 @@
 /**
  * 
  */
-package jme;
+package jme.core;
 
 import java.awt.FontMetrics;
-//START JAVA_IMPORT
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import jme.JMECore.Parameters;
-
-//END GWT_IMPORT
+import jme.AtomDisplayLabel;
+import jme.core.JMECore.Parameters;
 
 /**
  * @author bruno
@@ -18,58 +16,58 @@ import jme.JMECore.Parameters;
  */
 public class Atom implements AtomBondCommon {
 
-	static final int AN_H = 1;
-	static final int AN_B = 2;
-	static final int AN_C = 3;
-	static final int AN_N = 4;
-	static final int AN_O = 5;
-	static final int AN_SI = 6;
-	static final int AN_P = 7;
-	static final int AN_S = 8;
-	static final int AN_F = 9;
-	static final int AN_CL = 10;
-	static final int AN_BR = 11;
-	static final int AN_I = 12;
-	static final int AN_SE = 13;
+	public static final int AN_H = 1;
+	public static final int AN_B = 2;
+	public static final int AN_C = 3;
+	public static final int AN_N = 4;
+	public static final int AN_O = 5;
+	public static final int AN_SI = 6;
+	public static final int AN_P = 7;
+	public static final int AN_S = 8;
+	public static final int AN_F = 9;
+	public static final int AN_CL = 10;
+	public static final int AN_BR = 11;
+	public static final int AN_I = 12;
+	public static final int AN_SE = 13;
 
 	// BB
 	// https://en.wikipedia.org/wiki/List_of_oxidation_states_of_the_elements
-	static final int AN_K = 14;
-	static final int AN_METAL1_START = AN_K;
-	static final int AN_Na = 15;
-	static final int AN_Li = 16;
-	static final int AN_Rb = 17;
-	static final int AN_Cs = 18;
-	static final int AN_Fr = 19;
-	static final int AN_Ag = 20;
-	static final int AN_METAL1_END = AN_Ag;
+	public static final int AN_K = 14;
+	public static final int AN_METAL1_START = AN_K;
+	public static final int AN_Na = 15;
+	public static final int AN_Li = 16;
+	public static final int AN_Rb = 17;
+	public static final int AN_Cs = 18;
+	public static final int AN_Fr = 19;
+	public static final int AN_Ag = 20;
+	public static final int AN_METAL1_END = AN_Ag;
 
-	static final int AN_Mg = AN_METAL1_END + 1;
-	static final int AN_METAL2_START = AN_Mg;
-	static final int AN_Ca = AN_Mg + 1;
-	static final int AN_Ba = AN_Ca + 1;
-	static final int AN_Sr = AN_Ba + 1;;
-	static final int AN_Zn = AN_Sr + 1;
-	static final int AN_Ni = AN_Zn + 1;
-	static final int AN_Cu = AN_Ni + 1;
-	static final int AN_Cd = AN_Cu + 1;
+	public static final int AN_Mg = AN_METAL1_END + 1;
+	public static final int AN_METAL2_START = AN_Mg;
+	public static final int AN_Ca = AN_Mg + 1;
+	public static final int AN_Ba = AN_Ca + 1;
+	public static final int AN_Sr = AN_Ba + 1;;
+	public static final int AN_Zn = AN_Sr + 1;
+	public static final int AN_Ni = AN_Zn + 1;
+	public static final int AN_Cu = AN_Ni + 1;
+	public static final int AN_Cd = AN_Cu + 1;
 
-	static final int AN_METAL2_END = AN_Cd;
+	public static final int AN_METAL2_END = AN_Cd;
 
-	static final int AN_METAL3_START = AN_METAL2_END + 1;
-	static final int AN_Al = AN_METAL3_START;
-	static final int AN_Ga = AN_Al + 1;
-	static final int AN_Au = AN_Ga + 1;
-	static final int AN_METAL3_END = AN_Au;
+	public static final int AN_METAL3_START = AN_METAL2_END + 1;
+	public static final int AN_Al = AN_METAL3_START;
+	public static final int AN_Ga = AN_Al + 1;
+	public static final int AN_Au = AN_Ga + 1;
+	public static final int AN_METAL3_END = AN_Au;
 
-	static final int AN_X = AN_METAL3_END + 1;
+	public static final int AN_X = AN_METAL3_END + 1;
 
-	static final int AN_R = AN_X + 1;
-	// static final int AN_R1 = 20;
-	// static final int AN_R2 = 21;
-	// static final int AN_R3 = 22;
+	public static final int AN_R = AN_X + 1;
+	// public static final int AN_R1 = 20;
+	// public static final int AN_R2 = 21;
+	// public static final int AN_R3 = 22;
 	// added by BB
-	static final int AN_R_LAST = AN_R + 9; // keep the 9! 1 value for each R
+	public static final int AN_R_LAST = AN_R + 9; // keep the 9! 1 value for each R
 
 	public static int chargedMetalType(int an) {
 		if (an >= AN_METAL1_START && an <= AN_METAL1_END)
@@ -81,7 +79,7 @@ public class Atom implements AtomBondCommon {
 		return 0;
 	}
 
-	static final String zlabel[] = new String[AN_R_LAST + 1];
+	public static final String zlabel[] = new String[AN_R_LAST + 1];
 
 	public static void atomicData() {
 		zlabel[AN_X] = "X";
@@ -136,31 +134,26 @@ public class Atom implements AtomBondCommon {
 	 */
 	public int backgroundColors[];
 
-	int iso; // BB isotope
-	double x;
-	double y;
+	public int iso; // BB isotope
+	public double x;
+	public double y;
 	public double z;
 
-	// coordinates used for output (MOL, JSME)
-	public double xo;
-	public double yo;
+	public int q = 0;
 
-	int q = 0;
-
-	int partIndex; // ensemble index, if a ensemble is merged, this index gives molecule
-	boolean deleteFlag;
+	public int partIndex; // ensemble index, if a ensemble is merged, this index gives molecule
+	public boolean deleteFlag;
 
 	public String label;
-	int[] v = new int[JMEmol.MAX_BONDS_ON_ATOM + 1];
+	
+	public int[] v = new int[JMECore.MAX_BONDS_ON_ATOM + 1];
 
-	int nv;
+	public int nv;
 
-	int an = AN_C;
-	int nh = 0;
-	int sbo; // BB sum of bond order
-	String atag;
-
-	AtomDisplayLabel al;
+	public int an = AN_C;
+	public int nh = 0;
+	public int sbo; // BB sum of bond order
+	public String atag;
 
 	public Atom() {
 		resetBackgroundColors();
@@ -178,8 +171,6 @@ public class Atom implements AtomBondCommon {
 		a.x = this.x;
 		a.y = this.y;
 		a.z = this.z;
-		a.xo = this.xo;
-		a.yo = this.yo;
 		a.q = this.q;
 		a.label = this.label;
 		a.v = AtomBondCommon.copyArray(this.v);
@@ -199,7 +190,7 @@ public class Atom implements AtomBondCommon {
 	 * @param neighbor
 	 */
 	public void addNeighbor(int neighbor) {
-		if (this.nv < JMEmol.MAX_BONDS_ON_ATOM) {
+		if (this.nv < JMECore.MAX_BONDS_ON_ATOM) {
 			this.nv++;
 			this.v[this.nv] = neighbor;
 		}
@@ -225,16 +216,6 @@ public class Atom implements AtomBondCommon {
 		return hasBeenMapped() ? this.map : 0;
 	}
 
-//	public int getMarkerAsMap(boolean markerMultiColor) {
-//		if (markerMultiColor && this.backgroundColorIndex >= 0) { // active marker was enabled in JME
-//			return this.backgroundColorIndex + 1;
-//		}
-//		if (backgroundColors.length > 0 && backgroundColors[0] > 0)  {
-//			return 1; // any color
-//		}
-//		return 0;
-//	}
-
 	public int getMapOrMark(boolean isMap) {
 		return isMap ? getMap() : getMark();
 
@@ -245,19 +226,18 @@ public class Atom implements AtomBondCommon {
 			setMap(m);
 		else
 			setMark(m);
-
 	}
 
-	void setMap(int map) {
+	public void setMap(int map) {
 		this.map = map;
 	}
 
-	boolean isMapped() {
-		return this.getMap() != 0;
+	public boolean isMapped() {
+		return getMap() != 0;
 	}
 
 	// used for template
-	boolean isMappedOrMarked() {
+	public boolean isMappedOrMarked() {
 		return this.isMapped() || this.getMark() != 0;
 	}
 
@@ -373,7 +353,7 @@ public class Atom implements AtomBondCommon {
 	 * 
 	 * 
 	 */
-	String parseAtomicSymbolPatternIsotopMappAndCharge(String symbol,
+	public String parseAtomicSymbolPatternIsotopMappAndCharge(String symbol,
 			Parameters parameters) {
 
 		Matcher m = atomicSymbolPatternIsotopAndCharge.matcher(symbol);
@@ -461,13 +441,6 @@ public class Atom implements AtomBondCommon {
 		}
 
 		return symbol;
-	}
-
-	public void setDisplay(int alignment, boolean showHs, boolean showMap, FontMetrics fm, double h) {
-
-		al = new AtomDisplayLabel(x, y, getLabel(), an, nv, sbo, nh, q, iso, showMap && hasBeenMapped() ? getMap() : -1,
-				alignment, fm, h, showHs);
-
 	}
 
 	public String getLabel() {

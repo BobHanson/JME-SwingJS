@@ -1,7 +1,7 @@
 /**
  * 
  */
-package jme;
+package jme.core;
 
 import java.util.HashMap;
 
@@ -11,17 +11,13 @@ import java.util.HashMap;
  */
 public class AtomicElements {
 	//gain: only 80 bytes when compressed - gzip is very smart
-	protected static HashMap<String, int[]> Isotopes  ;
+	public static HashMap<String, int[]> isotopes;
 	
-	protected static HashMap<String, int[]> getIsotopicMap() {
-		if(Isotopes == null) {
-			initIsotopMap();
-		}
-		
-		return Isotopes;
+	public final static HashMap<String, int[]> getIsotopicMap() {
+		return (isotopes == null? initIsotopMap() : isotopes);
 	}
 	//this is not up to date - new elements have been discovered
-	static void initIsotopMap() {
+	static HashMap<String, int[]> initIsotopMap() {
 		String dataStr = "H.1,2,3." +
 				"He.3,4." +
 				"Li.6,7." +
@@ -128,18 +124,17 @@ public class AtomicElements {
 				"Ku.261";
 
 		String data[] = dataStr.split("\\.");
-		Isotopes = new HashMap<String, int[]>();
-		
+		isotopes = new HashMap<String, int[]>();		
 		for(int i = 0 ; i < data.length - 1; i+= 2) {
 			String symbol = data[i];
 			String[] parts = data[i+1].split(",");
-			assert parts.length > 0;
-			int isotopes[] = new int[parts.length];
+			int a[] = new int[parts.length];
 			for(int j = 0; j < parts.length; j++) {
-				isotopes[j] = Integer.parseInt(parts[j]);
+				a[j] = Integer.parseInt(parts[j]);
 			}
-			Isotopes.put(symbol, isotopes);
+			isotopes.put(symbol, a);
 		}
+		return isotopes;
 	}
 
 	/**
@@ -150,20 +145,12 @@ public class AtomicElements {
 	 */
 	public static int getIsotopicMassOfElementDelta(String elementSymbol, int delta) {
 		int m = getNaturalMass(elementSymbol);
-		if(m>0) {
-			return m + delta;
-		}
-		return -1;
+		return (m>0 ? m + delta : -1);
 	}
 	
 	public static int getDeltaIsotopicMassOfElement(String elementSymbol, int isotopMass) {
 		int m = getNaturalMass(elementSymbol);
-		if(m>0) {
-			return isotopMass - m;
-		}
-		
-		return 0;
-
+		return (m>0 ? isotopMass - m : -1);
 	}
 	/**
 	 * return 12 for "C", 16 for "N", ... or -1 if the symbol is not valid
@@ -172,12 +159,7 @@ public class AtomicElements {
 	 */
 	public static int getNaturalMass(String elementSymbol) {
 		int[] isotopes = AtomicElements.getIsotopicMap().get(elementSymbol);
-		
-		if(isotopes != null) {
-			return isotopes[0];
-		}
-		
-		return -1;
+		return (isotopes == null ? -1 : isotopes[0]);
 	}
 	/**
 	 * Return true if isotop is one of the known isotopes of the given element symbol.
@@ -193,10 +175,7 @@ public class AtomicElements {
 				if(isotop == isotopes[i])
 					return true;
 			}
-		}
-		
+		}		
 		return false;
 	}
-
-	
 }

@@ -1,4 +1,4 @@
 j2s.compiler.status=enable
-#j2s.compiler.nonqualified.classes=
+j2s.compiler.nonqualified.classes=jme.js;
 #j2s.excluded.paths=
 
