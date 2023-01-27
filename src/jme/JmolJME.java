@@ -55,10 +55,13 @@ import javax.swing.SwingUtilities;
 import org.jmol.adapter.smarter.AtomSetCollection;
 import org.jmol.adapter.smarter.Resolver;
 import org.jmol.adapter.writers.CDXMLWriter;
+import org.jmol.api.Interface;
 import org.jmol.api.JmolAdapter;
 import org.jmol.api.JmolAdapterAtomIterator;
 import org.jmol.api.JmolAdapterBondIterator;
 import org.jmol.api.JmolViewer;
+import org.jmol.api.SmilesMatcherInterface;
+import org.jmol.smiles.SmilesMatcher;
 import org.jmol.viewer.JC;
 import org.jmol.viewer.Viewer;
 
@@ -83,6 +86,7 @@ public class JmolJME extends JME implements WindowListener {
 	 * cleaning.
 	 */
 	private boolean allowClean = true;
+	private SmilesMatcher smilesMatcher;
 
 	public JmolJME() {
 		super(null, true);
@@ -93,14 +97,16 @@ public class JmolJME extends JME implements WindowListener {
 		// from JmolPanel
 		parentWindow = parent;
 		this.vwr = vwr;
-		if (parent == null)
-			headless = vwr.headless; 
-		if (frame == null) {
-			frame = getJmolFrame(frameType, (parent == null));
+		if (parent == null && frame == null)
+			headless = vwr.headless;
+		if (!headless) {
+			if (frame == null) {
+				frame = getJmolFrame(frameType, (parent == null));
+			}
+			setFrame(frame);
+			frame.setResizable(true);
+			frame.setVisible(true);
 		}
-		setFrame(frame);
-		frame.setResizable(true);
-		frame.setVisible(true);
 		initialize();
 	}
 
@@ -256,6 +262,14 @@ public class JmolJME extends JME implements WindowListener {
 		}
 		return null;
 	}
+	
+	
+	  public SmilesMatcher getSmilesMatcher() {
+		    return (smilesMatcher == null
+		        ? (smilesMatcher = new SmilesMatcher()) : smilesMatcher);
+		  }
+
+
 
 
 	public byte[] toPNG(String filename) {
@@ -335,8 +349,9 @@ public class JmolJME extends JME implements WindowListener {
 		if (activeMol.natoms == 0)
 			return "";
 		if (JMEUtil.isSwingJS) {
-		    return vwr.getSmilesMatcher().getSmilesFromJME(jmeFile());
+		    return getSmilesMatcher().getSmilesFromJME(jmeFile());
 		} 
+		// Java only -- do we need this at all?
 		String mol = molFile();
 		if (mol.length() == 0)
 			return "";
@@ -747,7 +762,13 @@ public class JmolJME extends JME implements WindowListener {
 	public static void main(String[] args) {
 		JFrame frame = null;
 		JmolJME jjme = new JmolJME();
-		Viewer vwr = (Viewer) JmolViewer.allocateViewer(null, null);
+	    Map<String, Object> info = new Hashtable<String, Object>();
+	    info.put("isApp",Boolean.TRUE);
+	    info.put("headless",Boolean.TRUE);
+	    info.put("noscripting", Boolean.TRUE);
+	    info.put("noDisplay", Boolean.TRUE);
+	    info.put("repaintManager", "NONE");
+		Viewer vwr = new Viewer(info);
 		jjme.vwr = vwr;
 		String type = null;
 		
