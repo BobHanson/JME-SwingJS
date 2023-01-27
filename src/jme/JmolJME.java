@@ -693,14 +693,12 @@ public class JmolJME extends JME implements WindowListener {
 
 	@Override
 	public void windowOpened(WindowEvent e) {
-		// TODO
+		// 
 
 	}
 
 	@Override
 	public void windowClosing(WindowEvent e) {
-		// TODO
-
 	}
 
 	@Override
@@ -711,25 +709,25 @@ public class JmolJME extends JME implements WindowListener {
 
 	@Override
 	public void windowIconified(WindowEvent e) {
-		// TODO
+		// 
 
 	}
 
 	@Override
 	public void windowDeiconified(WindowEvent e) {
-		// TODO
+		// 
 
 	}
 
 	@Override
 	public void windowActivated(WindowEvent e) {
-		// TODO
+		// 
 
 	}
 
 	@Override
 	public void windowDeactivated(WindowEvent e) {
-		// TODO
+		// 
 
 	}
 
@@ -802,9 +800,6 @@ public class JmolJME extends JME implements WindowListener {
 			jjme.myFrame.setVisible(true);
 			jjme.start(new String[0]);
 		});
-
-		// TODO Auto-generated method stub
-
 	}
 
 	private static void testJMEHeadless(JmolJME jjme) {
