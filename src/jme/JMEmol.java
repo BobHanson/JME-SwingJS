@@ -1411,17 +1411,12 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			if (atomLabels[i].noLabelAtom) {
 				continue;
 			}
-			Box r = atomLabels[i].fillBox;
-
 			og.setBackGroundColor(); // set default background color
 			setPresetPastelBackGroundColor(og, i, true);
 
 			// surround the atom label with background color to mask the bonds around the
 			// atom label
-			double roundedCorner = r.height / 2; // the height of the box depends on the font height used to compute the
-													// box size
-			og.fillRoundRect(r.x, r.y, r.width, r.height, roundedCorner, roundedCorner);
-
+			atomLabels[i].fill(og);
 			// color for the atom symbol
 			og.setColor(JME.color[an(i)]);
 			Color strokeColor = atomTextStrokeColorArray[i];
@@ -1580,7 +1575,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * // bug fix November 2019: atom map
 	 * 
 	 */
-	synchronized void computeAtomLabels() {
+	void computeAtomLabels() {
 		int atom1, atom2;
 
 		boolean showHs = parameters.hydrogenParams.showHs;
@@ -1589,49 +1584,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		FontMetrics fm = (jme == null ? null : jme.atomDrawingAreaFontMet);
 		double h = (jme == null ? 9.0 : JMEUtil.stringHeight(fm));
 		double rb = RBOND();		
-
-		// first compute for each atom the average X of its neighbors
-		// this will be used to determine the text orientation of the label
-		double neighborXSum[] = new double[natoms + 1];
-		int neighborCount[] = new int[natoms + 1];
-
-		for (int i = 1; i <= nbonds; i++) {
-			atom1 = bonds[i].va;
-			atom2 = bonds[i].vb;
-			neighborXSum[atom1] += x(atom2);
-			neighborXSum[atom2] += x(atom1);
-			neighborCount[atom1]++;
-			neighborCount[atom2]++;
-		}
-
-		// BB
-		// try to improve the positioning and direction of the atom label when there are
-		// either charges or implicit hydrogens
-		// Direction example: -NH2 or H2N-
-		// vertical positioning is currently not implemented
-		// TODO: NH2, the 2 should subscript
-		// TODO NH3+, the + should be superscript
-		if (atomLabels == null || atomLabels.length < natoms + 1) {
-			atomLabels = new AtomDisplayLabel[natoms + 1];
-		}
-		
-		for (int i = 1; i <= natoms; i++) {
-			int n = neighborCount[i];
-			double diff = neighborXSum[i] / neighborCount[i] - x(i);
-			int alignment;
-
-			if (n > 2 || n == 0 || n == 2 && Math.abs(diff) < rb / 3) {
-				// if more than 2 neighbors, center
-				// or if more than one neighbors and no clear x direction
-				alignment = JMEUtil.ALIGN_CENTER;
-			} else if (n == 1 && Math.abs(diff) < rb / 10) {
-				// if the two atoms are vertically aligned, then no right to left
-				alignment = JMEUtil.ALIGN_LEFT;
-			} else { 
-				alignment = (diff < 0 ? JMEUtil.ALIGN_LEFT : JMEUtil.ALIGN_RIGHT);
-			}
-			atomLabels[i] = AtomDisplayLabel.create(atoms[i], alignment, fm, h, showHs, showMap);
-		}
+		atomLabels = AtomDisplayLabel.createLabels(this, rb, fm, h, showHs, showMap, atomLabels);
 	}
 
 	boolean hasAtomFlaggedToBeDeleted() {

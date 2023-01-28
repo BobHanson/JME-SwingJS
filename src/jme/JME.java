@@ -6454,7 +6454,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param y
 	 * @param result
 	 */
-	void findMolAndAtomOrBondWithinRadius(int x, int y, int radius, Touched result) {
+	synchronized void findMolAndAtomOrBondWithinRadius(int x, int y, int radius, Touched result) {
 		result.reset();
 		double xCoord = screenToDrawingX(x);
 		double yCoord = screenToDrawingY(y);
@@ -8728,15 +8728,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public int totalNumberOfAtoms() {
-
 		return this.moleculePartsList.totalNumberOfAtoms();
-//		int cumulAtomCount = 0;
-//		for (int i = 1; i <= numberofMoleculeParts; i++) {
-//			JMEmol mol = this.selectMolIfValidOrShowError(i);
-//			cumulAtomCount += mol.nAtoms();
-//		}
-//
-//		return cumulAtomCount;
 	}
 
 	/**

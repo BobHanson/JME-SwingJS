@@ -10,10 +10,6 @@ public abstract class JMEUtil {
 	
 	public static boolean isSwingJS = /** @j2sNative true || */false;
 
-	public static final int ALIGN_LEFT = 0;
-	public static final int ALIGN_CENTER = 1;
-	public static final int ALIGN_RIGHT = 2;
-
 	/**
 	 * Check if the applet is showing in highDPI or not. In a web browser, this can
 	 * change with the zoom factor, thus this function should be called before each
