@@ -5169,7 +5169,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		merged.atoms[0] = new Atom(); // needed by rubberbanding()
 
 		// bug: the user selected bond order is not taken into account
-		merged.createAndAddNewBond(atom1, atom2);
+		merged.createAndAddNewBond(atom1, atom2, Bond.SINGLE);
 
 		moleculePartsList.remove(otherMol);
 		moleculePartsList.replace(active, merged);
@@ -7956,9 +7956,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					// October 2019
 					if (moleculePartsList.size() > 0) {
 						// this is done when reading the input file
-						// JMEmol.scaleInternalBondMolList(moleculeParts,
-						// numberofMoleculeParts);
-						// JMEmol.centerMolList(this, moleculeParts, numberofMoleculeParts);
 						molecularAreaScalePixelsPerCoord = scaleAndCenterForDepictMode(graphicalObjectList());
 					}
 					resetAllGraphics();

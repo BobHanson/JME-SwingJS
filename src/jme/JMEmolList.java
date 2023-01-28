@@ -939,12 +939,12 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		if (bondCount > 0) {
 			sumlen = sumlen / bondCount;
 			// scale = RBOND / sumlen;
-			scale = this.first().RBOND() / sumlen; // BB
+			scale = this.first().RBOND / sumlen; // BB
 
 		} else {
 			for (JMEmol mol : this) {
 				if (mol.nAtoms() > 1) {
-					scale = 3. * mol.RBOND() / mol.distance(1, 2); // BB
+					scale = 3. * mol.RBOND / mol.distance(1, 2); // BB
 					break;
 				}
 

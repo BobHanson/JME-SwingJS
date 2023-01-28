@@ -300,23 +300,6 @@ public class JMECore {
 		return this.atoms[natoms] = (atomToDuplicate == null ? new Atom() : (Atom) atomToDuplicate.deepCopy());
 	}
 
-	/**
-	 * Create new bonds (standard Bond.SINGLE), allocating memory if necessary
-	 * 
-	 * @param otherBond
-	 * @return new Bond
-	 */
-	protected Bond createAndAddBondFromOther(Bond otherBond) {
-		nbonds++;
-		if (nbonds > bonds.length - 1) {
-			int storage = bonds.length + 10;
-			Bond newBonds[] = new Bond[storage];
-			System.arraycopy(bonds, 0, newBonds, 0, bonds.length);
-			bonds = newBonds;
-		}
-		return bonds[nbonds] = (otherBond == null ? new Bond() : otherBond.deepCopy());
-	}
-
 	protected void cleanPolarBonds(boolean polarnitro) {
 		// changing [X+]-[Y-] into X=Y (such as non-symmetric nitro bonds)
 		// changing [X+]=[Y+] into X-Y (such as C+=C+ after fusing )
@@ -1120,5 +1103,69 @@ public class JMECore {
 		return bbox;
 	}
 
+	/**
+	 * Determine the best position to add a newly bonded atom to an existing atom in
+	 * the molecule.
+	 * 
+	 * @param pt
+	 * @param rbond
+	 * @param newPoint
+	 */
+	public void getNewPoint(int pt, double rbond, double[] newPoint) {
+		// adding new atom to source with two bonds already
+		// called when creating new bond or ring center
+		int atom1 = v(pt)[1];
+		int atom2 = v(pt)[2];
+		double dx = x(atom2) - x(atom1);
+		double dy = -(y(atom2) - y(atom1));
+		double rx = Math.sqrt(dx * dx + dy * dy);
+		if (rx < 0.001)
+			rx = 0.001;
+		double sina = dy / rx;
+		double cosa = dx / rx;
+		// vzd. act_a od priamky atom1-atom2
+		double vzd = Math.abs((y(pt) - y(atom1)) * cosa + (x(pt) - x(atom1)) * sina);
+		if (vzd < 1.0) { // perpendicular to linear moiety
+			dx = x(pt) - x(atom1);
+			dy = y(pt) - y(atom1);
+			rx = Math.sqrt(dx * dx + dy * dy);
+			if (rx < 0.001)
+				rx = 0.001;
+			double xx = rx;
+			double yy = rbond;
+			sina = dy / rx;
+			cosa = dx / rx;
+			newPoint[0] = x(atom1) + xx * cosa - yy * sina;
+			newPoint[1] = y(atom1) + yy * cosa + xx * sina;
+		} else { // da do stredu tych 2 vazieb a oproti nim
+			double xpoint = (x(atom1) + x(atom2)) / 2.;
+			double ypoint = (y(atom1) + y(atom2)) / 2.;
+			dx = x(pt) - xpoint;
+			dy = y(pt) - ypoint;
+			rx = Math.sqrt(dx * dx + dy * dy);
+			if (rx < 0.001)
+				rx = 0.001;
+			newPoint[0] = x(pt) + rbond * dx / rx;
+			newPoint[1] = y(pt) + rbond * dy / rx;
+		}
+	}
 
+	/**
+	 * Create new bonds (standard Bond.SINGLE), allocating memory if necessary
+	 * 
+	 * @param otherBond
+	 * @return new Bond
+	 */
+	public Bond createAndAddBondFromOther(Bond otherBond) {
+		nbonds++;
+		if (nbonds > bonds.length - 1) {
+			int storage = bonds.length + 10;
+			Bond newBonds[] = new Bond[storage];
+			System.arraycopy(bonds, 0, newBonds, 0, bonds.length);
+			bonds = newBonds;
+		}
+		return bonds[nbonds] = (otherBond == null ? new Bond() : otherBond.deepCopy());
+	}
+
+	
 }

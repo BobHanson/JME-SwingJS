@@ -364,7 +364,7 @@ public class JMEBuilder {
 	}
 
 	private Bond createAndAddNewBond() {
-		Bond b = mol.createAndAddNewBond();
+		Bond b = mol.createAndAddBondFromOther(null);
 		bonds = mol.bonds;
 		return b;
 	}

@@ -277,7 +277,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			}
 			// --- bonds
 			for (int i = 1; i <= nbondsx; i++) {
-				Bond bond = createAndAddNewBond();
+				Bond bond = createAndAddBondFromOther(null);
 				bond.va = Integer.valueOf(st.nextToken()).intValue();
 				bond.vb = Integer.valueOf(st.nextToken()).intValue();
 				int bondType = Integer.valueOf(st.nextToken()).intValue();
@@ -434,7 +434,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		}
 
 		for (int i = 1; i <= nbondsx; i++) {
-			Bond bond = createAndAddNewBond();
+			Bond bond = createAndAddBondFromOther(null);
 			line = JMEUtil.nextData(st, separator);
 			bond.va = Integer.valueOf(line.substring(0, 3).trim()).intValue();
 			bond.vb = Integer.valueOf(line.substring(3, 6).trim()).intValue();
@@ -518,7 +518,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					int a = Integer.valueOf(stq.nextToken()).intValue();
 					int nr = Integer.valueOf(stq.nextToken()).intValue();
 					// addinf Rnr to atom a
-					addBondToAtom(a, 0);
+					// BH 2023.01.28 no linear addition or new action
+					addBondToAtom(a, 0, false, false);
 					setAtom(natoms, "R" + nr);
 				}
 			}
@@ -576,7 +577,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	      setAtom(natoms, JmolAdapter.getElementSymbol(atomIterator.getElement()));
 	    }
 	    while (bondIterator.hasNext()) {
-	      Bond b = createAndAddNewBond();
+	      Bond b = createAndAddBondFromOther(null);
 	      b.va = atomMap.get(bondIterator.getAtomUniqueID1()).intValue();
 	      b.vb = atomMap.get(bondIterator.getAtomUniqueID2()).intValue();
 	      int bo = bondIterator.getEncodedOrder();
@@ -719,10 +720,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		}
 	}
 
-	Bond createAndAddNewBond(int atom1, int atom2) {
-		return createAndAddNewBond(atom1, atom2, Bond.SINGLE);
-	}
-
 	/**
 	 * Create and add a new bond to my bond list
 	 * 
@@ -733,7 +730,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 */
 	public Bond createAndAddNewBond(int at1, int at2, int bondType) {
 		//assert (at1 != at2);
-		Bond newBond = this.createAndAddNewBond(); // the new bond index is this.nbonds
+		Bond newBond = createAndAddBondFromOther(null); // the new bond index is this.nbonds
 		addBothNeighbors(at1, at2); // set up the adjacency lists
 		newBond.va = at1;
 		newBond.vb = at2;
@@ -882,7 +879,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		double max = 0;
 		double min = Double.MAX_VALUE;
-		double refBondLength = RBOND();
+		double refBondLength = RBOND;
 
 		for (int i = 1; i <= nbonds; i++) {
 			Bond b = bonds[i];
@@ -1585,7 +1582,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				|| parameters.showAtomMapNumberWithBackgroundColor);
 		FontMetrics fm = jme.gui.atomDrawingAreaFontMet;
 		double h = (/*jme == null ? 9.0 : */GUI.stringHeight(fm));
-		double rb = RBOND();		
+		double rb = RBOND;		
 		atomLabels = AtomDisplayLabel.createLabels(this, rb, fm, h, showHs, showMap, atomLabels);
 	}
 
@@ -1816,7 +1813,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			if (nv(n) < MAX_BONDS_ON_ATOM) { // if ==, no error message
 				// making bond n - nchain-1
 				int parent = chain[nchain - 1];
-				createAndAddNewBond(n, parent);
+				createAndAddNewBond(n, parent, Bond.SINGLE);
 			}
 			deleteAtom(natoms); // delete the last atom from the chain because of the closing with anonther atom
 		}
@@ -1831,7 +1828,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @return the atom index that is the closest among the too close ones
 	 */
 	int checkTouch(int atom) {
-		return this.checkTouchToAtom(atom, 1, natoms);
+		return checkTouchToAtom(atom, 1, natoms);
 	}
 
 	/**
@@ -2203,30 +2200,40 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		this.addBondToAtom(touchedAtom, up);
 	}
 
+	public boolean addBondToAtom(int selectedAtom, int up) {
+		return addBondToAtom(selectedAtom, up, 
+				linearAdding || jme.action == Actions.ACTION_BOND_TRIPLE, 
+				jme.action == Actions.ACTION_BOND_DOUBLE);
+	}
+
 	/**
 	 * 
-	 * @param up flip bond to other side - only possible if the touched atom has 1
-	 *           valence values for flip: 0,-1 or 1
+	 * @param atom         to be added to
+	 * @param up           flip bond to other side - only possible if the touched
+	 *                     atom has 1 valence values for flip: 0,-1 or 1
+	 * @param forceLinear  if prev or this will be a triple bond
+	 * @param addingDouble if this will be a double bond, as it will be linear, in
+	 *                     that case, if the prev bond is double.
 	 * @return true if the up was the parameter used
 	 */
-	public boolean addBondToAtom(int selectedAtom, int up) {
+	public boolean addBondToAtom(int atom, int up, boolean forceLinear, boolean addingDouble) {
 		boolean upWasUsed = false;
-		createAtom();
-		switch (nv(selectedAtom)) {
+		createAtomFromOther(null);
+		switch (nv(atom)) {
 		case 0:
-			XY(natoms, x(selectedAtom) + RBOND() * .866, y(selectedAtom) + RBOND() * .5);
+			XY(natoms, x(atom) + RBOND * .866, y(atom) + RBOND * .5);
 			break;
 		case 1:
-			int atom1 = v(selectedAtom)[1];
+			int atom1 = v(atom)[1];
 			int atom3 = 0; // reference, aby to slo rovno
 			if (nv(atom1) == 2) {
-				if (v(atom1)[1] == selectedAtom) 
+				if (v(atom1)[1] == atom) 
 					atom3 = v(atom1)[2];
 				else
 					atom3 = v(atom1)[1];
 			}
-			double dx = x(selectedAtom) - x(atom1);
-			double dy = y(selectedAtom) - y(atom1);
+			double dx = x(atom) - x(atom1);
+			double dy = y(atom) - y(atom1);
 			double rx = Math.sqrt(dx * dx + dy * dy);
 			if (rx < 0.001)
 				rx = 0.001;
@@ -2236,19 +2243,15 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			double yy;
 			// checking for allene -N=C=S, X#C-, etc
 			// chain je ako linear !
-			Bond b = getBond(selectedAtom, atom1);
-			if (linearAdding 
-					|| b.bondType == Bond.TRIPLE
-					|| jme.action == Actions.ACTION_BOND_TRIPLE
-					|| (b.bondType != Bond.SINGLE 
-						&& (jme.action == Actions.ACTION_BOND_DOUBLE))
-					|| linearAdding) // linearAdding pre ACTION_TBU
+			Bond b = getBond(atom, atom1);
+			if (forceLinear	|| b.bondType == Bond.TRIPLE
+					|| (b.bondType == Bond.DOUBLE && addingDouble))
 			{
-				xx = rx + RBOND();
+				xx = rx + RBOND;
 				yy = 0.;
 			} else {
-				xx = rx + RBOND() * Math.cos(Math.PI / 3.);
-				yy = RBOND() * Math.sin(Math.PI / 3.);
+				xx = rx + RBOND * Math.cos(Math.PI / 3.);
+				yy = RBOND * Math.sin(Math.PI / 3.);
 			}
 			if (atom3 > 0) // to keep growing chain linear
 				if (((y(atom3) - y(atom1)) * cosa - (x(atom3) - x(atom1)) * sina) > 0.)
@@ -2266,7 +2269,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		case 2:
 			double[] newPoint = new double[2];
-			getNewPoint(selectedAtom, (double) RBOND(), newPoint);
+			getNewPoint(atom, RBOND, newPoint);
 			XY(natoms, newPoint[0], newPoint[1]);
 			break;
 
@@ -2274,16 +2277,16 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		case 4:
 		case 5:
 			// postupne skusa linearne predlzenie vsetkych vazieb z act_a
-			for (int i = 1; i <= nv(selectedAtom); i++) {
-				atom1 = v(selectedAtom)[i];
-				dx = x(selectedAtom) - x(atom1);
-				dy = y(selectedAtom) - y(atom1);
+			for (int i = 1; i <= nv(atom); i++) {
+				atom1 = v(atom)[i];
+				dx = x(atom) - x(atom1);
+				dy = y(atom) - y(atom1);
 				rx = Math.sqrt(dx * dx + dy * dy);
 				if (rx < 0.001)
 					rx = 0.001;
-				XY(natoms, x(selectedAtom) + RBOND() * dx / rx, y(selectedAtom) + RBOND() * dy / rx);
+				XY(natoms, x(atom) + RBOND * dx / rx, y(atom) + RBOND * dy / rx);
 				// teraz testuje ci sa nedotyka
-				if (checkTouch(natoms) == 0 || i == nv(selectedAtom))
+				if (checkTouch(natoms) == 0 || i == nv(atom))
 					break;
 			}
 			break;
@@ -2292,7 +2295,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			info("Are you trying to draw an hedgehog ?", JME.LA_FAILED);
 			return upWasUsed;
 		}
-		completeBond(selectedAtom);
+		completeBond(atom);
 
 		xorg = x(natoms);
 		yorg = y(natoms); // used after moving, when moving !OK
@@ -2356,60 +2359,22 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * on JME
 	 */
 	void completeBond(int touchedAtom) {
-		Bond bond = createAndAddNewBond(touchedAtom, natoms);
-		if (jme.action == Actions.ACTION_BOND_DOUBLE)
-			bond.bondType = Bond.DOUBLE;
-		if (jme.action == Actions.ACTION_BOND_TRIPLE)
-			bond.bondType = Bond.TRIPLE;
+		createAndAddNewBond(touchedAtom, natoms, 
+				(jme.action == Actions.ACTION_BOND_DOUBLE ? Bond.DOUBLE
+				: jme.action == Actions.ACTION_BOND_TRIPLE ? Bond.TRIPLE 
+				: Bond.SINGLE));
 		// creating new bond with stereo tool
 		if (jme.action == Actions.ACTION_STEREO)
 			toggleBondStereo(nbonds);
 	}
 
-	// ----------------------------------------------------------------------------
-	 public void getNewPoint(int pt, double rbond, double[] newPoint) {
-			// adding new atom to source with two bonds already
-			// called when creating new bond or ring center
-			int atom1 = v(pt)[1];
-			int atom2 = v(pt)[2];
-			double dx = x(atom2) - x(atom1);
-			double dy = -(y(atom2) - y(atom1));
-			double rx = Math.sqrt(dx * dx + dy * dy);
-			if (rx < 0.001)
-				rx = 0.001;
-			double sina = dy / rx;
-			double cosa = dx / rx;
-			// vzd. act_a od priamky atom1-atom2
-			double vzd = Math.abs((y(pt) - y(atom1)) * cosa + (x(pt) - x(atom1)) * sina);
-			if (vzd < 1.0) { // perpendicular to linear moiety
-				dx = x(pt) - x(atom1);
-				dy = y(pt) - y(atom1);
-				rx = Math.sqrt(dx * dx + dy * dy);
-				if (rx < 0.001)
-					rx = 0.001;
-				double xx = rx;
-				double yy = rbond;
-				sina = dy / rx;
-				cosa = dx / rx;
-				newPoint[0] = x(atom1) + xx * cosa - yy * sina;
-				newPoint[1] = y(atom1) + yy * cosa + xx * sina;
-			} else { // da do stredu tych 2 vazieb a oproti nim
-				double xpoint = (x(atom1) + x(atom2)) / 2.;
-				double ypoint = (y(atom1) + y(atom2)) / 2.;
-				dx = x(pt) - xpoint;
-				dy = y(pt) - ypoint;
-				rx = Math.sqrt(dx * dx + dy * dy);
-				if (rx < 0.001)
-					rx = 0.001;
-				newPoint[0] = x(pt) + rbond * dx / rx;
-				newPoint[1] = y(pt) + rbond * dy / rx;
-			}
-		}
-	// ----------------------------------------------------------------------------
 	// necessary to add "smaller" bonds in scaled molecule bt WebME
-	double RBOND() {
-		return (JME.scalingIsPerformedByGraphicsEngine ? JMECore.RBOND : JMECore.RBOND * jme.molecularAreaScalePixelsPerCoord);
-	}
+//	double RBOND() {
+//		return //(
+//				//JME.scalingIsPerformedByGraphicsEngine ? 
+//				JMECore.RBOND;
+//				//			: JMECore.RBOND * jme.molecularAreaScalePixelsPerCoord);
+//	}
 
 	/**
 	 * Add all other molecule (fragment) atoms and bonds to my self. Do not create a
@@ -2444,6 +2409,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return createAtomFromOther(null);
 	}
 
+	@Override
 	protected Atom createAtomFromOther(Atom atomToDuplicate) {
 		atomLabels = null;
 		return super.createAtomFromOther(atomToDuplicate);
@@ -2606,11 +2572,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	public int[] getBondBackgroundColors(int b) {
 		return (b > 0 && b <= nbonds ? bonds[b].getBackgroundColors() : null);
-	}
-
-	// ----------------------------------------------------------------------------
-	public Bond createAndAddNewBond() {
-		return createAndAddBondFromOther(null);
 	}
 
 	/**
