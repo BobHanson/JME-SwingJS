@@ -5260,9 +5260,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (isInMolecularArea(x, y)) {
 			newScale = this.molecularAreaScalePixelsPerCoord * sizeChange;
 
-			System.out.println("JME wheeling " + notches + " " + this.molecularAreaScalePixelsPerCoord + " " + newScale
-					+ " " + sizeChange);
-
 			if ((newScale > this.molecularAreaScalePixelsPerCoord && newScale <= maxMolecularAreaScale) // size
 																										// increased,
 																										// but not too
