@@ -3,11 +3,9 @@
  */
 package jme.core;
 
-import java.awt.FontMetrics;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import jme.AtomDisplayLabel;
 import jme.core.JMECore.Parameters;
 
 /**
@@ -482,11 +480,11 @@ public class Atom implements AtomBondCommon {
 	}
 
 	public int getMark() {
-		return Math.max(this.mark, 0);
+		return Math.max(mark, 0);
 	}
 
 	public void setMark(int markOrMap) {
-		this.mark = markOrMap;
+		mark = markOrMap;
 	}
 
 	public boolean isMarked() {

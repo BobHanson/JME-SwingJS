@@ -20,7 +20,7 @@ public class AtomDisplayLabel {
 	public int alignment;
 	public boolean noLabelAtom;
 
-	public Box box;
+	public Box drawBox, fillBox;
 	public double labelX;
 	public double labelY;
 
@@ -122,7 +122,7 @@ public class AtomDisplayLabel {
 				bsSS.or(superscripts);
 				yAdj2 = 1;
 			}
-			xAdj = (bsSS.cardinality() * fm.charWidth('1') * (1-0.6));
+			xAdj = (bsSS.cardinality() * fm.charWidth('2') * (1-0.6));
 		}
 		
 	
@@ -150,7 +150,12 @@ public class AtomDisplayLabel {
 		// to take into account the line thickness
 		xstart -= lineThickness;
 		fullWidth += lineThickness;
-		Box box = this.box = new Box(
+		fillBox = new Box(
+				xstart - padding,
+				ystart - padding, 
+				fullWidth + 2 * padding, 
+				h + 2 * padding);
+		Box box = this.drawBox = new Box(
 				xstart - padding,
 				ystart - padding - yAdj2 * h/3, 
 				fullWidth + 2 * padding, 

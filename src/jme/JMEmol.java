@@ -1412,7 +1412,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			if (atomLabels[i].noLabelAtom) {
 				continue;
 			}
-			Box r = atomLabels[i].box;
+			Box r = atomLabels[i].fillBox;
 
 			og.setBackGroundColor(); // set default background color
 			setPresetPastelBackGroundColor(og, i, true);
@@ -1493,7 +1493,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					Color.blue);
 
 			if (touchedAtom > 0 && jme.action != JME.ACTION_DELGROUP) {
-				Rectangle2D.Double r = atomLabels[touchedAtom].box;
+				Rectangle2D.Double r = atomLabels[touchedAtom].drawBox;
 				og.drawRect(r.x, r.y, r.width, r.height);
 			}
 
@@ -1559,7 +1559,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 						this.atoms[i].deleteFlag = false;
 						if (atoms[i].partIndex == partToDelete) {
 							this.atoms[i].deleteFlag = true;
-							Rectangle2D.Double r = atomLabels[i].box;
+							Rectangle2D.Double r = atomLabels[i].drawBox;
 							og.drawRect(r.x, r.y, r.width, r.height);
 						}
 					}
@@ -1696,7 +1696,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			return union;
 		computeAtomLabels();
 		for (int i = 1; i <= natoms; i++)
-			union = this.atomLabels[i].box.createUnion(union, union);
+			union = this.atomLabels[i].drawBox.createUnion(union, union);
 		return union;
 	}
 
