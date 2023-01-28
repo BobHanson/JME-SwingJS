@@ -1,4 +1,4 @@
-package jme;
+package jme.gui;
 
 import java.awt.Color;
 import java.awt.FlowLayout;
@@ -13,9 +13,11 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
+import jme.JME;
+
 // ****************************************************************************
 @SuppressWarnings("serial")
-class QueryBox extends FrameWithLocation {
+public class QueryBox extends FrameWithLocation {
 	// static Point point = new Point(20, 200);
 	Point myLocation;
 	JTextField text;
@@ -31,7 +33,7 @@ class QueryBox extends FrameWithLocation {
 	// novom stlacenie QRY (aby sa window dostalo hore)
 	// ----------------------------------------------------------------------------
 
-	QueryBox(JME jme) {
+	public QueryBox(JME jme) {
 		super("Atom/Bond Query");
 		this.jme = jme;
 		bgc = jme.bgColor;
@@ -47,10 +49,6 @@ class QueryBox extends FrameWithLocation {
 
 		setLayout(new GridLayout(0, 1));
 
-		// BB It is not necesssary to specify a font, the default one looks good
-		if (jme.dialogFont != null) {
-			setFont(jme.dialogFont);
-		}
 		setBackground(bgc);
 
 		JPanel p1 = new JPanel();
@@ -258,8 +256,8 @@ class QueryBox extends FrameWithLocation {
 			}
 
 			// v JME menu nastavi na query (ak bolo medzitym ine)
-			if (jme.action != JME.ACTION_QRY) {
-				jme.action = JME.ACTION_QRY;
+			if (jme.action != Actions.ACTION_QRY) {
+				jme.action = Actions.ACTION_QRY;
 				jme.repaint();
 			}
 
@@ -449,12 +447,12 @@ class QueryBox extends FrameWithLocation {
 	}
 
 	// --------------------------------------------------------------------------
-	boolean isBondQuery() {
+	public boolean isBondQuery() {
 		return isBondQuery;
 	}
 
 	// --------------------------------------------------------------------------
-	String getSmarts() {
+	public String getSmarts() {
 		return text.getText();
 	}
 	// --------------------------------------------------------------------------

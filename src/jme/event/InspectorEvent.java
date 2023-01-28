@@ -1,18 +1,22 @@
-package jme;
+package jme.event;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+import jme.JME;
+import jme.JMEUtil;
+import jme.JMEmol;
+import jme.gui.AtomInspector;
 import jme.js.JSME_RunAsyncCallback;
 
-class InspectorEvent implements ActionListener {
-	JMEmol mol;
-	int atomIndex;
-	int bondIndex;
-	int molIndex; // 0 based
-	int x;
-	int y;
-	JME jme;
+public class InspectorEvent implements ActionListener {
+	public JME jme;
+	public JMEmol mol;
+	public int atomIndex;
+	public int bondIndex;
+	public int molIndex; // 0 based
+	public int x;
+	public int y;
 
 	
 
@@ -66,7 +70,7 @@ class InspectorEvent implements ActionListener {
 						}
 
 						@Override
-						protected void finished() {
+						public void finished() {
 							InspectorEvent.this.jme.setAtomToHighLight(molIndex, 0);
 							InspectorEvent.this.jme.requestFocusInWindow();
 						}
@@ -102,7 +106,7 @@ class InspectorEvent implements ActionListener {
 						}
 
 						@Override
-						protected void finished() {
+						public void finished() {
 							InspectorEvent.this.jme.setAtomToHighLight(molIndex, 0);
 							InspectorEvent.this.jme.requestFocusInWindow();
 							

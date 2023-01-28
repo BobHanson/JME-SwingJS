@@ -1,7 +1,7 @@
 package jme.core;
 
-import jme.Box;
-import jme.JMEStatusListener;
+import jme.core.Box;
+import jme.event.JMEStatusListener;
 
 public class JMECore {
 
@@ -791,6 +791,26 @@ public class JMECore {
 	 */
 	public int findAtomMapForOutput(int i) {
 		return (i > 0 && i <= natoms ? atoms[i].getMapOrMark(!parameters.mark) : 0);
+	}
+
+	/**
+	 * 
+	 * @return 0 if not found
+	 */
+	public int findFirstMappdedOrMarkedAtom() {
+		for (int i = 1; i <= this.natoms; i++) {
+			Atom at = this.atoms[i];
+			if (at.isMappedOrMarked()) {
+				return i;
+			}
+		}
+
+		return 0;
+
+	}
+
+	public boolean hasMappedOrMarkedAtom() {
+		return findFirstMappdedOrMarkedAtom() > 0;
 	}
 
 	public boolean haveQueryOrCoordBonds() {

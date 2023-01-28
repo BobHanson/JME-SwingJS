@@ -1,18 +1,17 @@
 package jme;
 
 import jme.core.Atom;
-import jme.core.JMECore;
 
 /**
  * 
  * @author bruno
  *
  */
-class BondDirection {
+public class BondDirection {
 
-	double sin;
-	double cos;
-	double x, y;
+	public double sin;
+	public double cos;
+	public double x, y;
 
 	public BondDirection() {
 	};
@@ -31,26 +30,18 @@ class BondDirection {
 	}
 
 	public boolean initBondCreate(JMEmol mol, int sourceAtom, int addBondArgument) {
-
-		Atom savedAtom = mol.atoms[sourceAtom].deepCopy();
-
-		boolean hasTwoPossibleAddAngle = mol.addBondToAtom(sourceAtom, addBondArgument);
-		// create a new atom and a new bond with the right orientation relative to the
-		// sourceAtom
-
+		int nh = mol.atoms[sourceAtom].nh;
+		int nv = mol.atoms[sourceAtom].nv;
+		int q = mol.atoms[sourceAtom].q;
+		boolean hasTwoPossibleAddAngle = mol.addBondToAtom(sourceAtom, addBondArgument);	
 		int destAtom = mol.natoms; // index of the new added atom
-
-		this.init(mol, sourceAtom, destAtom);
-
+		init(mol, sourceAtom, destAtom);
 		mol.deleteAtom(destAtom); // delete the added bond and added atom
-
 		// deleteAtom has side effects on the source atom
-		mol.atoms[sourceAtom].nh = savedAtom.nh;
-		mol.atoms[sourceAtom].nv = savedAtom.nv;
-		mol.atoms[sourceAtom].q = savedAtom.q;
-
+		mol.atoms[sourceAtom].nh = nh;
+		mol.atoms[sourceAtom].nv = nv;
+		mol.atoms[sourceAtom].q = q;
 		return hasTwoPossibleAddAngle;
-
 	}
 
 	/**
@@ -62,7 +53,7 @@ class BondDirection {
 	 *                 attached
 	 * @param sourceBD : the bonddirection of the source atom
 	 */
-	public void moveAndRotateFragment(JMECore mol, int ffirst, int flast, int sourceAt, BondDirection sourceBD) {
+	public void moveAndRotateFragment(JMEmol mol, int ffirst, int flast, int sourceAt, BondDirection sourceBD) {
 
 		for (int i = ffirst; i <= flast; i++) {
 			Atom atom = mol.atoms[i];

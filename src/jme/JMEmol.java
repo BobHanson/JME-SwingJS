@@ -19,8 +19,12 @@ import jme.core.Atom;
 import jme.core.AtomBondCommon;
 import jme.core.AtomicElements;
 import jme.core.Bond;
+import jme.core.Box;
 import jme.core.JMECore;
 import jme.core.JMESmiles;
+import jme.gui.Actions;
+import jme.gui.AtomDisplayLabel;
+import jme.gui.GUI;
 import jme.io.JMEWriter;
 import jme.ocl.OclAdapter;
 
@@ -59,14 +63,14 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	public JME jme; // parent
 
-	int chain[] = new int[101];
+	public int chain[] = new int[101];
 
 	public int touchedAtom = 0; // nesmu byt static kvoli reaction (multi?)
-	int touchedBond = 0;
-	int touched_org = 0; // original v rubber banding
-	double xorg, yorg; // center of ring in free space, rubber banding
-	boolean linearAdding = false; // pre ACTION_TBU (lepsie ???)
-	int nchain; // pomocna variable pre CHAIN (aktualna dlzka pri rubber)
+	public int touchedBond = 0;
+	public int touched_org = 0; // original v rubber banding
+	public double xorg, yorg; // center of ring in free space, rubber banding
+	public boolean linearAdding = false; // pre ACTION_TBU (lepsie ???)
+	public int nchain; // pomocna variable pre CHAIN (aktualna dlzka pri rubber)
 	boolean stopChain = false; 
 	boolean needRecentering = false;
 	boolean isQuery = false; // 2013.09
@@ -727,7 +731,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param bondType
 	 * @return the new Bond
 	 */
-	Bond createAndAddNewBond(int at1, int at2, int bondType) {
+	public Bond createAndAddNewBond(int at1, int at2, int bondType) {
 		//assert (at1 != at2);
 		Bond newBond = this.createAndAddNewBond(); // the new bond index is this.nbonds
 		addBothNeighbors(at1, at2); // set up the adjacency lists
@@ -929,11 +933,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// int xpix = jme.sd*18 - jme.sd - 20, ypix = jme.sd*16 - jme.sd*3 - 45;
 		double xpix = 0, ypix = 0;
 
-		if (jme != null) {
-			Rectangle2D.Double widthAndHeight = this.jme.getMolecularAreaBoundingBoxCoordinate00();
-			xpix = widthAndHeight.width;
-			ypix = widthAndHeight.height;
-		}
+		Rectangle2D.Double widthAndHeight = this.jme.getMolecularAreaBoundingBoxCoordinate00();
+		xpix = widthAndHeight.width;
+		ypix = widthAndHeight.height;
 
 		if (xpix <= 0 || ypix <= 0) { // does this ever happen?
 			needRecentering = true;
@@ -1239,10 +1241,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			og.setColor(bond.isCoordination() ? Color.LIGHT_GRAY : Color.BLACK);
 
 			// new June 2017
-			if (jme.action == JME.ACTION_DELGROUP && touchedBond == i && this.isRotatableBond(i)) { // duplicated logic
-																									// with code below
-																									// for handling
-																									// ACTION_DELGROUP
+			if (jme.action == Actions.ACTION_DELGROUP && touchedBond == i && this.isRotatableBond(i)) { // duplicated
+																										// logic
+				// with code below
+				// for handling
+				// ACTION_DELGROUP
 
 				// og.setColor(Color.RED);
 				continue; // do not draw the bond , that is more visible than red color
@@ -1316,13 +1319,13 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					og.drawLine(xax, yax, xax, yax);
 				}
 				// query bond text
-				og.setFont(jme.atomDrawingAreaFont);
-				double h = JMEUtil.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
+				og.setFont(jme.gui.atomDrawingAreaFont);
+				double h = GUI.stringHeight(jme.gui.atomDrawingAreaFontMet); // vyska fontu
 				Object o = bond.btag;
 				String z = "?";
 				if (o != null)
 					z = (String) o;
-				double w = jme.atomDrawingAreaFontMet.stringWidth(z);
+				double w = jme.gui.atomDrawingAreaFontMet.stringWidth(z);
 				double xstart = (xa + xb) / 2. - w / 2.;
 				double ystart = (ya + yb) / 2. + h / 2 - 1; // o 1 vyssie
 				og.setColor(Color.magenta);
@@ -1380,9 +1383,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			if (JMEmol.doTags) {
 				String btag = bond.btag;
 				if (btag != null && btag.length() > 0) {
-					og.setFont(jme.atomDrawingAreaFont);
-					double h = JMEUtil.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
-					double w = jme.atomDrawingAreaFontMet.stringWidth(btag);
+					og.setFont(jme.gui.atomDrawingAreaFont);
+					double h = GUI.stringHeight(jme.gui.atomDrawingAreaFontMet); // vyska fontu
+					double w = jme.gui.atomDrawingAreaFontMet.stringWidth(btag);
 					double xstart = (xa + xb) / 2. - w / 2.;
 					double ystart = (ya + yb) / 2. + h / 2 - 1; // o 1 vyssie
 					og.setColor(Color.red);
@@ -1394,8 +1397,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		computeAtomLabels();
 
-		og.setFont(jme.atomDrawingAreaFont);
-		double h = JMEUtil.stringHeight(jme.atomDrawingAreaFontMet); // vyska fontu
+		og.setFont(jme.gui.atomDrawingAreaFont);
+		double h = GUI.stringHeight(jme.gui.atomDrawingAreaFontMet); // vyska fontu
 
 		// BB
 		// try to improve the positioning and direction of the atom label when there are
@@ -1420,7 +1423,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			// color for the atom symbol
 			og.setColor(JME.color[an(i)]);
 			Color strokeColor = atomTextStrokeColorArray[i];
-			atomLabels[i].draw(og, strokeColor, h, jme.atomDrawingAreaFontMet);
+			atomLabels[i].draw(og, strokeColor, h, jme.gui.atomDrawingAreaFontMet);
 		}
 
 		// diplay atom maps of atoms that have been marked
@@ -1428,7 +1431,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		// 10-2018: do not show maps if option star is set
 		if (!markColorBackground) {
-			og.setFont(jme.atomMapDrawingAreaFont);
+			og.setFont(jme.gui.atomMapDrawingAreaFont);
 
 			for (int i = 1; i <= natoms; i++) {
 				AtomDisplayLabel al = atomLabels[i];
@@ -1461,7 +1464,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// BB: I changed this part but could not test it
 		// tags (povodne to bolo label)
 		if (JMEmol.doTags) {
-			og.setFont(jme.atomDrawingAreaFont);
+			og.setFont(jme.gui.atomDrawingAreaFont);
 
 			for (int i = 1; i <= natoms; i++) {
 				Atom a = atoms[i];
@@ -1482,17 +1485,18 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// mark touched bond or atom, or atoms marked to delete
 		if ((touchedAtom > 0 || touchedBond > 0) && !JME.webme) {
 
-			og.setColor(jme.action == JME.ACTION_DELETE ? Color.red :
+			og.setColor(jme.action == Actions.ACTION_DELETE ? Color.red :
 			// just checking: Hmm...jme.mouseShift ? Color.cyan :
 					Color.blue);
 
-			if (touchedAtom > 0 && jme.action != JME.ACTION_DELGROUP) {
+			if (touchedAtom > 0 && jme.action != Actions.ACTION_DELGROUP) {
 				Rectangle2D.Double r = atomLabels[touchedAtom].drawBox;
 				og.drawRect(r.x, r.y, r.width, r.height);
 			}
 
-			if (touchedBond > 0 && jme.action != JME.ACTION_MOVE_AT) { // don't show a rectangle around the bond if the
-																		// action is to move the atom
+			if (touchedBond > 0 && jme.action != Actions.ACTION_MOVE_AT) {
+				// don't show a rectangle around the bond if the
+				// action is to move the atom
 
 				atom1 = bonds[touchedBond].va;
 				atom2 = bonds[touchedBond].vb;
@@ -1518,10 +1522,10 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				py[2] = y(atom2) + sirka2c;
 				px[4] = px[0];
 				py[4] = py[0]; // bug in 1.01
-				if (jme.action != JME.ACTION_DELGROUP) // pri DELGROUP nekresli modro
+				if (jme.action != Actions.ACTION_DELGROUP) // pri DELGROUP nekresli modro
 					og.drawPolygon(px, py, 5);
 
-				if (jme.action == JME.ACTION_DELGROUP && isRotatableBond(touchedBond)) {
+				if (jme.action == Actions.ACTION_DELGROUP && isRotatableBond(touchedBond)) {
 					// ACTION_DELGROUP is a specila way of deleting a groug of atoms icon: -X-R
 					// two parts of the molecule, one to keep and one to delete
 					// the smallest that will be deleted mut be shown in red
@@ -1576,13 +1580,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * 
 	 */
 	void computeAtomLabels() {
-		int atom1, atom2;
-
 		boolean showHs = parameters.hydrogenParams.showHs;
 		boolean showMap = (!parameters.mark
 				|| parameters.showAtomMapNumberWithBackgroundColor);
-		FontMetrics fm = (jme == null ? null : jme.atomDrawingAreaFontMet);
-		double h = (jme == null ? 9.0 : JMEUtil.stringHeight(fm));
+		FontMetrics fm = jme.gui.atomDrawingAreaFontMet;
+		double h = (/*jme == null ? 9.0 : */GUI.stringHeight(fm));
 		double rb = RBOND();		
 		atomLabels = AtomDisplayLabel.createLabels(this, rb, fm, h, showHs, showMap, atomLabels);
 	}
@@ -1690,7 +1692,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		XY(0, xnew, ynew); // gives atom 0 the coordinates of the mouse pointer
 		int atom = checkTouch(0); // in order to find a close enough atom
-		if (jme.action != JME.ACTION_CHAIN) { // pri chaine to blblo
+		if (jme.action != Actions.ACTION_CHAIN) { // pri chaine to blblo
 			if (atom > 0) {
 				touchedAtom = atom;
 				if (atom == touched_org) {
@@ -1796,7 +1798,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				touchedAtom = natoms;
 				addBond((int) Math.round(ym));
 				// this.jme.recordBondEvent("addBond"); // wait until finished
-				this.jme.willPostSave(false); // do not store undo state
+				jme.willPostSave(false); // do not store undo state
 				chain[nchain] = natoms;
 				if (checkTouch(natoms) > 0)
 					stopChain = true;
@@ -1850,7 +1852,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		//assert firstAtom <= lastAtom;
 
 		double dx, dy, rx;
-		double min = JME.TOUCH_LIMIT + 1;
+		double min = GUI.TOUCH_LIMIT + 1;
 		int touch = 0;
 		for (int i = firstAtom; i <= lastAtom; i++) {
 			if (atom == i)
@@ -1859,7 +1861,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			dx = x(atom) - x(i);
 			dy = y(atom) - y(i);
 			rx = dx * dx + dy * dy;
-			if (rx < JME.TOUCH_LIMIT)
+			if (rx < GUI.TOUCH_LIMIT)
 				if (rx < min) {
 					min = rx;
 					touch = i;
@@ -1876,7 +1878,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		//assert firstAtom <= lastAtom;
 
 		double dx, dy, rx;
-		double min = 2 * JME.TOUCH_LIMIT;
+		double min = 2 * GUI.TOUCH_LIMIT;
 		double sum = 0;
 
 		for (int i = firstAtom; i <= lastAtom; i++) {
@@ -1909,7 +1911,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return result;
 	}
 
-	protected double sumAtomTooCloseContactsOfAddedFragment(int fragmentFirstAtom, int fragmentLastAtom) {
+	public double sumAtomTooCloseContactsOfAddedFragment(int fragmentFirstAtom, int fragmentLastAtom) {
 		double result = 0;
 		for (int at = 1; at <= natoms; at++) { // MAY 2016 < <=
 			if (at >= fragmentFirstAtom && at <= fragmentLastAtom)
@@ -1922,7 +1924,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	}
 
 	// ----------------------------------------------------------------------------
-	void avoidTouch(int from) {
+	public void avoidTouch(int from) {
 		// checking atom overlap and moving atoms away from each other
 		// moving always atom with the higher number
 		// called after GROUP or CHAIN
@@ -1960,7 +1962,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * atoms
 	 * 
 	 */
-	void deleteBond(int delbond) {
+	public void deleteBond(int delbond) {
 		deleteBond(delbond, true);
 	}
 
@@ -2013,7 +2015,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	/*
 	 * Delete all atoms that have been marked for deletion (atom.deleteFlag == true)
 	 */
-	void deleteAtomGroup() {
+	public void deleteAtomGroup() {
 
 		// does not work only bonds are deleted
 		// for (int i=1;i<=natoms;i++) {
@@ -2089,7 +2091,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * 
 	 * @param bondIndex
 	 */
-	void toggleBondStereo(int bondIndex) {
+	public void toggleBondStereo(int bondIndex) {
 		// alebo vola z drawingArea.mouseDown s (touchBond) a bondType je rozna,
 		// alebo z completeBond, vtedy je bondType vzdy 1
 		// robi to inteligente, presmykuje medzi 4, len kde je to mozne
@@ -2205,9 +2207,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * 
 	 * @param up flip bond to other side - only possible if the touched atom has 1
 	 *           valence values for flip: 0,-1 or 1
-	 * @return true if the up was parameter was used
+	 * @return true if the up was the parameter used
 	 */
-	boolean addBondToAtom(int selectedAtom, int up) {
+	public boolean addBondToAtom(int selectedAtom, int up) {
 		boolean upWasUsed = false;
 		createAtom();
 		switch (nv(selectedAtom)) {
@@ -2235,10 +2237,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			// checking for allene -N=C=S, X#C-, etc
 			// chain je ako linear !
 			Bond b = getBond(selectedAtom, atom1);
-			if (b.bondType == Bond.TRIPLE
-					|| jme.action == JME.ACTION_BOND_TRIPLE
+			if (linearAdding 
+					|| b.bondType == Bond.TRIPLE
+					|| jme.action == Actions.ACTION_BOND_TRIPLE
 					|| (b.bondType != Bond.SINGLE 
-						&& (jme.action == JME.ACTION_BOND_DOUBLE || jme.action == JME.ACTION_BOND_TRIPLE))
+						&& (jme.action == Actions.ACTION_BOND_DOUBLE))
 					|| linearAdding) // linearAdding pre ACTION_TBU
 			{
 				xx = rx + RBOND();
@@ -2354,17 +2357,17 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 */
 	void completeBond(int touchedAtom) {
 		Bond bond = createAndAddNewBond(touchedAtom, natoms);
-		if (jme.action == JME.ACTION_BOND_DOUBLE)
+		if (jme.action == Actions.ACTION_BOND_DOUBLE)
 			bond.bondType = Bond.DOUBLE;
-		if (jme.action == JME.ACTION_BOND_TRIPLE)
+		if (jme.action == Actions.ACTION_BOND_TRIPLE)
 			bond.bondType = Bond.TRIPLE;
 		// creating new bond with stereo tool
-		if (jme.action == JME.ACTION_STEREO)
+		if (jme.action == Actions.ACTION_STEREO)
 			toggleBondStereo(nbonds);
 	}
 
 	// ----------------------------------------------------------------------------
-	 void getNewPoint(int pt, double rbond, double[] newPoint) {
+	 public void getNewPoint(int pt, double rbond, double[] newPoint) {
 			// adding new atom to source with two bonds already
 			// called when creating new bond or ring center
 			int atom1 = v(pt)[1];
@@ -2408,27 +2411,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return (JME.scalingIsPerformedByGraphicsEngine ? JMECore.RBOND : JMECore.RBOND * jme.molecularAreaScalePixelsPerCoord);
 	}
 
-
-	/**
-	 * 
-	 * @return 0 if not found
-	 */
-	protected int findFirstMappdedOrMarkedAtom() {
-		for (int i = 1; i <= this.natoms; i++) {
-			Atom at = this.atoms[i];
-			if (at.isMappedOrMarked()) {
-				return i;
-			}
-		}
-
-		return 0;
-
-	}
-
-	public boolean hasMappedOrMarkedAtom() {
-		return findFirstMappdedOrMarkedAtom() > 0;
-	}
-
 	/**
 	 * Add all other molecule (fragment) atoms and bonds to my self. Do not create a
 	 * new bond or change the coordinates. all atomic and bond proipoerties are
@@ -2436,7 +2418,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * 
 	 * @param otherMol
 	 */
-	protected void addOtherMolToMe(JMEmol otherMol) {
+	public void addOtherMolToMe(JMEmol otherMol) {
 		int nn = natoms;
 		for (int i = 1; i <= otherMol.natoms; i++) {
 			createAtomFromOther(otherMol.atoms[i]);
@@ -2477,7 +2459,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	// setAtom is used when reding input file and when using the X button in the GUI
 	// ----------------------------------------------------------------------------
-	void setAtom(int atom, String symbol) {
+	public void setAtom(int atom, String symbol) {
 		// volane pri spracovavani mol alebo jme z createAtom
 		// alebo pri kliknuti na X atom x x boxu
 		// aj po query
@@ -2627,7 +2609,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	}
 
 	// ----------------------------------------------------------------------------
-	Bond createAndAddNewBond() {
+	public Bond createAndAddNewBond() {
 		return createAndAddBondFromOther(null);
 	}
 
@@ -2728,13 +2710,12 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return JMESmiles.getSmiles(deepCopy(), pars, isQuery);
 	}
 
-	protected int findAtomChargeForOutput(int atomIndex) {
+	public int findAtomChargeForOutput(int atomIndex) {
 		int charge = 0;
 		if (atomIndex > 0 && atomIndex <= this.nAtoms()) {
 			Atom atom = this.atoms[atomIndex];
 			charge = atom.q();
 		}
-
 		return charge;
 	}
 
@@ -2769,7 +2750,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return JMEWriter.createMolFile((JMECore) this, header, true, computeCoordinate2DboundingBox());
 	}
 
-	void cleanAfterChanged(boolean polarNitro) {
+	public void cleanAfterChanged(boolean polarNitro) {
 		setValenceState();
 		cleanPolarBonds(polarNitro); // TODO: need parameter polarnitro
 	}
@@ -2782,7 +2763,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param type is always 0 in JME: means toggle the charge/hydrogen count
 	 * @return
 	 */
-	boolean changeCharge(int atom, int type) {
+	public boolean changeCharge(int atom, int type) {
 		// click with +/- on atom
 		// 2002.05 --- pridana moznost C+
 		// 2005.03 --- pridany type, moze byt 0 1 -1

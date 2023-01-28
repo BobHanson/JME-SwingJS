@@ -16,9 +16,9 @@ public class ColorManager {
 	
 
 	public class ColorInfo {
-		Color color;
-		String name;
-		String hash;
+		public Color color;
+		public String name;
+		public String hash;
 		int index;
 		
 		ColorInfo(Color color, String name, int index) {
@@ -35,7 +35,7 @@ public class ColorManager {
 
 	// colors used for atom background colors , highlighting some atoms
 	// static Color[] psColor;
-	protected ColorInfo[] psColor;
+	public ColorInfo[] psColor;
 	//protected String[] labels; // each color can have a label
 	
 	public ColorManager() {

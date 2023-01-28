@@ -1,4 +1,4 @@
-package jme;
+package jme.core;
 
 import java.awt.geom.Rectangle2D;
 
@@ -18,10 +18,10 @@ public class Box extends Rectangle2D.Double {
 	public boolean isEmpty() {
 		return this.width <= 0 || this.height <= 0;
 	}
-	double get(Axis xOrY) {
+	public double get(Axis xOrY) {
 		return xOrY == Axis.X? getX(): getY();
 	}
-	double getDim(Axis xOrY) {
+	public double getDim(Axis xOrY) {
 		return xOrY == Axis.X ? getWidth(): getHeight();
 	}
 

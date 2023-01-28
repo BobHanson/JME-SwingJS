@@ -1,66 +1,25 @@
-package jme;
+package jme.gui;
 
+import jme.BondDirection;
+import jme.JME;
+import jme.JMEmol;
 import jme.JME.SupportedFileFormat;
 import jme.core.JMECore.Parameters;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;
 
-class JMEBuilder {
-
-	static final int ACTION_RING_3 = 206;
-	static final int ACTION_RING_4 = 207;
-	static final int ACTION_RING_5 = 208;
-	static final int ACTION_RING_PH = 209;
-	static final int ACTION_RING_6 = 210;
-	static final int ACTION_RING_7 = 211;
-	static final int ACTION_RING_8 = 212;
-
-	static final int ACTION_RING_FURANE = 221; // nema button
-	static final int ACTION_RING_3FURYL = 223; // Alt 0
-	static final int ACTION_RING_9 = 229; // nema button
-
-	static final int ACTION_GROUP_MIN = 233; // BB first entry in the substituents (FG)
-	static final int ACTION_GROUP_TBU = 233;
-	static final int ACTION_GROUP_NITRO = 234;
-	static final int ACTION_GROUP_COO = 235;
-	static final int ACTION_GROUP_CF3 = 236;
-	static final int ACTION_GROUP_CCL3 = 237;
-	static final int ACTION_GROUP_CC = 238;
-	static final int ACTION_GROUP_SULFO = 239;
-	static final int ACTION_GROUP_COOME = 240;
-	static final int ACTION_GROUP_OCOME = 241;
-	static final int ACTION_GROUP_CYANO = 242;
-	static final int ACTION_GROUP_NME2 = 243;
-	static final int ACTION_GROUP_NHSO2ME = 244;
-	static final int ACTION_GROUP_CCC = 245;
-	static final int ACTION_GROUP_C2 = 246;
-	static final int ACTION_GROUP_C3 = 247;
-	static final int ACTION_GROUP_C4 = 248;
-	static final int ACTION_GROUP_COH = 249;
-	static final int ACTION_GROUP_dO = 250; // =O
-	static final int ACTION_GROUP_PO3H2 = 251;
-	static final int ACTION_GROUP_SO2NH2 = 252;
-	static final int ACTION_GROUP_TEMPLATE = 253;
-	static final int ACTION_GROUP_CF = 254;
-	static final int ACTION_GROUP_CL = 255;
-	static final int ACTION_GROUP_CB = 256;
-	static final int ACTION_GROUP_CI = 257;
-	static final int ACTION_GROUP_CN = 258;
-	static final int ACTION_GROUP_CO = 259;
-	static final int ACTION_GROUP_CON = 260; // BB
-	static final int ACTION_GROUP_NCO = 261; // BB
-	static final int ACTION_GROUP_MAX = 262; // last+1 len na < test
+public class JMEBuilder {
 
 	//from JME: 
-	static final int TOUCH_LIMIT = JME.TOUCH_LIMIT; // 50 pixels
-    static final int LA_FAILED = JME.LA_FAILED;
+	public static final int TOUCH_LIMIT = GUI.TOUCH_LIMIT; // 50 pixels
+    public static final int LA_FAILED = JME.LA_FAILED;
 	
 	/**
 	 * spiroAdding set in JME, but only used here; alternatively, just MOUSE_SHIFT
 	 * will do spiro ring addition.
 	 */
-	boolean spiroAdding = false;
+	public boolean spiroAdding = false;
 
 	private JME jme;
 	private JMEmol mol;
@@ -73,7 +32,7 @@ class JMEBuilder {
 	private JMEmol templateMolecule;
 	private String templateString;
 
-	JMEBuilder(JME jme) {
+	public JMEBuilder(JME jme) {
 		this.jme = jme;
 	}
 
@@ -106,28 +65,28 @@ class JMEBuilder {
 
 		int nmembered = 6;
 		switch (action) {
-		case ACTION_RING_3:
+		case Actions.ACTION_RING_3:
 			nmembered = 3;
 			break;
-		case ACTION_RING_4:
+		case Actions.ACTION_RING_4:
 			nmembered = 4;
 			break;
-		case ACTION_RING_5:
-		case ACTION_RING_FURANE:
-		case ACTION_RING_3FURYL:
+		case Actions.ACTION_RING_5:
+		case Actions.ACTION_RING_FURANE:
+		case Actions.ACTION_RING_3FURYL:
 			nmembered = 5;
 			break;
-		case ACTION_RING_6:
-		case ACTION_RING_PH:
+		case Actions.ACTION_RING_6:
+		case Actions.ACTION_RING_PH:
 			nmembered = 6;
 			break;
-		case ACTION_RING_7:
+		case Actions.ACTION_RING_7:
 			nmembered = 7;
 			break;
-		case ACTION_RING_8:
+		case Actions.ACTION_RING_8:
 			nmembered = 8;
 			break;
-		case ACTION_RING_9:
+		case Actions.ACTION_RING_9:
 			nmembered = 9;
 			break;
 		}
@@ -143,7 +102,7 @@ class JMEBuilder {
 			} else if (spiroMode || spiroAdding) {
 				spiroAdding = false;
 				// checking whether can do spiro
-				if (action == ACTION_RING_PH || action == ACTION_RING_FURANE || action == ACTION_RING_3FURYL) {
+				if (action == Actions.ACTION_RING_PH || action == Actions.ACTION_RING_FURANE || action == Actions.ACTION_RING_3FURYL) {
 					mol.info("ERROR - cannot add aromatic spiro ring !", LA_FAILED);
 					return;
 				}
@@ -174,6 +133,7 @@ class JMEBuilder {
 			} else {
 				// adding bond and ring
 				returnTouch = touchedAtom;
+				jme.lastAction = JME.LA_BOND;
 				addBond();
 				touchedAtom = mol.natoms;
 				addRingToBond(nmembered, diel, rc);
@@ -322,7 +282,7 @@ class JMEBuilder {
 		b = bonds[touchedBond];
 		// alternating double bonds for phenyl and furane template
 		// 2007.12 fixed problematic adding
-		if (action == ACTION_RING_PH) {
+		if (action == Actions.ACTION_RING_PH) {
 			setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE);
 			if (touchedBond > 0) {
 				if (b.isSingle()) {
@@ -356,7 +316,7 @@ class JMEBuilder {
 					setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE);
 				}
 			}
-		} else if (action == ACTION_RING_FURANE || action == ACTION_RING_3FURYL) {
+		} else if (action == Actions.ACTION_RING_FURANE || action == Actions.ACTION_RING_3FURYL) {
 			if (touchedBond > 0) {
 				if (b.bondType == Bond.SINGLE) {
 					Atom va = atoms[b.va];
@@ -382,7 +342,7 @@ class JMEBuilder {
 				bonds[mol.nbonds - 4].bondType = Bond.DOUBLE;
 				mol.AN(mol.natoms - 2, Atom.AN_O);
 			} else if (touchedAtom > 0) {
-				if (action == ACTION_RING_FURANE) {
+				if (action == Actions.ACTION_RING_FURANE) {
 					setBonds(Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE);
 					mol.AN(mol.natoms - 1, Atom.AN_O);
 				} else {
@@ -635,46 +595,46 @@ class JMEBuilder {
 		return tmol.natoms; // BB needed later by avoidTouch
 	}
 
-	void addGroup(boolean emptyCanvas) {
+	public void addGroup(boolean emptyCanvas) {
 		//
 		mol.touched_org = touchedAtom;
 		int nadded = 0;
 		switch (action) {
-		case ACTION_GROUP_TBU:
-		case ACTION_GROUP_CCL3:
-		case ACTION_GROUP_CF3:
-		case ACTION_GROUP_SULFO:
-		case ACTION_GROUP_PO3H2:
-		case ACTION_GROUP_SO2NH2:
+		case Actions.ACTION_GROUP_TBU:
+		case Actions.ACTION_GROUP_CCL3:
+		case Actions.ACTION_GROUP_CF3:
+		case Actions.ACTION_GROUP_SULFO:
+		case Actions.ACTION_GROUP_PO3H2:
+		case Actions.ACTION_GROUP_SO2NH2:
 			addBonds(touchedAtom, LINEAR_ON, 0, LINEAR_OFF, -1, -2);
 			switch (action) {
-			case ACTION_GROUP_CCL3:
+			case Actions.ACTION_GROUP_CCL3:
 				setAtoms(Atom.AN_CL, Atom.AN_CL, Atom.AN_CL);
 				break;
-			case ACTION_GROUP_CF3:
+			case Actions.ACTION_GROUP_CF3:
 				setAtoms(Atom.AN_F, Atom.AN_F, Atom.AN_F);
 				break;
-			case ACTION_GROUP_SULFO:
+			case Actions.ACTION_GROUP_SULFO:
 				setAtoms(Atom.AN_S, Atom.AN_O, Atom.AN_O, Atom.AN_O);
 				setBonds(Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE, Bond.DOUBLE);
 				break;
-			case ACTION_GROUP_SO2NH2:
+			case Actions.ACTION_GROUP_SO2NH2:
 				setAtoms(Atom.AN_S, Atom.AN_N, Atom.AN_O, Atom.AN_O);
 				setBonds(Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE, Bond.DOUBLE);
 				break;
-			case ACTION_GROUP_PO3H2:
+			case Actions.ACTION_GROUP_PO3H2:
 				setAtoms(Atom.AN_P, Atom.AN_O, Atom.AN_O, Atom.AN_O);
 				setBonds(Bond.SINGLE, Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE);
 				break;
 			}
 			nadded = 4;
 			break;
-		case ACTION_GROUP_NHSO2ME:
+		case Actions.ACTION_GROUP_NHSO2ME:
 			addBonds(touchedAtom, 0, LINEAR_ON, 0, LINEAR_OFF, -1, -2);
 			nadded = setAtoms(Atom.AN_N, Atom.AN_S, Atom.AN_C, Atom.AN_O, Atom.AN_O);
 			setBonds(Bond.SINGLE, Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE, Bond.DOUBLE);
 			break;
-		case ACTION_GROUP_NITRO:
+		case Actions.ACTION_GROUP_NITRO:
 			addBonds(touchedAtom, 0, -1);
 			nadded = setAtoms(Atom.AN_N, Atom.AN_O, Atom.AN_O);
 			setBonds(Bond.SINGLE, Bond.DOUBLE, jme.options.polarnitro ? Bond.SINGLE : Bond.DOUBLE);
@@ -682,94 +642,94 @@ class JMEBuilder {
 				setCharges(-1);
 			}
 			break;
-		case ACTION_GROUP_COO:
+		case Actions.ACTION_GROUP_COO:
 			addBonds(touchedAtom, 0, -1);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_O, Atom.AN_O);
 			setBonds(Bond.SINGLE, Bond.SINGLE, Bond.DOUBLE);
 			break;
-		case ACTION_GROUP_COOME:
+		case Actions.ACTION_GROUP_COOME:
 			addBonds(touchedAtom, 0, 0, -2);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_O, Atom.AN_C, Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case ACTION_GROUP_CON:
+		case Actions.ACTION_GROUP_CON:
 			addBonds(touchedAtom, 0, -1);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_N, Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case ACTION_GROUP_NCO:
+		case Actions.ACTION_GROUP_NCO:
 			addBonds(touchedAtom, 0, 0);
 			nadded = setAtoms(Atom.AN_N, Atom.AN_C, Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case ACTION_GROUP_OCOME:
+		case Actions.ACTION_GROUP_OCOME:
 			addBonds(touchedAtom, 0, 0, -1);
 			nadded = setAtoms(Atom.AN_O, Atom.AN_C, Atom.AN_C, Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case ACTION_GROUP_NME2:
+		case Actions.ACTION_GROUP_NME2:
 			addBonds(touchedAtom, 0, -1);
 			nadded = setAtoms(Atom.AN_N, Atom.AN_C, Atom.AN_C);
 			break;
-		case ACTION_GROUP_CC:
+		case Actions.ACTION_GROUP_CC:
 			addBonds(touchedAtom, LINEAR_ON, 0, LINEAR_OFF);
 			setBonds(Bond.TRIPLE);
 			nadded = 2;
 			break;
-		case ACTION_GROUP_COH:
+		case Actions.ACTION_GROUP_COH:
 			addBonds(touchedAtom, 0);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case ACTION_GROUP_dO:
+		case Actions.ACTION_GROUP_dO:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_O);
 			setBonds(Bond.DOUBLE);
 			break;
-		case ACTION_GROUP_CCC:
+		case Actions.ACTION_GROUP_CCC:
 			addBonds(touchedAtom, LINEAR_ON, 0, 0, LINEAR_OFF);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_C, Atom.AN_C);
 			setBonds(Bond.TRIPLE, Bond.SINGLE);
 			break;
-		case ACTION_GROUP_CYANO:
+		case Actions.ACTION_GROUP_CYANO:
 			addBonds(touchedAtom, LINEAR_ON, 0, LINEAR_OFF);
 			nadded = setAtoms(Atom.AN_C, Atom.AN_N);
 			setBonds(Bond.TRIPLE);
 			break;
-		case ACTION_GROUP_CF:
+		case Actions.ACTION_GROUP_CF:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_F);
 			break;
-		case ACTION_GROUP_CL:
+		case Actions.ACTION_GROUP_CL:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_CL);
 			break;
-		case ACTION_GROUP_CB:
+		case Actions.ACTION_GROUP_CB:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_BR);
 			break;
-		case ACTION_GROUP_CI:
+		case Actions.ACTION_GROUP_CI:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_I);
 			break;
-		case ACTION_GROUP_CN:
+		case Actions.ACTION_GROUP_CN:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_N);
 			break;
-		case ACTION_GROUP_CO:
+		case Actions.ACTION_GROUP_CO:
 			addBonds(touchedAtom);
 			nadded = setAtoms(Atom.AN_O);
 			break;
-		case ACTION_GROUP_C2:
+		case Actions.ACTION_GROUP_C2:
 			addBonds(touchedAtom, 0);
 			break;
-		case ACTION_GROUP_C3:
+		case Actions.ACTION_GROUP_C3:
 			addBonds(touchedAtom, 0, 0);
 			break;
-		case ACTION_GROUP_C4:
+		case Actions.ACTION_GROUP_C4:
 			addBonds(touchedAtom, 0, 0, 0);
 			break;
-		case ACTION_GROUP_TEMPLATE:
+		case Actions.ACTION_GROUP_TEMPLATE:
 			nadded = addGroupTemplate(emptyCanvas);
 			break;
 		}
@@ -851,7 +811,8 @@ class JMEBuilder {
 		templateString = t;
 		Parameters pars = new Parameters();
 		pars.mark = true; // needed otherwise the atom map will be ignored
-		templateMolecule = new JMEmol(jme, t, SupportedFileFormat.JME, pars);		templateMolecule.internalBondLengthScaling();		
+		templateMolecule = new JMEmol(jme, t, SupportedFileFormat.JME, pars);
+		templateMolecule.internalBondLengthScaling();		
 		if (!templateMolecule.hasMappedOrMarkedAtom()) {
 			// console warning
 			return "template molecule has no mapped atom";
@@ -862,6 +823,131 @@ class JMEBuilder {
 
 	public String getTemplateString() {
 		return templateString;
+	}
+
+	public String checkBondAction() {
+		String event = null;
+		boolean cleanPolar = false;
+		if (action == Actions.ACTION_DELETE) {
+			jme.actionDeleteTouchedAtomOrBond(); // record the event as well
+		} else if (action == Actions.ACTION_DELGROUP) {
+			mol.deleteAtomGroup();
+			cleanPolar = true;
+			mol.touchedBond = 0;
+			event = JME.DEL_BOND_GROUP;
+		} else if (action == Actions.ACTION_STEREO) {
+			mol.toggleBondStereo(mol.touchedBond);
+			event = JME.SET_BOND_STEREO;
+		} else if (action == Actions.ACTION_BOND_SINGLE || action == Actions.ACTION_CHAIN) { // Actions.ACTION_CHAIN should be removed?
+			if (mol.bonds[mol.touchedBond].bondType == Bond.SINGLE && mol.bonds[mol.touchedBond].stereo == 0) {
+				mol.bonds[mol.touchedBond].bondType = Bond.DOUBLE;
+				event = JME.SET_BOND_DOUBLE;
+			} else {
+				mol.bonds[mol.touchedBond].bondType = Bond.SINGLE;
+				mol.bonds[mol.touchedBond].stereo = 0;
+				event = JME.SET_BOND_SINGLE;
+			}
+			mol.bonds[mol.touchedBond].stereo = 0; // zrusi stereo
+		} else if (action == Actions.ACTION_BOND_DOUBLE) {
+			boolean differentBondOrder = mol.bonds[mol.touchedBond].bondType != Bond.DOUBLE;
+			mol.bonds[mol.touchedBond].bondType = Bond.DOUBLE;
+			if (!differentBondOrder) {
+				mol.bonds[mol.touchedBond].toggleNormalCrossedDoubleBond();
+			} else {
+				mol.bonds[mol.touchedBond].stereo = 0; // zrusi stereo
+			}
+			cleanPolar = true;
+			event = JME.SET_BOND_DOUBLE;
+		} else if (action == Actions.ACTION_BOND_TRIPLE) {
+			mol.bonds[mol.touchedBond].bondType = Bond.TRIPLE;
+			mol.bonds[mol.touchedBond].stereo = 0; // zrusi stereo
+			cleanPolar = true;
+			event = JME.SET_BOND_TRIPLE;
+		} else if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
+			// fusing ring to bond
+			jme.lastAction = JME.LA_RING; // in addRing may be set to 0
+			addRing();
+			cleanPolar = true;
+			event = JME.ADD_RING_BOND;
+		}
+		if (cleanPolar)
+			mol.cleanAfterChanged(jme.options.polarnitro); // FIXME: add to addRing			
+		return event;
+	}
+
+	public String checkAtomAction() {
+		String event = null;
+		if (action == Actions.ACTION_DELETE) {
+			jme.actionDeleteTouchedAtomOrBond();
+		} else if (action == Actions.ACTION_DELGROUP) {
+			return "TRUE"; // do nothing
+		} else if (action == Actions.ACTION_CHARGE) {
+			if (mol.changeCharge(mol.touchedAtom, 0))
+				event = JME.CHARGE_ATOM0;
+		} else if (action == Actions.ACTION_BOND_SINGLE || action == Actions.ACTION_BOND_DOUBLE
+				|| action == Actions.ACTION_BOND_TRIPLE || action == Actions.ACTION_STEREO
+				|| action == Actions.ACTION_CHAIN) {
+			jme.lastAction = JME.LA_BOND; // allows for snap drag
+			addBond();
+			mol.touched_org = mol.touchedAtom;
+			if (action == Actions.ACTION_CHAIN) {
+				mol.nchain = 1; // pre CHAIN rubberbanding
+				mol.chain[1] = mol.natoms;
+				mol.chain[0] = mol.touchedAtom;
+				mol.touchedBond = 0; // 2005.02
+				jme.willPostSave(false); 
+				// for the CHAIN, save the state at mouseUp event
+			} else {
+				jme.recordBondEvent(JME.ADD_BOND);
+				event = "";
+			}
+		} else if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
+			jme.lastAction = JME.LA_RING; // in addRing may be set to 0
+			addRing();
+			event = JME.ADD_RING;
+		} else if (action == Actions.ACTION_TEMPLATE) {
+			// BH Not implemented??
+			// mol.addTemplate(template);
+			jme.lastAction = JME.LA_GROUP;
+			event = JME.ADD_TEMPLATE;
+		} else if (action >= Actions.ACTION_GROUP_MIN && action < Actions.ACTION_GROUP_MAX) {
+			addGroup(false);
+			event = JME.ADD_GROUP;
+			jme.lastAction = JME.LA_GROUP; // may be set to 0
+		} else if (action > 300) { // atoms
+			if (jme.active_an != mol.an(mol.touchedAtom) || jme.active_an == Atom.AN_X) {
+				mol.AN(mol.touchedAtom, jme.active_an);
+				mol.Q(mol.touchedAtom, 0); // resetne naboj
+				mol.atoms[mol.touchedAtom].iso = 0; // BB: reset isotop
+				mol.atoms[mol.touchedAtom].nh = 0;
+
+				// special processing pre AN_X, osetrene, ze moze byt aj
+				// ""
+				if (jme.active_an == Atom.AN_X) {
+					mol.setAtom(mol.touchedAtom, jme.getAtomSymbolForX());
+				}
+				// jme.recordAtomEvent(SET_ATOM + active_an); 
+				// active_an is an arbitrary
+				// number, should be
+				// changed to the string of the atom type
+				event = JME.SET_ATOM;
+			}
+		}
+		return event;
+	}
+
+	public boolean deleteAtomOrBond() {
+		if (mol.touchedAtom > 0) {
+			mol.deleteAtom(mol.touchedAtom);
+			jme.recordAtomEvent(JME.DEL_ATOM);
+			mol.touchedAtom = 0;
+		} else {
+			mol.deleteBond(mol.touchedBond);
+			jme.recordBondEvent(JME.DEL_BOND); // BH was recordAtomEvent
+			mol.touchedBond = 0;
+		}
+		mol.cleanAfterChanged(jme.options.polarnitro); // to add Hs
+		return false;
 	}
 
 }

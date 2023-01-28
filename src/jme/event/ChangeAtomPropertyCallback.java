@@ -1,12 +1,12 @@
-package jme;
+package jme.event;
 
-abstract class ChangeAtomPropertyCallback  {
+abstract public class ChangeAtomPropertyCallback  {
 	public abstract  String actionType();
 	public abstract  int getAtomValue();
 	public abstract void setAtomValue(int newValue);
 	public abstract void reportError(String errorMessage);
 	public String atomSymbol;
-	protected abstract void finished();
+	public abstract void finished();
 
 
 	

@@ -142,7 +142,7 @@ public class PreciseGraphicsAWT {
 	}
 
 	static BasicStroke defaultStroke = new BasicStroke(1.0f);
-	Graphics2D baseGraphics;
+	public Graphics2D baseGraphics;
 	PreciseGraphicsAWT.ExtendedGraphics2D extendedBaseGraphics;
 	
 	protected double scale = 1.0; //for zooming in and out
@@ -164,7 +164,7 @@ public class PreciseGraphicsAWT {
 	 * width to be used for drawing using real coordinates
 	 * @return
 	 */
-	double getWidth() {
+	public double getWidth() {
 		return this.screenArea.width/this.scale;
 	}
 	
@@ -172,14 +172,14 @@ public class PreciseGraphicsAWT {
 	 * height to be used for drawing using real coordinates
 	 * @return
 	 */
-	double getHeight() {
+	public double getHeight() {
 		return this.screenArea.height/this.scale;
 	}
 	void setDrawOnScreenCoordinates(int x, int y) {
 		screenArea.x = x;
 		screenArea.y = y;
 	}
-	void setDrawOnScreenCoordinates(Rectangle2D.Double screenArea) {
+	public void setDrawOnScreenCoordinates(Rectangle2D.Double screenArea) {
 		this.screenArea.x = screenArea.x;
 		this.screenArea.y = screenArea.y;
 		this.screenArea.height = screenArea.height;
@@ -213,14 +213,14 @@ public class PreciseGraphicsAWT {
 	double screenToCoord(int pixel) {
 		return (double)pixel/this.scale;
 	}
-	int coordToScreen(double coord) {
+	public int coordToScreen(double coord) {
 		return (int)(coord * this.scale +0.5);
 	}
 	
-	double screenToCoordX(int x) {
+	public double screenToCoordX(int x) {
 		return screenToCoord(x- (int)this.screenArea.x) ;
 	}
-	double screenToCoordY(int y) {
+	public double screenToCoordY(int y) {
 		return screenToCoord(y - (int)this.screenArea.y) ;
 	}
 	

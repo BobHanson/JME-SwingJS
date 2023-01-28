@@ -1,4 +1,4 @@
-package jme;
+package jme.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -21,15 +21,15 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
 
-import jme.core.Atom;
+import jme.JME;
 
 //****************************************************************************
 @SuppressWarnings("serial")
-class MultiBox extends FrameWithLocation {
+public class MultiBox extends FrameWithLocation {
 
-	final static int BOX_ABOUT = 0;
-	final static int BOX_SMILES = 1;
-	final static int BOX_ATOMX = 2;
+	public final static int BOX_ABOUT = 0;
+	public final static int BOX_SMILES = 1;
+	public final static int BOX_ATOMX = 2;
 
 	// static Point aboutBoxPoint = new Point(500, 10);
 	// static Point smilesBoxPoint = new Point(200, 50);
@@ -37,7 +37,6 @@ class MultiBox extends FrameWithLocation {
 	Point aboutBoxPoint;
 	Point smilesBoxPoint;
 	Point atomxBoxPoint;
-	static JTextField atomicSymbol = new JTextField("H"); // pouziva sa v JME
 	JButton helpJButton = new JButton("Help");
 	JButton homeJButton = new JButton("JSME home");
 
@@ -50,15 +49,10 @@ class MultiBox extends FrameWithLocation {
 	 * @param box : 1 is for smiles , 2 for X and 0 for about
 	 * @param jme
 	 */
-	MultiBox(int box, JME jme) {
+	public MultiBox(int box, JME jme) {
 		super();
 		this.jme = jme;
 
-		// BB It is not necesssary to specify a font, the default one looks good - not
-		// true - Helevetica looks beter because it is correclty centered
-		if (jme.dialogFont != null) {
-			setFont(jme.dialogFont);
-		}
 		setBackground(jme.bgColor);
 		setResizable(false);
 
@@ -81,7 +75,7 @@ class MultiBox extends FrameWithLocation {
 			if (atomxBoxPoint == null) {
 				// BB
 				atomxBoxPoint = new Point(jmeLocation);
-				safeTranslate(atomxBoxPoint, -50, (int) jme.menuCellSize * 13 - 80); // left side of the atom X
+				safeTranslate(atomxBoxPoint, -50, (int) jme.gui.menuCellSize * 13 - 80); // left side of the atom X
 																							// menu cell
 			}
 			this.lastLocation = atomxBoxPoint;
@@ -91,7 +85,7 @@ class MultiBox extends FrameWithLocation {
 			// BB
 			if (aboutBoxPoint == null) {
 				aboutBoxPoint = new Point(jmeLocation);
-				safeTranslate(aboutBoxPoint, (int) jme.menuCellSize * 5, 0); // right side next to the info menu
+				safeTranslate(aboutBoxPoint, (int) jme.gui.menuCellSize * 5, 0); // right side next to the info menu
 																					// cell
 			}
 			initAboutBox();
@@ -101,6 +95,19 @@ class MultiBox extends FrameWithLocation {
 
 		pack();
 		setVisible(true);
+		
+		// BH 2023.01.28 after visible, select text
+		switch (box) {
+		case BOX_SMILES:
+			smilesText.select(0, 1000);
+			break;
+		case BOX_ATOMX:
+			jme.atomicSymbol.select(0, 1000);
+			break;
+		case BOX_ABOUT:
+			break;
+		}
+		
 	}
 
 	// ----------------------------------------------------------------------------
@@ -116,7 +123,7 @@ class MultiBox extends FrameWithLocation {
 		b.add(javax.swing.Box.createRigidArea(new Dimension(10,10)));
 		for (String cl : JME.copyright) {
 			JLabel l = new JLabel(cl);
-			l.setFont(JME.copyRigthSmallTextFont);
+			l.setFont(GUI.copyRigthSmallTextFont);
 			b.add(l);
 		}
 		for (int i = 0; i < b.getComponentCount(); i++)
@@ -190,7 +197,7 @@ class MultiBox extends FrameWithLocation {
 	// BB: resize does not work
 	void setSmiles(String smiles) {
 		Dimension d = getSize();
-		int l = jme.menuCellFontSmallerMet.stringWidth(smiles) + 50;
+		int l = GUI.menuCellFontSmallerMet.stringWidth(smiles) + 50;
 		if (l < 150)
 			l = 150;
 		// BB : avoid huge dialog box that does not fit the screen
@@ -210,11 +217,7 @@ class MultiBox extends FrameWithLocation {
 		p.add(new JLabel("atomic SMILES", JLabel.CENTER));
 		add("North", p);
 		// 2007.01 fixed bug - frozen xbutton
-		String as = "H";
-		if (atomicSymbol != null)
-			as = atomicSymbol.getText();
-		atomicSymbol = new JTextField(as, 8);
-		add("Center", atomicSymbol);
+		add("Center", jme.atomicSymbol);
 		p = new JPanel();
 		p.add(this.closeJButton);
 		add("South", p);
@@ -222,16 +225,8 @@ class MultiBox extends FrameWithLocation {
 
 	// ----------------------------------------------------------------------------
 	public boolean keyDown(KeyEvent e, int key) {
-		// v JME menu nastavi na X (ak bolo medzitym ine) ak tukane zo atomxBox
-		if (atomicSymbol == null)
-			return false; // nie null iba v atomxBox
-		// vracia false, lebo potom by sa nedalo pisat napr v smilesBox
-		if (jme.action != JME.ACTION_AN_X) {
-			jme.action = JME.ACTION_AN_X;
-			jme.active_an = Atom.AN_X; // treba
-		}
-		// JME.repaint(); //can't make static reference ... kvoli ocierneniu X
-		return false; // inak sa nedaju pisat pismena do text boxu
+		jme.dialogActionX();
+		return false;
 	}
 
 //	// ----------------------------------------------------------------------------

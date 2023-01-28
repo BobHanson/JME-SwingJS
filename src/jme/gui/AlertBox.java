@@ -1,4 +1,4 @@
-package jme;
+package jme.gui;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -11,7 +11,7 @@ import javax.swing.JPanel;
 // show an alert box centered near the center of the source
 //mimic the Javascript alert()( function
 @SuppressWarnings("serial")
-class AlertBox extends FrameWithLocation {
+public class AlertBox extends FrameWithLocation {
 
 	// the source can be the applet
 	public AlertBox(String msg, Component source, Color backgroundColor) {

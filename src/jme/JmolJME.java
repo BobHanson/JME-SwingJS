@@ -275,7 +275,7 @@ public class JmolJME extends JME implements WindowListener {
 	}
 
 	public Dimension getImageSize() {
-		jme.Box coordBox = activeMol.computeBoundingBoxWithAtomLabels(null);
+		jme.core.Box coordBox = activeMol.computeBoundingBoxWithAtomLabels(null);
 		double f = molecularAreaScalePixelsPerCoord;
 		return new Dimension((int) (coordBox.width * f), (int) (coordBox.height * f));
 	}

@@ -1,4 +1,4 @@
-package jme;
+package jme.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Event;
@@ -14,13 +14,16 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
+import jme.event.ChangeAtomPropertyCallback;
+import jme.event.InspectorEvent;
+
 /**
  * Dialog box to set the atom map of the atom - later other properties
  * 
  * @author bruno
  *
  */
-class AtomInspector {
+public class AtomInspector {
 	JDialog modalDialog;
 	JFrame window ;
 	ActionListener actionListener;

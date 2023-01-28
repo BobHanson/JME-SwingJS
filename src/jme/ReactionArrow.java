@@ -3,6 +3,8 @@ package jme;
 import java.awt.Color;
 import java.awt.geom.Line2D;
 
+import jme.core.Box;
+
 class ReactionArrow implements Graphical2DObject {
 
 	double arrowWidth = 24 * 2;

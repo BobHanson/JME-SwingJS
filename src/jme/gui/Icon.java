@@ -1,9 +1,11 @@
-package jme;
+package jme.gui;
 
 //START JAVA_IMPORT
 
 import java.awt.Rectangle;
 import java.awt.geom.Rectangle2D;
+
+import jme.PreciseGraphicsAWT;
 
 //END JAVA_IMPORT
 

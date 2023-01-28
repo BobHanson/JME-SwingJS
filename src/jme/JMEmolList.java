@@ -9,6 +9,7 @@ import java.util.StringTokenizer;
 import jme.JME.SupportedFileFormat;
 import jme.core.Atom;
 import jme.core.Bond;
+import jme.core.Box;
 import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
 import jme.io.JMEWriter;

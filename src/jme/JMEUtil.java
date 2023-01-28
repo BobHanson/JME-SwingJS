@@ -1,6 +1,5 @@
 package jme;
 
-import java.awt.FontMetrics;
 import java.util.StringTokenizer;
 
 import jme.js.RunAsyncCallback;
@@ -115,15 +114,6 @@ public abstract class JMEUtil {
 		for (int i = 1; i <= dec - slen + dotpos + 1; i++)
 			s += "0";
 		return (len == 0 ? s : rightJustify("          ".substring(0, len), s));
-	}
-
-	/**
-	 * Provide the ideal height of a string consisting of usual upper case
-	 * characters. Purpose: centering of String in the center of a box. Does not
-	 * work for $ , y ; and others
-	 */
-	public static double stringHeight(FontMetrics fm) {
-		return fm.getAscent() - fm.getDescent();
 	}
 
 	public static void log(String string) {

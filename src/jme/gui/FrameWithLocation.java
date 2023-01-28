@@ -1,4 +1,4 @@
-package jme;
+package jme.gui;
 
 import java.awt.Point;
 import java.awt.event.ActionEvent;

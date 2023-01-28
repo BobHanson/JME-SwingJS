@@ -3,19 +3,11 @@
  */
 package jme;
 
-//START JAVA_IMPORT
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
-//END JAVA_IMPORT
-
-//START GWT_IMPORT
-//import ejava.awt.geom.Line2D;
-//import ejava.awt.geom.Point2D;
-//import ejava.awt.geom.Rectangle2D;
-
-//END GWT_IMPORT
+import jme.core.Box;
 
 /**
  * @author bruno
