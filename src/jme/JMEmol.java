@@ -1002,7 +1002,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		int i, found = 0;
 		double rx;
 		double min = retMin[0];
-
 		if (!ignoreBonds) {
 			for (i = 1; i <= nbonds; i++) {
 				Bond b = this.bonds[i];
@@ -1094,7 +1093,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				if (dist < min) {
 					found = i * -1;
 					min = dist;
-					// break; //no break: there could be more than one long bond connected to the
+					//no break: there could be more than one long bond connected to the
 					// same atom
 				}
 
@@ -2508,6 +2507,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	// ----------------------------------------------------------------------------
 	public Atom createAtom() {
 		return createAtomFromOther(null);
+	}
+
+	protected Atom createAtomFromOther(Atom atomToDuplicate) {
+		atomLabels = null;
+		return super.createAtomFromOther(atomToDuplicate);
 	}
 
 	// ----------------------------------------------------------------------------

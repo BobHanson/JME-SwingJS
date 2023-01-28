@@ -6470,7 +6470,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				result.reset();
 				result.mol = eachMol;
 				result.distance = minDistance;
-				result.atomIndex = (a_or_b > 0 ? a_or_b : -a_or_b);
+				if (a_or_b > 0)
+					result.atomIndex = a_or_b;
+				else
+					result.bondIndex = -a_or_b;
 			}
 		}
 	}

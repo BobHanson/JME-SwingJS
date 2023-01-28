@@ -111,7 +111,8 @@ public class AtomDisplayLabel {
 
 		int nsub = (subscripts == null ? 0 : subscripts.cardinality());
 		int nsup = (superscripts == null ? 0 : superscripts.cardinality());
-		double xAdj = 0, yAdj1 = 0, yAdj2 = 0;
+		double xAdj1 = 0, xAdj2 = 0, yAdj1 = 0, yAdj2 = 0;
+		double ssCharWidth = fm.charWidth('2'); 
 		if (nsub != 0 || nsup != 0) {
 			bsSS = new BitSet();
 			if (nsub > 0) {
@@ -122,14 +123,15 @@ public class AtomDisplayLabel {
 				bsSS.or(superscripts);
 				yAdj2 = 1;
 			}
-			xAdj = (bsSS.cardinality() * fm.charWidth('2') * (1-0.6));
+			xAdj2 = nsup * ssCharWidth * 0.4;
+			xAdj1 = nsub * ssCharWidth * 0.4;
 		}
 		
 	
 		// used to position / center the atom label
 		double smallWidth = fm.stringWidth(stringForWidth);
 		// used to compute the bounding box of the atom label
-		double fullWidth = fm.stringWidth(z) - xAdj;
+		double fullWidth = fm.stringWidth(z) - xAdj1 - xAdj2;
 
 		this.smallAtomWidthLabel = smallWidth;
 		this.fullAtomWidthLabel = fullWidth;
@@ -141,10 +143,18 @@ public class AtomDisplayLabel {
 
 		// small width is used to compute the position xstart, that is the x position of
 		// the label
-		double xstart = x - smallWidth / 2.;
-		if (alignment == JMEUtil.ALIGN_RIGHT) {
+		double xstart = x - smallWidth / 2. ;
+		switch (alignment) {
+		case JMEUtil.ALIGN_RIGHT:
 			xstart -= (fullWidth - smallWidth); // move the xstart further left
-		}
+			xstart += nsup * ssCharWidth * 0.6;
+		break;
+		case JMEUtil.ALIGN_CENTER:
+			xstart += nsup * ssCharWidth * 0.6;
+			break;
+		case JMEUtil.ALIGN_LEFT:
+			break;
+		} 
 		double ystart = y - h / 2; // o 1 vyssie
 
 		// to take into account the line thickness
@@ -216,13 +226,13 @@ public class AtomDisplayLabel {
 		double x = labelX;
 		double y = labelY;
 		double subOffset = h / 3;
-		double superOffset = 2 * subOffset;
+		double superOffset = -2 * subOffset;
 		double yoff;
 		for (int i = 0; i < str.length();) {
 			int pt0 = i; 
 			int pt1 = bsSS.nextSetBit(i);
 			if (pt1 == pt0) {
-				if (subscripts.get(i)) {
+				if (subscripts != null && subscripts.get(i)) {
 					pt1 = subscripts.nextClearBit(i + 1);
 					yoff = subOffset;
 				} else {
