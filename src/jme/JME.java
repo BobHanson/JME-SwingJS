@@ -3536,7 +3536,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				// FIXME - DUPLICATED CODED with delete using the mouse!!!!!!!!!!!!!!!!!!!!
 				// 2011.01 if touchedAtom or bond, deletes it
 				// happens with keyboard shortcut not mouse action
-				structureChangePerformed = actionDeleteTouchedAtomOrBond();
+				if (getBuilder(activeMol).deleteAtomOrBond()) {
+					structureChangePerformed = true;
+					updatePartsList();
+				}
 				break;
 
 			case Actions.ACTION_FG:
@@ -3609,9 +3612,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //				
 //				break;
 			/*
-			 * case Actions.ACTION_AN_R: active_an = AN_R; break; case Actions.ACTION_AN_R1: active_an =
-			 * AN_R1; break; case Actions.ACTION_AN_R2: active_an = AN_R2; break; case Actions.ACTION_AN_R3:
-			 * active_an = AN_R3;
+			 * case Actions.ACTION_AN_R: active_an = AN_R; break; case Actions.ACTION_AN_R1:
+			 * active_an = AN_R1; break; case Actions.ACTION_AN_R2: active_an = AN_R2;
+			 * break; case Actions.ACTION_AN_R3: active_an = AN_R3;
 			 * 
 			 * 
 			 * break;
@@ -3688,7 +3691,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				getBuilder(activeMol).addRing();
 				structureChangePerformed = true;
 				this.recordBondEvent(ADD_RING_BOND);
-			} else if (action == Actions.ACTION_BOND_SINGLE || action == Actions.ACTION_BOND_DOUBLE || action == Actions.ACTION_BOND_TRIPLE) {
+			} else if (action == Actions.ACTION_BOND_SINGLE || action == Actions.ACTION_BOND_DOUBLE
+					|| action == Actions.ACTION_BOND_TRIPLE) {
 				// BB Oct 2015: add bond & change bond without switch to double bond bond tool
 
 				if (activeMol.touchedAtom > 0) {
@@ -3752,14 +3756,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	/**
-	 * This method recods the event and performn the postSave()
+	 * Adjust moleculePartsList if necessary after a bond or atom addition
 	 * 
-	 * @return true if the an atom or a bond has been deleted
 	 */
-	public boolean actionDeleteTouchedAtomOrBond() {
-		if (activeMol.touchedAtom == 0 && activeMol.touchedBond == 0)
-			return false;
-		getBuilder(activeMol).deleteAtomOrBond();
+	public void updatePartsList() {
 		if (moleculePartsList.isEmpty()) {
 			// can happen when there are no molecule left, e.g, the last one had a
 			// single atom that was deleted
@@ -3768,7 +3768,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		activeMol = moleculePartsList.get(0);
 		// if an atom or a bond is deleted, then create new molecule if needed
 		moleculePartsList.splitFragments(true); // true: remove any empty molecule
-		return true;
 	}
 
 	/**
@@ -4255,27 +4254,33 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				}
 
 			}
-
-			// BB: xbutton handling
-			if (!options.xButton && action == Actions.ACTION_AN_X) {
+			
+			boolean ok = true;
+			switch (action) {
+			case Actions.ACTION_AN_X:
+				ok = options.xButton;
+				break;
+			case Actions.ACTION_QRY:
+				ok = options.query;
+				break;
+			case Actions.ACTION_STEREO:
+				ok = options.stereo;
+				break;
+			case Actions.ACTION_NEW:
+				ok = options.multipart;
+				break;
+			case Actions.ACTION_MARK:
+				ok = (params.number || options.autonumber);
+				break;
+			case Actions.ACTION_REACP:
+				ok = options.reaction;
+				break;
+			}
+			if (ok) {
+				returnStatus = menuAction(action);
+			} else {
 				return eventNotUsed;
 			}
-
-			if (!options.query && action == Actions.ACTION_QRY)
-				return eventNotUsed;
-			if (!options.stereo && action == Actions.ACTION_STEREO)
-				return eventNotUsed;
-			if (!options.multipart && action == Actions.ACTION_NEW)
-				return eventNotUsed;
-			if (!(this.params.number || options.autonumber) && action == Actions.ACTION_MARK)
-				return eventNotUsed;
-			if (!options.reaction && action == Actions.ACTION_REACP)
-				return eventNotUsed;
-			// if(action == Actions.ACTION_EMPTY_CELL){
-			// return eventNotUsed;
-			// }
-
-			returnStatus = menuAction(action); // has its own paint() call
 		} else if (!isDepict() && (y > dimension.height - infoAreaHeight())) { // --- info area clicked
 			return eventNotUsed;
 		} else { // --- mouse click in the drawing area
@@ -4565,6 +4570,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					// as before - no merge
 					// checkBond create or increase bond order
 					activeMol.checkBond(); // standard bond check
+					activeMol.setBondCenters();
 				}
 			}
 			// BB :
@@ -4678,11 +4684,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				JMEmol touched_JMEmol = newTouchedMol.mol;
 				touched_JMEmol.touchedAtom = this.newTouchedMol.atomIndex;
 
-				if (touched_JMEmol != activeMol || this.newTouchedMol.atomIndex != activeMol.touched_org) { // make bond
+				if (touched_JMEmol != activeMol || this.newTouchedMol.atomIndex != activeMol.touched_org) { 
+					// make bond
 																											// towards
 					// existing atom
 					activeMol.XY(activeMol.natoms, touched_JMEmol.x(newTouchedMol.atomIndex),
-							touched_JMEmol.y(newTouchedMol.atomIndex)); // move the new atom to the coordinate of the
+							touched_JMEmol.y(newTouchedMol.atomIndex)); 
+					// move the new atom to the coordinate of the
 																		// closest touched atom "snap"
 					// actually it does not move while it still close to the touched atom
 					// System.out.println("SNAP otheratom");

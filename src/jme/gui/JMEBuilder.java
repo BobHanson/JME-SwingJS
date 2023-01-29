@@ -31,6 +31,7 @@ public class JMEBuilder {
 	private boolean spiroMode;
 	private JMEmol templateMolecule;
 	private String templateString;
+	private boolean linearAdding;
 
 	public JMEBuilder(JME jme) {
 		this.jme = jme;
@@ -51,7 +52,8 @@ public class JMEBuilder {
 	}
 
 	public void addBond() {
-		mol.addBondToAtom(touchedAtom, 0);
+		mol.addBondToAtom(touchedAtom, 0, linearAdding || action == Actions.ACTION_BOND_TRIPLE, 
+				action == Actions.ACTION_BOND_DOUBLE);
 		bonds = mol.bonds;
 	}
 
@@ -514,8 +516,9 @@ public class JMEBuilder {
 
 		boolean hasTwoPossibleAddAngle = bd.initBondCreate(mol, source, 1);
 
-		BondDirection alternativeBD = new BondDirection();
+		BondDirection alternativeBD = null;
 		if (hasTwoPossibleAddAngle) {
+			alternativeBD = new BondDirection();
 			alternativeBD.initBondCreate(mol, source, -1);
 		}
 
@@ -758,13 +761,13 @@ public class JMEBuilder {
 			int mode = b[i];
 			switch (mode) {
 			case LINEAR_ON:
-				mol.linearAdding = true;
+				linearAdding = true;
 				break;
 			case LINEAR_OFF:
-				mol.linearAdding = false;
+				linearAdding = false;
 				break;
 			default:
-				mol.addBondToAtom(mode > 0 ? mode : mol.natoms + mode, 0);
+				mol.addBondToAtom(mode > 0 ? mode : mol.natoms + mode, 0, linearAdding, false);
 				bonds = mol.bonds;
 				break;
 			}
@@ -829,7 +832,8 @@ public class JMEBuilder {
 		String event = null;
 		boolean cleanPolar = false;
 		if (action == Actions.ACTION_DELETE) {
-			jme.actionDeleteTouchedAtomOrBond(); // record the event as well
+			deleteAtomOrBond();
+			jme.updatePartsList(); // record the event as well
 		} else if (action == Actions.ACTION_DELGROUP) {
 			mol.deleteAtomGroup();
 			cleanPolar = true;
@@ -878,7 +882,8 @@ public class JMEBuilder {
 	public String checkAtomAction() {
 		String event = null;
 		if (action == Actions.ACTION_DELETE) {
-			jme.actionDeleteTouchedAtomOrBond();
+			deleteAtomOrBond();
+			jme.updatePartsList();
 		} else if (action == Actions.ACTION_DELGROUP) {
 			return "TRUE"; // do nothing
 		} else if (action == Actions.ACTION_CHARGE) {
@@ -937,6 +942,8 @@ public class JMEBuilder {
 	}
 
 	public boolean deleteAtomOrBond() {
+		if (mol.touchedAtom == 0 && mol.touchedBond == 0)
+			return false;
 		if (mol.touchedAtom > 0) {
 			mol.deleteAtom(mol.touchedAtom);
 			jme.recordAtomEvent(JME.DEL_ATOM);
@@ -947,7 +954,7 @@ public class JMEBuilder {
 			mol.touchedBond = 0;
 		}
 		mol.cleanAfterChanged(jme.options.polarnitro); // to add Hs
-		return false;
+		return true;
 	}
 
 }

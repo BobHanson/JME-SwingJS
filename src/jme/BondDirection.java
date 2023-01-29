@@ -33,7 +33,7 @@ public class BondDirection {
 		int nh = mol.atoms[sourceAtom].nh;
 		int nv = mol.atoms[sourceAtom].nv;
 		int q = mol.atoms[sourceAtom].q;
-		boolean hasTwoPossibleAddAngle = mol.addBondToAtom(sourceAtom, addBondArgument);	
+		boolean hasTwoPossibleAddAngle = mol.addBondToAtom(sourceAtom, addBondArgument, false, false);	
 		int destAtom = mol.natoms; // index of the new added atom
 		init(mol, sourceAtom, destAtom);
 		mol.deleteAtom(destAtom); // delete the added bond and added atom

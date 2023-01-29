@@ -69,7 +69,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	public int touchedBond = 0;
 	public int touched_org = 0; // original v rubber banding
 	public double xorg, yorg; // center of ring in free space, rubber banding
-	public boolean linearAdding = false; // pre ACTION_TBU (lepsie ???)
 	public int nchain; // pomocna variable pre CHAIN (aktualna dlzka pri rubber)
 	boolean stopChain = false; 
 	boolean needRecentering = false;
@@ -1769,8 +1768,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					double yc1 = yy * cosa - xx * sina; // hore / dolu
 					if (ymm > 0. && yc1 < 0. || ymm < 0. && yc1 > 0.) { // su opacne
 						int bd = nbonds;
-						touchedAtom = chain[0];
-						addBond(); // adds new bond
+						addBondToAtom(chain[0], 0, false, false); // adds new bond
 						deleteBond(bd); // delets old bond
 						if (checkTouch(natoms) > 0)
 							stopChain = true;
@@ -1792,8 +1790,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					nchain--;
 					return;
 				}
-				touchedAtom = natoms;
-				addBond((int) Math.round(ym));
+				addBondToAtom(natoms, (int) Math.round(ym), false, false);
 				// this.jme.recordBondEvent("addBond"); // wait until finished
 				jme.willPostSave(false); // do not store undo state
 				chain[nchain] = natoms;
@@ -2189,21 +2186,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			return bonds[bond].vb;
 		}
 		return 0;
-	}
-	// ----------------------------------------------------------------------------
-
-	public void addBond() {
-		addBondToAtom(touchedAtom, 0);
-	}
-
-	void addBond(int up) {
-		this.addBondToAtom(touchedAtom, up);
-	}
-
-	public boolean addBondToAtom(int selectedAtom, int up) {
-		return addBondToAtom(selectedAtom, up, 
-				linearAdding || jme.action == Actions.ACTION_BOND_TRIPLE, 
-				jme.action == Actions.ACTION_BOND_DOUBLE);
 	}
 
 	/**
