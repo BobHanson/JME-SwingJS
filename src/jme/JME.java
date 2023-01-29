@@ -6749,28 +6749,61 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	/**
-	 * Notify the JavaScript envirronement that the chemical structure has changed
+	 * Notify the JavaScript environment that the chemical structure has changed
 	 * 
 	 * @param cause
+	 * 
+	 * BB comment: is cause needed? Seems to bring the same functionality as event.origin
 	 */
 	public void notifyStructuralChange(String cause) {
 
-		if (afterStructureChangeEvent != null && afterStructureChangeEvent.action != null) {
-			if (afterStructureChangeEvent.stackLevel > 0) {
-				afterStructureChangeEvent.reset();
-				return;
-			}
-			afterStructureChangeEvent.stackLevel++;
-			handleAftertructureModifiedEvent(cause);
-		}
+		// JSME bug fix #33 https://github.com/jsme-editor/jsme-editor.github.io/issues/33
+		if (this.afterStructureChangeEvent != null && this.afterStructureChangeEvent.action != null) {
+			this.afterStructureChangeEvent.stackLevel++; 
+// 			System.out.println("@@@@ this.afterStructureChangeEvent.stackLevel: " +
+// 			this.afterStructureChangeEvent.stackLevel + " " + this.afterStructureChangeEvent.action +
+// 			" cause: " + cause + " origin: " + this.afterStructureChangeEvent.origin);
 
-		try {
-			if (notifyStructuralChangeJSfunction != null) {
-				notifyStructuralChangeJSfunction.apply(this, null);
+			// the JS client function might trigger a structural change, wee need to prevent an infinite loop
+			int MAX_RECURSIVE_LOOP = 1;
+			if(this.afterStructureChangeEvent.stackLevel<= MAX_RECURSIVE_LOOP) {
+				this.handleAftertructureModifiedEvent(cause); // uses the current event
+
+				// older - deprecated implementation
+				try {
+					if (notifyStructuralChangeJSfunction != null) {
+						notifyStructuralChangeJSfunction.apply(this, null);
+					}
+				} catch (Throwable t) {
+					t.printStackTrace();
+				}
+				}
+			this.afterStructureChangeEvent.stackLevel --;
+			if (this.afterStructureChangeEvent.stackLevel <= 0) {
+				this.afterStructureChangeEvent.reset();
 			}
-		} catch (Throwable t) {
-			t.printStackTrace();
+			
+			
+	
 		}
+		
+		
+//		if (afterStructureChangeEvent != null && afterStructureChangeEvent.action != null) {
+//			if (afterStructureChangeEvent.stackLevel > 0) {
+//				afterStructureChangeEvent.reset();
+//				return;
+//			}
+//			afterStructureChangeEvent.stackLevel++;
+//			handleAftertructureModifiedEvent(cause);
+//		}
+//
+//		try {
+//			if (notifyStructuralChangeJSfunction != null) {
+//				notifyStructuralChangeJSfunction.apply(this, null);
+//			}
+//		} catch (Throwable t) {
+//			t.printStackTrace();
+//		}
 
 	}
 
