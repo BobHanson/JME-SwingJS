@@ -381,9 +381,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	final static protected double fullScreenScale = 3;
 
 	public boolean newMolecule = false; // enable to start new molecule
-	int xold, yold; // position of mousePressed, updated in mouseDragged
-	boolean afterClear = false; // info pre undo
-	boolean mouseShift = false; // kvoli numbering
+	private int mouseX, mouseY; // position of mousePressed, updated in mouseDragged
+	private boolean afterClear = false; // info pre undo
+	private boolean mouseShift = false; // kvoli numbering
 
 	// boolean isContextMenu = false; //right mouse click
 
@@ -4216,9 +4216,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// this.isContextMenu = this.isEventContextMenu(e); //will be used in the
 		// addRing() method to decide if a spiro ring should be added
 
-		xold = x;// used later in mouseDrag
+		mouseX = x;// used later in mouseDrag
 		// yold = y - (2 * (int)gui.menuCellSize + menuCellBorder());
-		yold = y; // used later in mouseDrag
+		mouseY = y; // used later in mouseDrag
 
 		// log("mouseDown(): xold=" + xold + " yold=" + yold);
 
@@ -4285,8 +4285,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			return eventNotUsed;
 		} else { // --- mouse click in the drawing area
 					// ---------------------------
-			activeGraphicalObject = findClosestGraphicalObject(xold, yold);
-			activeMol = findClosestMol(xold, yold);
+			activeGraphicalObject = findClosestGraphicalObject(mouseX, mouseY);
+			activeMol = findClosestMol(mouseX, mouseY);
 			activeMol.clearRotation();
 
 			if (activeGraphicalObject == reactionArrow) {
@@ -4660,8 +4660,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		// BB
 		gui.mustReDrawInfo = false;
-		double drawingAreaMoveX = scaleScreenToDrawing(x - xold);
-		double drawingAreaMoveY = scaleScreenToDrawing(y - yold);
+		double drawingAreaMoveX = scaleScreenToDrawing(x - mouseX);
+		double drawingAreaMoveY = scaleScreenToDrawing(y - mouseY);
 		double drawingAreaX = screenToDrawingX(x);
 		double drawingAreaY = screenToDrawingY(y);
 
@@ -4733,8 +4733,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// BB
 		this.redrawMolecularAreaOnly();
 
-		xold = x;
-		yold = y;
+		mouseX = x;
+		mouseY = y;
 		return true;
 	}
 
