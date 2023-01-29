@@ -6767,9 +6767,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// JSME bug fix #33 https://github.com/jsme-editor/jsme-editor.github.io/issues/33
 		if (this.afterStructureChangeEvent != null && this.afterStructureChangeEvent.action != null) {
 			this.afterStructureChangeEvent.stackLevel++; 
-			System.out.println("@@@@ this.afterStructureChangeEvent.stackLevel: " + 
-			this.afterStructureChangeEvent.stackLevel + " " + this.afterStructureChangeEvent.action +
-			" cause: " + cause + " origin: " + this.afterStructureChangeEvent.origin);
+// 			System.out.println("@@@@ this.afterStructureChangeEvent.stackLevel: " +
+// 			this.afterStructureChangeEvent.stackLevel + " " + this.afterStructureChangeEvent.action +
+// 			" cause: " + cause + " origin: " + this.afterStructureChangeEvent.origin);
 
 			// the JS client function might trigger a structural change, wee need to prevent an infinite loop
 			int MAX_RECURSIVE_LOOP = 1;
