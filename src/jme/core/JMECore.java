@@ -112,16 +112,16 @@ public class JMECore {
 		natoms = m.natoms;
 		nbonds = m.nbonds;
 		atoms = new Atom[natoms + 1];
-		for (int i = this.atoms.length; --i >= 0;) {
+		for (int i = atoms.length; --i >= 0;) {
 			if (m.atoms[i] != null) {
-				this.atoms[i] = m.atoms[i].deepCopy();
+				atoms[i] = m.atoms[i].deepCopy();
 			}
 		}
 
 		bonds = new Bond[nbonds + 1];
-		for (int i = this.bonds.length; --i >= 0;) {
+		for (int i = bonds.length; --i >= 0;) {
 			if (m.bonds[i] != null) {
-				this.bonds[i] = m.bonds[i].deepCopy();
+				bonds[i] = m.bonds[i].deepCopy();
 			}
 		}
 
@@ -144,7 +144,7 @@ public class JMECore {
 	}
 
 	public Bond getBond(int bondIndex) {
-		return this.bonds[bondIndex];
+		return bonds[bondIndex];
 	}
 
 	public String getAtomLabel(int i) {
@@ -167,7 +167,7 @@ public class JMECore {
 	}
 
 	public void AN(int i, int an) {
-		this.atoms[i].an = an;
+		atoms[i].an = an;
 	}
 
 	public Atom getAtom(int i) {
@@ -286,7 +286,7 @@ public class JMECore {
 				newAddedBond.vb = newAtomIndexMap[bond.vb];
 			}
 		}
-		this.setNeighborsFromBonds(); // update the adjencylist
+		setNeighborsFromBonds(); // update the adjencylist
 	}
 
 	protected Atom createAtomFromOther(Atom atomToDuplicate) {
@@ -297,7 +297,7 @@ public class JMECore {
 			System.arraycopy(atoms, 0, newAtoms, 0, atoms.length);
 			atoms = newAtoms;
 		}
-		return this.atoms[natoms] = (atomToDuplicate == null ? new Atom() : (Atom) atomToDuplicate.deepCopy());
+		return atoms[natoms] = (atomToDuplicate == null ? new Atom() : (Atom) atomToDuplicate.deepCopy());
 	}
 
 	protected void cleanPolarBonds(boolean polarnitro) {
@@ -517,7 +517,7 @@ public class JMECore {
 					atom.nh = 2 - sbo;
 			} else if (sbo == 3) {
 				// >S- ma byt S+, -S= ma byt SH
-				if (nv(i) == 2) {
+				if (atoms[i].nv == 2) {
 					Q(i, 0);
 					atom.nh = 1;
 				} else {
@@ -581,8 +581,8 @@ public class JMECore {
 // 2023.01 BH relativeStereo is not implemented; always false
 //		if (jme != null && jme.relativeStereo && atag(i) != null && atag(i).length() > 0) {
 //			boolean ok = false;
-//			for (int j = 1; j <= nv(i); j++) {
-//				int bond = bondIdentity(i, v(i)[j]);
+//			for (int j = 1; j <= atoms[i].nv; j++) {
+//				int bond = bondIdentity(i, a.v[j]);
 //				if (i == bonds[bond].va && (bonds[bond].stereo == Bond.UP || bonds[bond].stereo == Bond.DOWN)) {
 //					ok = true;
 //					break;
@@ -633,7 +633,7 @@ public class JMECore {
 	 * @return null if no bond was found
 	 */
 	public Bond getBond(int atom1, int atom2) {
-		return this.bonds[getBondIndex(atom1, atom2)];
+		return bonds[getBondIndex(atom1, atom2)];
 	}
 
 	/**
@@ -658,7 +658,7 @@ public class JMECore {
 	}
 
 	public boolean isDouble(int bond) {
-		return this.bonds[bond].isDouble();
+		return bonds[bond].isDouble();
 	}
 
 	public int bondType(int bond) {
@@ -781,8 +781,8 @@ public class JMECore {
 	 * @return 0 if not found
 	 */
 	public int findFirstMappdedOrMarkedAtom() {
-		for (int i = 1; i <= this.natoms; i++) {
-			Atom at = this.atoms[i];
+		for (int i = 1; i <= natoms; i++) {
+			Atom at = atoms[i];
 			if (at.isMappedOrMarked()) {
 				return i;
 			}
@@ -808,68 +808,6 @@ public class JMECore {
 	}
 
 	// ----------------------------------------------------------------------------
-	/**
-	 * delete the atom and the associated bonds CHange nh, even if valenstate in JME
-	 * is set to false
-	 * 
-	 * @param delatom
-	 */
-	public void deleteAtom(int delatom) {
-		int i, j, atom1, atom2;
-
-		// Actualizes bonds
-		j = 0;
-		int deltaSBO = 0; // BB:
-		for (i = 1; i <= nbonds; i++) {
-			Bond bondI = bonds[i];
-			atom1 = bondI.va;
-			atom2 = bondI.vb;
-			if (atom1 != delatom && atom2 != delatom) {
-				j++;
-				Bond bondJ = bonds[j]; // BondJ is replacing BondI
-				bondI.copyTo(bondJ);
-				bondJ.va = atom1;
-				if (atom1 > delatom)
-					bondJ.va--;
-				bondJ.vb = atom2;
-				if (atom2 > delatom)
-					bondJ.vb--;
-			} else {
-				deltaSBO += bondI.bondType;
-			}
-		}
-		nbonds = j;
-
-		for (i = delatom; i < natoms; i++) {
-			this.atoms[i] = this.atoms[i + 1];
-		}
-		natoms--;
-		if (natoms == 0) {
-			return;
-		}
-
-		// updating nv[] and v[][]
-		// updating also nh on neighbors (added in Oct 04 to fix canonisation)
-		for (i = 1; i <= natoms; i++) {
-			int k = 0;
-			int ni = nv(i);
-			for (j = 1; j <= ni; j++) {
-				atom1 = v(i)[j];
-
-				if (atom1 == delatom) {
-					// atoms[i].nh++; // added nh[i]++ 10.04
-					atoms[i].nh += deltaSBO; // BB
-					continue;
-				}
-				if (atom1 > delatom)
-					atom1--;
-				v(i)[++k] = atom1;
-			}
-			NV(i, k);
-		}
-
-	}
-
 	public boolean deleteHydrogens(Parameters.HydrogenParams pars) {
 		boolean changed = false;
 
@@ -879,25 +817,26 @@ public class JMECore {
 
 		setNeighborsFromBonds(); // compute nv() adjancy list because itis needed below
 		atom_loop: for (int i = natoms; i >= 1; i--) {
-			int parent = v(i)[1];
-			if (pars.removeOnlyCHs && an(parent) != Atom.AN_C) {
+			Atom a = atoms[i];
+			Atom parent = atoms[a.v[1]];
+			if (pars.removeOnlyCHs && parent.an != Atom.AN_C) {
 				continue;
 			}
-			if (an(i) == Atom.AN_H && nv(i) == 1 && q(i) == 0 && an(parent) != Atom.AN_H && an(parent) < Atom.AN_X
+			if (a.an == Atom.AN_H && a.nv == 1 && a.q == 0 && parent.an != Atom.AN_H && parent.an < Atom.AN_X
 			// X R R1 R2
 			) {
 
-				if (pars.keepIsotopicHs && this.atoms[i].iso != 0) {
+				if (pars.keepIsotopicHs && a.iso != 0) {
 					continue atom_loop;
 				}
 				// do not delete H with atom map
-				if (pars.keepMappedHs && this.atoms[i].isMapped()) {
+				if (pars.keepMappedHs && a.isMapped()) {
 					continue atom_loop;
 				}
 
-				int bi = getBondIndex(i, parent);
-				if (bonds[bi].bondType == Bond.SINGLE) {
-					if (!(pars.keepStereoHs && bonds[bi].stereo != 0)) {
+				Bond b = getBond(i, a.v[1]);
+				if (b.bondType == Bond.SINGLE) {
+					if (!(pars.keepStereoHs && b.stereo != 0)) {
 						deleteAtom(i); // deleteAtom will recompute the nv's
 						changed = true;
 					}
@@ -918,7 +857,7 @@ public class JMECore {
 
 //	int getFirstMappedAtom() {
 //		for (int at = 1; at <= natoms; at++) {
-//			if (this.atoms[at].isMapped()) {
+//			if (atoms[at].isMapped()) {
 //				return at;
 //			}
 //		}
@@ -1055,8 +994,8 @@ public class JMECore {
 					if (bond.partIndex > 0) {
 						continue;
 					}
-					Atom atom1 = this.atoms[bond.va];
-					Atom atom2 = this.atoms[bond.vb];
+					Atom atom1 = atoms[bond.va];
+					Atom atom2 = atoms[bond.vb];
 					if (atom1.partIndex != atom2.partIndex) { // only one of the two is 0
 						bond.partIndex = atom1.partIndex = atom2.partIndex = nparts;
 						newPartAssignedToAtom = true;
@@ -1165,6 +1104,69 @@ public class JMECore {
 			bonds = newBonds;
 		}
 		return bonds[nbonds] = (otherBond == null ? new Bond() : otherBond.deepCopy());
+	}
+
+	/**
+	 * delete the atom and the associated bonds CHange nh, even if valenstate in JME
+	 * is set to false
+	 * 
+	 * @param delatom
+	 */
+	public void deleteAtom(int delatom) {
+		int i, j, atom1, atom2;
+
+		// Actualizes bonds
+		j = 0;
+		int deltaSBO = 0; // BB:
+		for (i = 1; i <= nbonds; i++) {
+			Bond bondI = bonds[i];
+			atom1 = bondI.va;
+			atom2 = bondI.vb;
+			if (atom1 != delatom && atom2 != delatom) {
+				j++;
+				Bond bondJ = bonds[j]; // BondJ is replacing BondI
+				bondI.copyTo(bondJ);
+				bondJ.va = atom1;
+				if (atom1 > delatom)
+					bondJ.va--;
+				bondJ.vb = atom2;
+				if (atom2 > delatom)
+					bondJ.vb--;
+			} else {
+				deltaSBO += bondI.bondType;
+			}
+		}
+		nbonds = j;
+
+		for (i = delatom; i < natoms; i++) {
+			atoms[i] = atoms[i + 1];
+		}
+		natoms--;
+		if (natoms == 0) {
+			return;
+		}
+
+		// updating nv[] and v[][]
+		// updating also nh on neighbors (added in Oct 04 to fix canonisation)
+		for (i = 1; i <= natoms; i++) {
+			Atom a = atoms[i];
+			int k = 0;
+			int ni = a.nv;
+			for (j = 1; j <= ni; j++) {
+				atom1 = a.v[j];
+
+				if (atom1 == delatom) {
+					// a.nh++; // added nh[i]++ 10.04
+					a.nh += deltaSBO; // BB
+					continue;
+				}
+				if (atom1 > delatom)
+					atom1--;
+				a.v[++k] = atom1;
+			}
+			NV(i, k);
+		}
+
 	}
 
 	

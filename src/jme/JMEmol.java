@@ -74,8 +74,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	boolean needRecentering = false;
 	boolean isQuery = false; // 2013.09
 
-	static boolean TESTDRAW = false;
-
 	Color uniColor = null;
 
 	private int reactionRole = ReactionRole.NOROLE;
@@ -2226,9 +2224,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			// checking for allene -N=C=S, X#C-, etc
 			// chain je ako linear !
 			Bond b = getBond(atom, atom1);
-			if (forceLinear	|| b.bondType == Bond.TRIPLE
-					|| (b.bondType == Bond.DOUBLE && addingDouble))
-			{
+			if (forceLinear	
+					|| b.bondType == Bond.TRIPLE
+					|| addingDouble && b.bondType == Bond.DOUBLE) {
 				xx = rx + RBOND;
 				yy = 0.;
 			} else {
