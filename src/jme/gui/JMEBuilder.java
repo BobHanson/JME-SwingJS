@@ -1,16 +1,129 @@
 package jme.gui;
 
-import jme.BondDirection;
 import jme.JME;
-import jme.JMEmol;
 import jme.JME.SupportedFileFormat;
-import jme.core.JMECore.Parameters;
+import jme.JMEmol;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;
+import jme.core.JMECore.Parameters;
 
 public class JMEBuilder {
 
+	/**
+	 * A class to hold information about how to connect and rotate a fragment
+	 * being added to a molecule.
+	 *
+	 */
+	public static class GroupTemplateBondDirection {
+
+		public double sin;
+		public double cos;
+		public double x, y;
+		private JMEmol mol;
+
+		public GroupTemplateBondDirection() {
+		};
+
+		public void init(JMEmol mol, int sourceAtom, int destAtom) {
+			x = mol.x(destAtom);
+			y = mol.y(destAtom);
+			double dx = mol.x(sourceAtom) - x;
+			double dy = mol.y(sourceAtom) - y;
+
+			double r = Math.sqrt(dx * dx + dy * dy); // eucldean dist between new atom and source (anchor)
+
+			this.sin = dy / r;
+			this.cos = dx / r;
+
+		}
+
+		public boolean initBondCreate(JMEmol mol, int sourceAtom, int addBondArgument) {
+			this.mol = mol;
+			int nh = mol.atoms[sourceAtom].nh;
+			int nv = mol.atoms[sourceAtom].nv;
+			int q = mol.atoms[sourceAtom].q;
+			Boolean b = mol.addBondToAtom(0, sourceAtom, addBondArgument, false);	
+			boolean hasTwoPossibleAddAngle = (b == Boolean.TRUE);
+			int destAtom = mol.natoms; // index of the new added atom
+			init(mol, sourceAtom, destAtom);
+			mol.deleteAtom(destAtom); // delete the added bond and added atom
+			// deleteAtom has side effects on the source atom
+			mol.atoms[sourceAtom].nh = nh;
+			mol.atoms[sourceAtom].nv = nv;
+			mol.atoms[sourceAtom].q = q;
+			return hasTwoPossibleAddAngle;
+		}
+
+		/**
+		 * 
+		 * @param mol      : the mol that already contains the added fragment
+		 * @param ffirst   : fisrst atom index of the fragment
+		 * @param flast    : last atom index of the fragment
+		 * @param sourceAt : source atom index in the mol to which the fragment will be
+		 *                 attached
+		 * @param sourceBD : the bonddirection of the source atom
+		 */
+		public void moveAndRotateFragment(JMEmol mol, int ffirst, int flast, int sourceAt, GroupTemplateBondDirection sourceBD) {
+
+			for (int i = ffirst; i <= flast; i++) {
+				Atom atom = mol.atoms[i];
+				atom.moveXY(-this.x, -this.y);
+
+				// rotation to be parallel with x axis
+				double xx = atom.x * this.cos + atom.y * this.sin;
+				double yy = atom.y * this.cos - atom.x * this.sin;
+
+				atom.XY(xx, yy);
+
+				// rotating parallel with connecting bond
+				// -cos - opposite direction
+				xx = -atom.x * sourceBD.cos + atom.y * sourceBD.sin;
+				yy = -atom.y * sourceBD.cos - atom.x * sourceBD.sin;
+				atom.XY(xx, yy);
+
+				// move towards point1
+				atom.moveXY(mol.atoms[sourceAt].x, mol.atoms[sourceAt].y);
+
+			}
+		}
+
+		public double sumAtomTooCloseContactsOfAddedFragment(int fragmentFirstAtom, int fragmentLastAtom) {
+			double result = 0;
+			for (int at = 1; at <= mol.natoms; at++) { // MAY 2016 < <=
+				if (at < fragmentFirstAtom || at > fragmentLastAtom)
+					result += sumAtomTooCloseContacts(at, fragmentFirstAtom, fragmentLastAtom);
+			}
+			return result;
+		}
+		
+		private double sumAtomTooCloseContacts(int atom, int firstAtom, int lastAtom) {
+			// checking touch of atom with other atoms
+			double dx, dy, rx;
+			double min = 2 * GUI.TOUCH_LIMIT;
+			double sum = 0;
+			double x = mol.atoms[atom].x;
+			double y = mol.atoms[atom].y;
+			for (int i = firstAtom; i <= lastAtom; i++) {
+				if (atom == i)
+					continue;
+				// compute squared distance
+				dx = x - mol.atoms[i].x;
+				dy = y - mol.atoms[i].y;
+				rx = dx * dx + dy * dy;
+				if (rx < min) {
+					if (rx == 0) {
+						rx = 0.0001;
+					}
+					sum += 1 / rx;
+				}
+			}
+			return sum;
+		}
+
+
+	}
+	
 	//from JME: 
 	public static final int TOUCH_LIMIT = GUI.TOUCH_LIMIT; // 50 pixels
     public static final int LA_FAILED = JME.LA_FAILED;
@@ -52,8 +165,7 @@ public class JMEBuilder {
 	}
 
 	public void addBond() {
-		mol.addBondToAtom(touchedAtom, 0, linearAdding || action == Actions.ACTION_BOND_TRIPLE, 
-				action == Actions.ACTION_BOND_DOUBLE);
+		mol.addBondToAtom(action, touchedAtom, 0, false);
 		bonds = mol.bonds;
 	}
 
@@ -512,17 +624,17 @@ public class JMEBuilder {
 		// getting dummy point in original molecule
 		int source = touchedAtom;
 
-		BondDirection bd = new BondDirection();
+		GroupTemplateBondDirection bd = new GroupTemplateBondDirection();
 
 		boolean hasTwoPossibleAddAngle = bd.initBondCreate(mol, source, 1);
 
-		BondDirection alternativeBD = null;
+		GroupTemplateBondDirection alternativeBD = null;
 		if (hasTwoPossibleAddAngle) {
-			alternativeBD = new BondDirection();
+			alternativeBD = new GroupTemplateBondDirection();
 			alternativeBD.initBondCreate(mol, source, -1);
 		}
 
-		BondDirection templateBD = new BondDirection();
+		GroupTemplateBondDirection templateBD = new GroupTemplateBondDirection();
 		templateBD.initBondCreate(tmol, mark1, 0);
 
 		// add the template atoms to myself no binding yet
@@ -540,7 +652,7 @@ public class JMEBuilder {
 			if (hasTwoPossibleAddAngle) {
 
 				// count the number of touched atoms for the first bond direction
-				double closeContactFactor = mol.sumAtomTooCloseContactsOfAddedFragment(nn + 1, mol.natoms);
+				double closeContactFactor = bd.sumAtomTooCloseContactsOfAddedFragment(nn + 1, mol.natoms);
 				// if there is a close contact atom
 				// may be the alternative bond direction has less touch atom
 
@@ -554,7 +666,7 @@ public class JMEBuilder {
 				}
 
 				templateBD.moveAndRotateFragment(mol, nn + 1, mol.natoms, source, alternativeBD);
-				double alternativecloseContactFactor = mol.sumAtomTooCloseContactsOfAddedFragment(nn + 1, mol.natoms);
+				double alternativecloseContactFactor = bd.sumAtomTooCloseContactsOfAddedFragment(nn + 1, mol.natoms);
 
 				if (alternativecloseContactFactor <= closeContactFactor) {
 					// chose the alternative BD which is already set
@@ -767,7 +879,7 @@ public class JMEBuilder {
 				linearAdding = false;
 				break;
 			default:
-				mol.addBondToAtom(mode > 0 ? mode : mol.natoms + mode, 0, linearAdding, false);
+				mol.addBondToAtom(0, mode > 0 ? mode : mol.natoms + mode, 0, linearAdding);
 				bonds = mol.bonds;
 				break;
 			}
@@ -949,7 +1061,7 @@ public class JMEBuilder {
 			jme.recordAtomEvent(JME.DEL_ATOM);
 			mol.touchedAtom = 0;
 		} else {
-			mol.deleteBond(mol.touchedBond);
+			mol.deleteBond(mol.touchedBond, true);
 			jme.recordBondEvent(JME.DEL_BOND); // BH was recordAtomEvent
 			mol.touchedBond = 0;
 		}

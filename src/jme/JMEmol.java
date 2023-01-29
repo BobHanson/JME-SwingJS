@@ -4,20 +4,10 @@ import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
-import java.util.Hashtable;
-import java.util.Map;
 import java.util.StringTokenizer;
 
-import org.jmol.api.JmolAdapter;
-import org.jmol.api.JmolAdapterAtomIterator;
-import org.jmol.api.JmolAdapterBondIterator;
-import org.jmol.util.Edge;
-import org.jmol.util.Elements;
-
-import javajs.util.P3d;
 import jme.core.Atom;
 import jme.core.AtomBondCommon;
-import jme.core.AtomicElements;
 import jme.core.Bond;
 import jme.core.Box;
 import jme.core.JMECore;
@@ -25,30 +15,27 @@ import jme.core.JMESmiles;
 import jme.gui.Actions;
 import jme.gui.AtomDisplayLabel;
 import jme.gui.GUI;
+import jme.io.JMEReader;
 import jme.io.JMEWriter;
 import jme.ocl.OclAdapter;
 
-
 // --------------------------------------------------------------------------
 public class JMEmol extends JMECore implements Graphical2DObject {
-
 
 // constructors:
 //	public JMEmol()  
 //	public JMEmol(Parameters pars)  
 //	public JMEmol(JME jme, Parameters pars)  
-	
+
 //	public JMEmol(JME jme, JMEmol mols[])  
 
 //	public JMEmol(JME jme, JMEmol m, int part)  
 //	public JMEmol(JME jme, JMEmol m, int part, Object NOT_USED)  
-	
+
 //	public JMEmol(JME jme, JmolAdapterAtomIterator atomIterator, JmolAdapterBondIterator bondIterator, Parameters pars) throws Exception  
 //	public JMEmol(JME jme, String molecule, boolean hasCoordinates, Parameters pars) throws Exception  
 //	public JMEmol(JME jme, String molFile, Parameters options)  
 
-	
-	
 	public static class ReactionRole {
 		public final static int NOROLE = 0;
 		public final static int REACTANT = 1;
@@ -61,6 +48,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	};
 
+	final static boolean doTags = false; // compatibility with JMEPro
+
 	public JME jme; // parent
 
 	public int chain[] = new int[101];
@@ -70,13 +59,17 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	public int touched_org = 0; // original v rubber banding
 	public double xorg, yorg; // center of ring in free space, rubber banding
 	public int nchain; // pomocna variable pre CHAIN (aktualna dlzka pri rubber)
-	boolean stopChain = false; 
+	boolean stopChain = false;
 	boolean needRecentering = false;
 	boolean isQuery = false; // 2013.09
 
 	Color uniColor = null;
 
 	private int reactionRole = ReactionRole.NOROLE;
+
+	protected boolean mixPastelBackGroundColors = true;
+	private double centerx = Double.NaN, centery;
+	private AtomDisplayLabel[] atomLabels;
 
 	// used for junit testing
 	public JMEmol() {
@@ -98,7 +91,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		this.jme = jme;
 	}
 
-	
 	/**
 	 * Construct a deep copy of the given molecule.
 	 * 
@@ -107,7 +99,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	JMEmol(JMEmol m) {
 		super((JMECore) m);
 		jme = m.jme;
-		chiralFlag = m.chiralFlag;
 		reactionRole = m.reactionRole;
 	}
 
@@ -117,37 +108,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param jme
 	 * @param mols
 	 */
-	public JMEmol(JME jme, JMEmol mols[]) {	
-		this(jme, (Parameters) null);
-		if (mols.length > 0 && mols[0] != null)
-			parameters = mols[0].parameters; 
-		int nmols = mols.length;
-		for (int i = 0; i < nmols; i++) {
-			natoms += mols[i].natoms;
-			nbonds += mols[i].nbonds;
-
-			// if any is chiral, then the whole new molecule is chiral
-			if (mols[i].getChiralFlag())
-				this.setChiralFlag(true);
-		}
-		this.atoms = new Atom[natoms + 1];
-		this.bonds = new Bond[nbonds + 1];
-
-		int na = 0, nb = 0, nadd = 0;
-		for (int i = 0; i < nmols; i++) {
-			for (int j = 1, ni = mols[i].natoms; j <= ni; j++) {
-				na++;
-				this.atoms[na] = mols[i].atoms[j].deepCopy();
-			}
-			for (int j = 1, ni = mols[i].nbonds; j <= ni; j++) {
-				nb++;
-				bonds[nb] = mols[i].bonds[j].deepCopy();
-				bonds[nb].va += nadd;
-				bonds[nb].vb += nadd;
-			}
-			nadd = na;
-		}
-		setNeighborsFromBonds(); // update the adjencylist
+	public JMEmol(JME jme, JMEmol[] mols) {
+		super(jme, mols);
+		this.jme = jme;
+		if (mols.length > 0)
+			reactionRole = mols[0].reactionRole;
 	}
 
 	/**
@@ -158,32 +123,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param part the fragment part to get
 	 */
 	public JMEmol(JME jme, JMEmol m, int part) {
-		this(jme, m.parameters);
-		m.computeMultiPartIndices(); // compute the partIndex
-		int newn[] = new int[m.natoms + 1]; // cislovanie stare -> nove
-		for (int i = 1, n = m.natoms; i <= n; i++) {
-			if (atoms[i].partIndex == part)
-				newn[i] = natoms;
-		}
-		for (int i = 1; i <= m.nbonds; i++) {
-			int atom1 = m.bonds[i].va;
-			int atom2 = m.bonds[i].vb;
-			int p1 = atoms[atom1].partIndex;
-			int p2 = atoms[atom2].partIndex;			
-			if (p1 != part && p2 != part)
-				continue;
-			if (p1 != p2) { // musia byt obidve part
-				System.err.println("MOL multipart inconsistency - report bug !");
-				continue;
-			}
-			Bond newAddedBond = createAndAddBondFromOther(m.bonds[i]);
-			// bonds[nbonds].bondType = m.bonds[i].bondType;
-			// stereob[nbonds] = m.stereob[i];
-			newAddedBond.va = newn[atom1];
-			newAddedBond.vb = newn[atom2];
-			// btag[nbonds] = m.btag[i];
-		}
-		this.setNeighborsFromBonds(); // update the adjencylist
+		super(jme, m, part);
+		this.jme = jme;
+		reactionRole = m.reactionRole;
 	}
 
 	/**
@@ -196,7 +138,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	public JMEmol(JME jme, JMEmol m, int part, Object NOT_USED) {
 		this(jme, m.parameters);
 		setPart(m, part);
-		this.setChiralFlag(m.getChiralFlag());
 	}
 
 	// ----------------------------------------------------------------------------
@@ -205,15 +146,15 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * Construct a JMEmol from a JME string
 	 * 
 	 * @param jme
-	 * @param molecule  jme string, for example
-	 * @param type JME, for example
+	 * @param molecule jme string, for example
+	 * @param type     JME, for example
 	 * @param pars
 	 * @throws Exception
 	 */
 	public JMEmol(JME jme, Object molecule, JME.SupportedFileFormat type, Parameters pars) throws Exception {
 		this(jme, pars);
 		if (molecule == null)
-			return;		
+			return;
 		switch (type) {
 		case JME:
 			createFromJMEString((String) molecule);
@@ -226,14 +167,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			break;
 		default:
 			throw new IllegalArgumentException("Unrecognized format");
-		} 
-		setNeighborsFromBonds(); // will be callsd by complete() later, disable it?
-		deleteHydrogens(pars.hydrogenParams);
-		complete(pars.computeValenceState); // este raz, zachytit zmeny
+		}
 	}
 
-	public String createJME(Box boundingBox) {
-		return JMEWriter.createJME(this, false, boundingBox);
+	public String createJMEString(Box boundingBox) {
+		return JMEWriter.createJMEString(this, false, boundingBox);
 	}
 
 	/**
@@ -245,69 +183,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param jmeString
 	 */
 	private void createFromJMEString(String jmeString) {
-
-		if (jmeString.startsWith("\""))
-			jmeString = jmeString.substring(1, jmeString.length());
-		if (jmeString.endsWith("\""))
-			jmeString = jmeString.substring(0, jmeString.length() - 1);
-		if (jmeString.length() < 1) {
-			natoms = 0;
-			return;
-		}
-		try {
-			StringTokenizer st = new StringTokenizer(jmeString);
-			int natomsx = Integer.valueOf(st.nextToken()).intValue();
-			int nbondsx = Integer.valueOf(st.nextToken()).intValue();
-			// natoms and nbonds filled in createAtom() & createBond()
-			// System.err.println("TEST a b >"+natomsx + " " +nbondsx+"<");
-
-			// --- reading basic data for atoms
-			for (int i = 1; i <= natomsx; i++) {
-				// Atom atom = this.atoms[i];
-				// processing atomic symbol => Xx | Hn | charge | :n
-				// symbol je vsetko od zaciatku do H + -
-				// ak Xx spozna - spracuje vsetko, ak je to X, berie cely a testuje len :n
-				String symbol = st.nextToken();
-				Atom atom = this.createAtom(symbol);
-				atom.x = Double.valueOf(st.nextToken()).doubleValue();
-				atom.y = -Double.valueOf(st.nextToken()).doubleValue();
-			}
-			// --- bonds
-			for (int i = 1; i <= nbondsx; i++) {
-				Bond bond = createAndAddBondFromOther(null);
-				bond.va = Integer.valueOf(st.nextToken()).intValue();
-				bond.vb = Integer.valueOf(st.nextToken()).intValue();
-				int bondType = Integer.valueOf(st.nextToken()).intValue();
-				// musi premenit bondType -1 up a -2 down (z va na vb) na stereob
-				int stereob = 0;
-				if (bondType == -1) {
-					bondType = 1;
-					stereob = Bond.STEREO_UP;
-				} else if (bondType == -2) {
-					bondType = 1;
-					stereob = Bond.STEREO_DOWN;
-				} else if (bondType == -5) {
-					bondType = 2;
-					stereob = Bond.STEREO_EZ;
-				} // ez stereo
-				// query bonds created in query window
-				else if (bondType == Bond.QB_ANY || bondType == Bond.QB_AROMATIC || bondType == Bond.QB_RING
-						|| bondType == Bond.QB_NONRING) {
-					stereob = bondType;
-					bondType = Bond.QUERY;
-				}
-				bond.bondType = bondType;
-				bond.stereo = stereob;
-			}
-
-
-		} // end of try
-		catch (Exception e) {
-			System.err.println("read JSME string exception - " + e.getMessage());
-			// e.printStackTrace();
-			natoms = 0;
-			throw (e);
-		}
+		JMEReader.createJMEFromString(this, jmeString);
 	}
 
 	/**
@@ -316,344 +192,23 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param molData
 	 */
 	private void createFromMOLString(String molData) {
-
-		String line = "";
-		String separator = JMEUtil.findLineSeparator(molData);
-
-		// BB: if something else than the molfile, e.g. smiles
-		if (separator == null) {
-			return;
-		}
-
-		StringTokenizer st = new StringTokenizer(molData, separator, true);
-
-		for (int i = 1; i <= 4; i++) {
-			line = JMEUtil.nextData(st, separator); 
-		}
-		int natomsx = Integer.valueOf(line.substring(0, 3).trim()).intValue();
-		int nbondsx = Integer.valueOf(line.substring(3, 6).trim()).intValue();
-		int chiral = 0;
-		try {
-			chiral = Integer.valueOf(line.substring(14, 15).trim()).intValue();
-		} catch (Exception e) {
-			// happens when the count line is mostly blank
-		}
-
-		this.setChiralFlag(chiral == 1);
-
-		// number of bonds to this atom including implicit H's
-		int valences[] = new int[natomsx + 1];
-		for (int i = 1; i <= natomsx; i++) {
-			Atom atom = createAtom();
-			line = JMEUtil.nextData(st, separator);
-			atom.x = Double.valueOf(line.substring(0, 10).trim()).doubleValue();
-			atom.y = -Double.valueOf(line.substring(10, 20).trim()).doubleValue(); // Note: multiplied by -1
-			atom.z = Double.valueOf(line.substring(20, 30).trim()).doubleValue();
-			// symbol 32-34 dolava centrovany (v String 31-33)
-			int endsymbol = 34;
-			if (line.length() < 34)
-				endsymbol = line.length();
-			String symbol = line.substring(31, endsymbol).trim();
-			// String q = line.substring(36,39);
-			setAtom(i, symbol); // sets an[i]
-
-			// atom mapping - 61 - 63
-			if (line.length() >= 62) {
-				String s = line.substring(60, 63).trim();
-				if (s.length() > 0) {
-					int mark = Integer.valueOf(s).intValue();
-					if (mark > 0) {
-						setAtomMapFromInput(i, mark);
-					}
-				}
-			}
-			// BB isotope -
-			if (line.length() >= 36) {
-				String s = line.substring(34, 36).trim();
-				if (s.length() > 0) {
-					int delta = Integer.valueOf(s).intValue();
-
-					// delta can be [-3, +4]
-					// 0 means natural abundance
-					if (delta != 0 && delta >= -3 && delta <= 4) {
-						int iso = AtomicElements.getIsotopicMassOfElementDelta(symbol, delta);
-						if (iso < 0)
-							iso = 0;
-						this.atoms[i].iso = iso;
-					}
-				}
-			}
-
-			// BB charge - not tested
-			if (line.length() >= 39) {
-				String s = line.substring(37, 39).trim();
-				if (s.length() > 0) {
-					int delta = Integer.valueOf(s).intValue();
-					// delta can be [-3, +4]
-					// 0 means natural abundance
-					if (delta > 0 && delta <= 7) {
-						int charge = 0;
-						switch (delta) {
-						case 1:
-							charge = 3;
-							break;
-						case 2:
-							charge = 2;
-							break;
-						case 3:
-							charge = 1;
-							break;
-						case 4:
-							charge = 0; // TODO: doublet;
-							break;
-						case 5:
-							charge = -1;
-							break;
-						case 6:
-							charge = -2;
-							break;
-						case 7:
-							charge = -3;
-							break;
-
-						}
-						this.Q(i, charge);
-					}
-				}
-			}
-
-			// BB valence
-			if (line.length() >= 45) {
-				String s = line.substring(43, 45).trim();
-				if (s.length() > 0)
-					valences[i] = Integer.valueOf(s).intValue();
-			}
-		}
-
-		for (int i = 1; i <= nbondsx; i++) {
-			Bond bond = createAndAddBondFromOther(null);
-			line = JMEUtil.nextData(st, separator);
-			bond.va = Integer.valueOf(line.substring(0, 3).trim()).intValue();
-			bond.vb = Integer.valueOf(line.substring(3, 6).trim()).intValue();
-			int nasvx = Integer.valueOf(line.substring(6, 9).trim()).intValue();
-			int bondType;
-
-			if (nasvx == 1)
-				bondType = Bond.SINGLE;
-			else if (nasvx == 2)
-				bondType = Bond.DOUBLE;
-			else if (nasvx == 3)
-				bondType = Bond.TRIPLE;
-			// else if (nasvx == 4) bondType = Bond.AROMATIC;
-			else if (nasvx == 8)
-				bondType = Bond.COORDINATION; // see comment for the MOL writer
-
-			// aromatic ???
-			else
-				bondType = Bond.QUERY;
-			int stereoVal = 0;
-			if (line.length() > 11)
-				stereoVal = Integer.valueOf(line.substring(9, 12).trim()).intValue();
-			// ??? treba s nasvx
-			if (bondType == Bond.SINGLE || bondType == Bond.COORDINATION) {
-
-				if (stereoVal == 1) {
-					bond.stereo = Bond.STEREO_UP;
-				} else if (stereoVal == 6) {
-					bond.stereo = Bond.STEREO_DOWN;
-				} else if (stereoVal == 4) {
-					bond.stereo = Bond.STEREO_EITHER; // new Feb 2017
-				}
-			}
-			if (nasvx == Bond.DOUBLE && stereoVal == 3) {
-				bondType = Bond.DOUBLE;
-				bond.stereo = Bond.STEREO_EZ;
-			} // crossed bond, Feb 2017
-
-			bond.bondType = bondType;
-		}
-
-		// reading charges and other information
-		while (st.hasMoreTokens()) {
-			if ((line = st.nextToken()) == null)
-				break;
-			if (line.startsWith("M  END"))
-				break;
-
-			if (line.startsWith("M  CHG")) {
-				StringTokenizer stq = new StringTokenizer(line);
-				stq.nextToken();
-				stq.nextToken();
-				int ndata = Integer.valueOf(stq.nextToken()).intValue();
-				for (int i = 1; i <= ndata; i++) {
-					int a = Integer.valueOf(stq.nextToken()).intValue();
-					Q(a, Integer.valueOf(stq.nextToken()).intValue());
-				}
-			}
-
-			// BB
-			if (line.startsWith("M  ISO")) {
-				StringTokenizer stq = new StringTokenizer(line);
-				stq.nextToken();
-				stq.nextToken();
-				int ndata = Integer.valueOf(stq.nextToken()).intValue();
-				for (int i = 1; i <= ndata; i++) {
-					int a = Integer.valueOf(stq.nextToken()).intValue();
-					// TODO: Change the atom symbol for display only
-					// TODO: check validity atom index -> excepstion handling
-					this.atoms[a].iso = Integer.valueOf(stq.nextToken()).intValue();
-
-				}
-			}
-
-			if (line.startsWith("M  APO")) { // 2004.05
-				StringTokenizer stq = new StringTokenizer(line);
-				stq.nextToken();
-				stq.nextToken();
-				int ndata = Integer.valueOf(stq.nextToken()).intValue();
-				for (int i = 1; i <= ndata; i++) {
-					int a = Integer.valueOf(stq.nextToken()).intValue();
-					int nr = Integer.valueOf(stq.nextToken()).intValue();
-					// addinf Rnr to atom a
-					// BH 2023.01.28 no linear addition or new action
-					addBondToAtom(a, 0, false, false);
-					setAtom(natoms, "R" + nr);
-				}
-			}
-		}
-
-		// remove hydrogens when reading molfile
-		// TODO BB: should this be done if by the option nohydrogens is on ?
-		deleteHydrogens(this.parameters.hydrogenParams);
-
-		// BB: not a good idea
-		// boolean orgKeepHydrogens = jme.keepHydrogens;
-		// jme.keepHydrogens = false;
-		// deleteHydrogens();
-		// jme.keepHydrogens = orgKeepHydrogens;
-
-		complete(this.parameters.computeValenceState); // este raz, zachytit zmeny
-
-		// BB May 2017
-		// compute the atom.nh if valence provided
-		// example : AlH3 with implicit H's
-		for (int i = 1; i <= natomsx; i++) {
-			if (valences[i] > 0) {
-				int nv = nv(i);
-				// valences[i] is the total number of bonds to this atom, including implicit H
-				if (valences[i] != 15) {
-					int nh = valences[i] - nv;
-					if (nh > 0)
-						atoms[i].nh = nh;
-				} else {
-					atoms[i].nh = 0;
-				}
-			}
-		}
+		JMEReader.createJMEFromMolData(this, molData);
 	}
 
 	/**
-	 * From Jmol's SmarterJmolAdapter -- could be any one of dozens of kinds of file.
+	 * From Jmol's SmarterJmolAdapter -- could be any one of dozens of kinds of
+	 * file.
 	 * 
 	 * @param iterators [atomIterator, bondIterator]
 	 * @throws Exception
 	 */
 	private void createFromJmolAdapter(Object[] iterators) throws Exception {
-		JmolAdapterAtomIterator atomIterator = (JmolAdapterAtomIterator) iterators[0];
-		JmolAdapterBondIterator bondIterator = (JmolAdapterBondIterator) iterators[1];		
-	    Map<Object, Integer> atomMap = new Hashtable<Object, Integer>();
-	    while (atomIterator.hasNext()) {
-	      String sym = Elements.elementSymbolFromNumber(atomIterator.getElementNumber());
-	      // from Jmol -- could be 13C;
-	      Atom a = createAtom(sym);
-	      atomMap.put(atomIterator.getUniqueID(), Integer.valueOf(natoms));
-	      P3d pt = atomIterator.getXYZ();
-	      a.x = pt.x;
-	      a.y = -pt.y;
-	      a.q = atomIterator.getFormalCharge();
-	      setAtom(natoms, JmolAdapter.getElementSymbol(atomIterator.getElement()));
-	    }
-	    while (bondIterator.hasNext()) {
-	      Bond b = createAndAddBondFromOther(null);
-	      b.va = atomMap.get(bondIterator.getAtomUniqueID1()).intValue();
-	      b.vb = atomMap.get(bondIterator.getAtomUniqueID2()).intValue();
-	      int bo = bondIterator.getEncodedOrder();
-	      switch (bo) {
-	      case Edge.BOND_STEREO_NEAR:
-	        b.bondType = Bond.SINGLE;
-	        b.stereo = Bond.STEREO_UP;
-	        break;
-	      case Edge.BOND_STEREO_FAR:
-	        b.bondType = Bond.SINGLE;
-	        b.stereo = Bond.STEREO_DOWN;
-	        break;
-	      case Edge.BOND_COVALENT_SINGLE:
-	      case Edge.BOND_AROMATIC_SINGLE:
-	        b.bondType = Bond.SINGLE;
-	        break;
-	      case Edge.BOND_COVALENT_DOUBLE:
-	      case Edge.BOND_AROMATIC_DOUBLE:
-	        b.bondType = Bond.DOUBLE;
-	        break;
-	      case Edge.BOND_COVALENT_TRIPLE:
-	        b.bondType = Bond.TRIPLE;
-	        break;
-	      case Edge.BOND_AROMATIC:
-	      case Edge.BOND_STEREO_EITHER:
-	      default:
-	        if ((bo & 0x07) != 0)
-	          b.bondType = (bo & 0x07);
-	        break;
-	      }
-	    }
+		JMEReader.createJMEFromJmolAdapter(this, iterators);
 	}
-
-	/**
-	 * This can be a problem for CDX or CDXML files with fragments.
-	 * 
-	 * @return
-	 */
-	protected boolean checkNeedsCleaning() {
-		// have atoms; check for very close
-		for (int i = natoms + 1; --i >= 1;) {
-			double x = atoms[i].x;
-			double y = atoms[i].y;
-			for (int j = i; --j >= 1;) {
-				double x2 = atoms[j].x;
-				double y2 = atoms[j].y;
-				if (Math.abs(x - x2) + Math.abs(y - y2) < 2) {
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
-
-	// ----------------------------------------------------------------------------
 
 	public static JMEmol mergeMols(ArrayList<JMEmol> mols) {
-
-		int n = mols.size();
-		JMEmol result;
-
-		if (n == 0)
-			result = new JMEmol();
-		else {
-
-			result = new JMEmol(mols.get(0).jme, mols.toArray(new JMEmol[mols.size()]));
-		}
-
-		return result;
+		return (mols.size() == 0 ? new JMEmol() : new JMEmol(mols.get(0).jme, mols.toArray(new JMEmol[mols.size()])));
 	}
-	
-	protected boolean mixPastelBackGroundColors = true;
-
-	private double centerx = Double.NaN, centery;
-
-	private AtomDisplayLabel[] atomLabels;
-
-	final static boolean doTags = false; // compatibility with JMEPro
 
 	/**
 	 * Compute the average color for the atom or bond and set the color to the
@@ -708,35 +263,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return color;
 	}
 
-	public void scaleXY(double scale) {
-		if (scale > 0) {
-			for (int at = 1; at <= natoms; at++) {
-				atoms[at].scaleXY(scale);
-			}
-			setBondCenters(); // needed for mouse over
-		}
-	}
-
-	/**
-	 * Create and add a new bond to my bond list
-	 * 
-	 * @param atom1
-	 * @param atom2
-	 * @param bondType
-	 * @return the new Bond
-	 */
-	public Bond createAndAddNewBond(int at1, int at2, int bondType) {
-		//assert (at1 != at2);
-		Bond newBond = createAndAddBondFromOther(null); // the new bond index is this.nbonds
-		addBothNeighbors(at1, at2); // set up the adjacency lists
-		newBond.va = at1;
-		newBond.vb = at2;
-		// compute bond centers
-		setBondCenter(newBond);
-		newBond.bondType = bondType;
-		return newBond;
-	}
-
 	void forceUniColor(Color color) {
 		this.uniColor = color;
 	}
@@ -759,177 +285,22 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		this.reactionRole = reactionRole;
 	}
 
-	public void setAtomProperties(double xx, double yy, int ahc, int aq) {
-		Atom atom = this.atoms[natoms];
-		atom.x = xx;
-		atom.y = yy;
-		setAtomHydrogenCount(natoms, ahc);
-		setAtomFormalCharge(natoms, aq);
-	}
-
-	public int getHydrogenCount(int i) {
-		return atoms[i].nh;
-	}
-
-	public int getCharge(int i) {
-		return q(i);
-	}
-	// public int[] getBondProperties(int i) {
-	// int[] bd = new int[4);
-	// bd[0] = bonds[i].va; bd[1] = bonds[i].vb; bd[2] = bonds[i].bondType; bd[3] =
-	// bonds[i].stereo;
-	// return bd;
-	// }
-	// TODO: change variable name - not clear
-	// public void setBondProperties(int bp0, int bp1, int bp2, int bp3) {
-	// // for actual bond, called after createBond() - so data for nbonds
-	// bonds[nbonds].va = bp0; bonds[nbonds].vb = bp1; bonds[nbonds].bondType = bp2;
-	// stereob[nbonds] = bp3;
-	// }
-
-	/**
-	 * 
-	 */
-	public int geMaxAtomMap() {
-		if (this.natoms == 0)
-			return 0;
-
-		int max = -999999;
-		for (int at = 1; at <= this.natoms; at++) {
-			int map = this.atoms[at].getMap();
-			if (map > max)
-				max = map;
-
-		}
-		return max;
-	}
-
-	public boolean resetAtomMaps() {
-		boolean hasChanged = false;
-		;
-
-		for (int at = 1; at <= this.natoms; at++) {
-			hasChanged = this.atoms[at].resetMap() || hasChanged;
-		}
-		return hasChanged;
-	}
-
-	// Feb 2020
-	public boolean has2Dcoordinates() {
-		if (this.nAtoms() <= 1) {
-			return true;
-		}
-		if (has3Dcoordinates()) {
-			return false;
-		}
-
-		if (this.nAtoms() == 2) {
-			return x(1) != x(2) || y(1) != y(2);
-		}
-		for (int at = 1; at <= this.natoms; at++) {
-			if (x(at) != 0 || y(at) != 0) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	// Feb 2020
-	/**
-	 * If at least one z value != 0 TODO: all atoms have the same z value => 2D
-	 * 
-	 * @return
-	 */
-	public boolean has3Dcoordinates() {
-		if (this.nAtoms() <= 1) {
-			return true;
-		}
-		for (int at = 1; at <= this.natoms; at++) {
-			// if (z(at) != 0) {
-			if (Math.abs(z(at)) > 0.001) {
-				// CHEMBL CHEMBL3752999 patch: z != 0
-				// 4.8805 -14.0706 0.0001 C 0 0
-
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	// ----------------------------------------------------------------------------
-	public void completeMolecule(boolean computeValenceState) {
-		complete(computeValenceState);
-	}
-
-	// ----------------------------------------------------------------------------
-	/**
-	 * New method to replace scaling() from the JMEmolList class
-	 * 
-	 * @return the reference bond length that was used for scaling or 0 if scaling
-	 *         was not possible
-	 */
-	public double internalBondLengthScaling() {
-		// proper scaling (to RBOND)
-		double sumlen = 0, scale = 0;
-
-		double max = 0;
-		double min = Double.MAX_VALUE;
-		double refBondLength = RBOND;
-
-		for (int i = 1; i <= nbonds; i++) {
-			Bond b = bonds[i];
-			double d = distance(b.va, b.vb);
-			sumlen += d;
-			if (d > max)
-				max = d;
-			if (d < min)
-				min = d;
-		}
-
-		if (sumlen == 0) 
-			return 0;
-		if (nbonds > 0) {
-			double average = sumlen / nbonds;
-
-			// most of the time there is no significant difference between min and max
-			// a few bonds are much longer -- min
-			// a few bonds are much shorter -- max
-			scale = (average - min < max - average ? min : max);
-			scale = refBondLength / scale;
-		} else if (natoms > 1) { // disconnected structure(s)
-			scale = 3 * refBondLength / distance(1, 2);
-		}
-
-		this.scaleXY(scale);
-		// if (jme.dimension == null) jme.dimension = size();
-		// cim vacsia scale, tym viac sa molekula zmensuje
-
-		this.setBondCenters(); // BB added June 2020
-
-		return refBondLength;
-	}
-
 	public void center() {
 		center(1.0);
 	}
 
+	/**
+	 * centers molecule within the window xpix x ypix
+	 * 
+	 * @param factor
+	 */
 	public void center(double factor) {
-
 		if (natoms == 0)
 			return;
 
-		// centers molecule within the window xpix x ypix
-		//assert factor <= 1 && factor > 0;
-		// ak depict => sd = 0
-		// berie vonkajsie. nie vnutorne rozmery pri starte z main, preto korekcia
-		// int xpix = jme.sd*18 - jme.sd - 20, ypix = jme.sd*16 - jme.sd*3 - 45;
-		double xpix = 0, ypix = 0;
-
 		Rectangle2D.Double widthAndHeight = this.jme.getMolecularAreaBoundingBoxCoordinate00();
-		xpix = widthAndHeight.width;
-		ypix = widthAndHeight.height;
+		double xpix = widthAndHeight.width;
+		double ypix = widthAndHeight.height;
 
 		if (xpix <= 0 || ypix <= 0) { // does this ever happen?
 			needRecentering = true;
@@ -944,19 +315,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			moveXY(shiftx * factor, shifty * factor);
 	}
 
-	public double closestAtomDistance(double xx, double yy) {
-		double min = Double.MAX_VALUE;
-
-		for (int i = 1; i <= natoms; i++) {
-			double rx = squareEuclideanDist(xx, yy, x(i), y(i));
-			if (rx < min) {
-				min = rx;
-			}
-		}
-
-		return Math.sqrt(min);
-	}
-
 	/**
 	 * Need to be improved: should take the atom labels width and height into
 	 * account
@@ -964,161 +322,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	@Override
 	public double closestDistance(double x, double y) {
 		return closestAtomDistance(x, y);
-	}
-
-	@Override
-	public double centerX() {
-		double sum = 0;
-		for (int i = 1; i <= natoms; i++) {
-			sum += x(i);
-		}
-
-		if (natoms > 0) {
-			return sum / natoms;
-		}
-
-		return 0;
-
-	}
-
-	@Override
-	public double centerY() {
-		double sum = 0;
-		for (int i = 1; i <= natoms; i++) {
-			sum += y(i);
-		}
-
-		if (natoms > 0) {
-			return sum / natoms;
-		}
-		return 0;
-	}
-
-	int testAtomAndBondTouch(double xx, double yy, boolean ignoreAtoms, boolean ignoreBonds, double[] retMin) {
-		int i, found = 0;
-		double rx;
-		double min = retMin[0];
-		if (!ignoreBonds) {
-			for (i = 1; i <= nbonds; i++) {
-				Bond b = this.bonds[i];
-				rx = squareEuclideanDist(xx, yy, b.bondCenterX, b.bondCenterY);
-				if (rx < min) {
-					min = rx;
-					found = -i;
-//				}
-// BH -- why would one check ALL bonds, and then not set found?
-//				if (found != 0) {
-					// here if ANY atom is found??
-					// One problem : if the two atoms are very close, it is impossible to select the
-					// bond
-					// try with two more positions along the bond axis, at 1/3 and 2/3 of the
-					// distance between the two atoms
-					double ax = atoms[b.va].x;
-					double ay = atoms[b.va].y;
-					double vx = atoms[b.vb].x - ax;
-					double vy = atoms[b.vb].y - ay;
-
-					for (int third = 1; third <= 2; third++) {
-						double x3 = ax + third * vx / 3;
-						double y3 = ay + third * vy / 3;
-						rx = squareEuclideanDist(xx, yy, x3, y3);
-						if (rx < min) {
-							min = rx;
-						}
-					}
-				}
-			}
-		}
-
-		if (!ignoreAtoms) {
-			// Do the same for the atoms
-			// min may be smaller for an atom even if a bond was found
-			for (i = 1; i <= natoms; i++) {
-				rx = squareEuclideanDist(xx, yy, x(i), y(i));
-				if (rx < min) {
-					min = rx;
-					found = i;
-				}
-			}
-		}		
-		// BB: handle case for which the bond length is larger than usual
-		// TODO: complicated, there must be a way to simplify the trigonometry
-		if (found == 0 && !ignoreBonds) {
-			for (i = 1; i <= nbonds; i++) {
-				int at1 = this.bonds[i].va;
-				int at2 = this.bonds[i].vb;
-				double at1X = x(at1);
-				double at1Y = y(at1);
-				double at2X = x(at2);
-				double at2Y = y(at2);
-
-				// work with two vectors:
-				// at1->xx, at1->at2
-
-				// new coordinate reference: at1
-				at2X -= at1X;
-				at2Y -= at1Y;
-				double xx2 = xx - at1X;
-				double yy2 = yy - at1Y;
-
-				double sqBondLength = at2X * at2X + at2Y * at2Y;
-				double sqDistToAtom1 = xx2 * xx2 + yy2 * yy2;
-				double sqDistToAtom2 = squareEuclideanDist(xx2, yy2, at2X, at2Y);
-				// if too far away
-				if (sqDistToAtom1 + sqDistToAtom2 > sqBondLength + min) {
-					continue;
-				}
-
-				double dp = dotProduct(xx2, yy2, at2X, at2Y);
-				if (dp < 0) {
-					continue; // mouse is on the other side of the bond
-				}
-
-				// projection of the xx2 vector on the at2 vector gives the cos angle
-				sqBondLength = Math.sqrt(sqBondLength);
-				sqDistToAtom1 = Math.sqrt(sqDistToAtom1);
-
-				double cos = dp / (sqBondLength * sqDistToAtom1);
-				if (cos >= 1) {
-					continue;
-				}
-				double otherAngle = Math.PI * 0.5 - Math.acos(cos); // triangle: sum of all angles is Pi: "cos" +
-																	// otherAngle + 90 deg
-				double dist = sqDistToAtom1 * Math.cos(otherAngle);
-				dist *= dist; // min is the square of the minmum distance
-				if (dist < min) {
-					found = i * -1;
-					min = dist;
-					//no break: there could be more than one long bond connected to the
-					// same atom
-				}
-
-			}
-		}
-		retMin[0] = min;
-		return found;
-
-	}
-
-	public boolean hasCloseContactWith(JMEmol other, double minAtomDist) {
-
-		for (int a1 = 1, n = nAtoms(); a1 <= n; a1++) {
-			Atom at1 = getAtom(a1);
-			for (int a2 = 1, n2 = other.nAtoms(); a2 <= n2; a2++) {
-				Atom at2 = other.getAtom(a2);
-				if (at1.hasCloseContactWith(at2, minAtomDist)) {
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
-
-	// ----------------------------------------------------------------------------
-	public void reset() {
-		natoms = 0;
-		nbonds = 0;
 	}
 
 	// ----------------------------------------------------------------------------
@@ -1575,70 +778,13 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 */
 	void computeAtomLabels() {
 		boolean showHs = parameters.hydrogenParams.showHs;
-		boolean showMap = (!parameters.mark
-				|| parameters.showAtomMapNumberWithBackgroundColor);
+		boolean showMap = (!parameters.mark || parameters.showAtomMapNumberWithBackgroundColor);
 		FontMetrics fm = jme.gui.atomDrawingAreaFontMet;
-		double h = (/*jme == null ? 9.0 : */GUI.stringHeight(fm));
-		double rb = RBOND;		
+		double h = (/* jme == null ? 9.0 : */GUI.stringHeight(fm));
+		double rb = RBOND;
 		atomLabels = AtomDisplayLabel.createLabels(this, rb, fm, h, showHs, showMap, atomLabels);
 	}
 
-	boolean hasAtomFlaggedToBeDeleted() {
-		for (int at = 1; at <= natoms; at++) {
-			if (atoms[at].deleteFlag)
-				return true;
-		}
-		return false;
-	}
-
-	@Override
-	public boolean isEmpty() {
-		return (natoms == 0);
-	}
-	
-	// ----------------------------------------------------------------------------
-	/**
-	 * returns x and y of the center of the molecule also w and h dimensions (for
-	 * depict) returns null if the molecule has no atoms
-	 *
-	 * Bug: does not take into account the size the atom labels that will be used
-	 * for displaying the molecule on the canvas
-	 * 
-	 * @param center, double[4]
-	 */
-	public Box boundingBox_OL() {
-		Box bbox = null;
-
-		if (natoms == 0)
-			return bbox;
-
-		double minx = Double.MAX_VALUE, maxx = Double.MIN_VALUE, miny = Double.MAX_VALUE, maxy = Double.MIN_VALUE;
-
-		for (int i = 1; i <= natoms; i++) {
-			if (x(i) < minx)
-				minx = x(i);
-			if (x(i) > maxx)
-				maxx = x(i);
-			if (y(i) < miny)
-				miny = y(i);
-			if (y(i) > maxy)
-				maxy = y(i);
-		}
-
-		bbox = new Box();
-		bbox.x = minx;
-		bbox.y = miny;
-
-		// for scaling in depict
-		// bbox.width = Math.max(maxx - minx, RBOND);
-		// bbox.height = Math.max(maxy - miny, RBOND);
-
-		bbox.width = maxx - minx;
-		bbox.height = maxy - miny;
-
-		return bbox;
-	}
-	
 	public Box computeBoundingBoxWithAtomLabels(Box union) {
 		if (natoms == 0)
 			return union;
@@ -1646,30 +792,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		for (int i = 1; i <= natoms; i++)
 			union = this.atomLabels[i].drawBox.createUnion(union, union);
 		return union;
-	}
-
-	/**
-	 * Move the touched atom to new coordinates
-	 * 
-	 * @param atom
-	 * @param xNew
-	 * @param yNew
-	 */
-	void atomRubberBanding(double xNew, double yNew) {
-		if (this.touchedAtom > 0) {
-			this.atomRubberBanding(this.touchedAtom, xNew, yNew);
-		}
-	}
-
-	/**
-	 * Move an atom to new coordinates
-	 * 
-	 * @param atom
-	 * @param xNew
-	 * @param yNew
-	 */
-	void atomRubberBanding(int atom, double xNew, double yNew) {
-		XY(atom, xNew, yNew);
 	}
 
 	/**
@@ -1685,8 +807,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		touchedAtom = 0;
 
 		XY(0, xnew, ynew); // gives atom 0 the coordinates of the mouse pointer
-		int atom = checkTouch(0); // in order to find a close enough atom
 		if (jme.action != Actions.ACTION_CHAIN) { // pri chaine to blblo
+			int atom = checkTouch(0, true); // in order to find a close enough atom
 			if (atom > 0) {
 				touchedAtom = atom;
 				if (atom == touched_org) {
@@ -1766,9 +888,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					double yc1 = yy * cosa - xx * sina; // hore / dolu
 					if (ymm > 0. && yc1 < 0. || ymm < 0. && yc1 > 0.) { // su opacne
 						int bd = nbonds;
-						addBondToAtom(chain[0], 0, false, false); // adds new bond
-						deleteBond(bd); // delets old bond
-						if (checkTouch(natoms) > 0)
+						addBondToAtom(0, chain[0], 0, false); // adds new bond
+						deleteBond(bd, true); // delets old bond
+						if (checkTouch(natoms, true) > 0)
 							stopChain = true;
 					}
 				}
@@ -1788,11 +910,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					nchain--;
 					return;
 				}
-				addBondToAtom(natoms, (int) Math.round(ym), false, false);
+				addBondToAtom(Bond.SINGLE, natoms, (int) Math.round(ym), false);
 				// this.jme.recordBondEvent("addBond"); // wait until finished
 				jme.willPostSave(false); // do not store undo state
 				chain[nchain] = natoms;
-				if (checkTouch(natoms) > 0)
+				if (checkTouch(natoms, true) > 0)
 					stopChain = true;
 			}
 		}
@@ -1803,7 +925,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	void checkChain() {
 		// called from mouseUp after finishing chain
 		if (stopChain) { // if overlap, then last added atom
-			int n = checkTouch(natoms);
+			int n = checkTouch(natoms, false);
 			// adding bond natoms - natoms-1 to n
 			if (nv(n) < MAX_BONDS_ON_ATOM) { // if ==, no error message
 				// making bond n - nchain-1
@@ -1815,102 +937,23 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		stopChain = false;
 	}
 
-	// ----------------------------------------------------------------------------
 	/**
 	 * checking touch of atom with my other atoms
 	 * 
 	 * @param atom
 	 * @return the atom index that is the closest among the too close ones
 	 */
-	int checkTouch(int atom) {
-		return checkTouchToAtom(atom, 1, natoms);
-	}
-
-	/**
-	 * checking touch of atom with other atoms in my self selected by the range
-	 * [first, last]
-	 * 
-	 * @param atom
-	 * @param first    atom for the atom loop
-	 * @param lastAtom index for the atom loop
-	 * @return the atom index that is the closest among the too close ones if close
-	 *         enough, or 0 if no atoms is close enough
-	 */
-	private int checkTouchToAtom(int atom, int firstAtom, int lastAtom) {
-		// checking touch of atom with other atoms
-
-		//assert lastAtom <= natoms;
-		//assert firstAtom >= 1;
-		//assert firstAtom <= lastAtom;
-
-		double dx, dy, rx;
-		double min = GUI.TOUCH_LIMIT + 1;
-		int touch = 0;
-		for (int i = firstAtom; i <= lastAtom; i++) {
-			if (atom == i)
-				continue;
-			// compute squared distance
-			dx = x(atom) - x(i);
-			dy = y(atom) - y(i);
-			rx = dx * dx + dy * dy;
-			if (rx < GUI.TOUCH_LIMIT)
-				if (rx < min) {
-					min = rx;
-					touch = i;
-				}
-		}
-		return touch;
-	}
-
-	private double sumAtomTooCloseContacts(int atom, int firstAtom, int lastAtom) {
-		// checking touch of atom with other atoms
-
-		//assert lastAtom <= natoms;
-		//assert firstAtom >= 1;
-		//assert firstAtom <= lastAtom;
-
-		double dx, dy, rx;
-		double min = 2 * GUI.TOUCH_LIMIT;
-		double sum = 0;
-
-		for (int i = firstAtom; i <= lastAtom; i++) {
-			if (atom == i)
-				continue;
-			// compute squared distance
-			dx = x(atom) - x(i);
-			dy = y(atom) - y(i);
-			rx = dx * dx + dy * dy;
-			if (rx < min) {
-				if (rx == 0) {
-					rx = 0.0001;
-				}
-				sum += 1 / rx;
-			}
-		}
-		return sum;
+	int checkTouch(int atom, boolean onlyOne) {
+		return checkTouchToAtom(atom, 1, natoms, GUI.TOUCH_LIMIT, onlyOne);
 	}
 
 	protected int countNumberOverlapAtomOfAddedFragment(int fragmentFirstAtom, int fragmentLastAtom) {
 		int result = 0;
-		for (int at = 1; at <= natoms; at++) { // MAY 2016 < <=
-			if (at >= fragmentFirstAtom && at <= fragmentLastAtom)
-				continue;
-
-			if (this.checkTouchToAtom(at, fragmentFirstAtom, fragmentLastAtom) != 0) {
+		for (int at = 1; at <= natoms; at++) {
+			if (at < fragmentFirstAtom && at > fragmentLastAtom
+					&& checkTouchToAtom(at, fragmentFirstAtom, fragmentLastAtom, GUI.TOUCH_LIMIT, true) != 0) {
 				result++;
 			}
-		}
-		return result;
-	}
-
-	public double sumAtomTooCloseContactsOfAddedFragment(int fragmentFirstAtom, int fragmentLastAtom) {
-		double result = 0;
-		for (int at = 1; at <= natoms; at++) { // MAY 2016 < <=
-			if (at >= fragmentFirstAtom && at <= fragmentLastAtom)
-				continue;
-
-			result += this.sumAtomTooCloseContacts(at, fragmentFirstAtom, fragmentLastAtom);
-
 		}
 		return result;
 	}
@@ -1933,357 +976,12 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			from = natoms; // checks last from atoms
 
 		for (int i = natoms; i > natoms - from; i--) {
-			int n = checkTouch(i);
-			if (n == 0)
-				continue;
-			// moving i away from n
-
-			// BB rx is never used BUG????????????????
-			// dx = x[i] - x[n]; dy = y[i] - y[n];
-			// rx = dx * dx + dy * dy; //BB !!!!! rx is never used!!!!!
-			// x[i] += 6; //BB: should at least use a DIRECTION ? - seems to work
-			// y[i] += 6;
-			moveXY(i, 6, 6);
-		}
-	}
-
-
-	// ----------------------------------------------------------------------------
-	/*
-	 * Delete the bond and its atoms if they end not to be connected to any other
-	 * atoms
-	 * 
-	 */
-	public void deleteBond(int delbond) {
-		deleteBond(delbond, true);
-	}
-
-	/**
-	 * 
-	 * @param delbond
-	 * @param deleteLonelyAtoms
-	 */
-	void deleteBond(int delbond, boolean deleteLonelyAtoms) {
-		// deletes bond between atoms delat1 and delat2
-		int i, k, atom1, atom2;
-
-		atom1 = bonds[delbond].va;
-		atom2 = bonds[delbond].vb;
-
-		for (i = delbond; i < nbonds; i++) {
-			this.bonds[i] = this.bonds[i + 1];
-		}
-		nbonds--;
-
-		// updating nv[] and v[][]
-		k = 0;
-		int ni = nv(atom1);
-		for (i = 1; i <= ni; i++)
-			if (v(atom1)[i] != atom2)
-				v(atom1)[++k] = v(atom1)[i];
-		NV(atom1, k);
-		k = 0;
-		ni = nv(atom2);
-		for (i = 1; i <= ni; i++)
-			if (v(atom2)[i] != atom1)
-				v(atom2)[++k] = v(atom2)[i];
-		NV(atom2, k);
-
-		if (deleteLonelyAtoms) {
-			// deleting lonely atom(s)
-			if (atom1 < atom2) {
-				k = atom1;
-				atom1 = atom2;
-				atom2 = k;
-			}
-			if (nv(atom1) == 0)
-				deleteAtom(atom1);
-			if (nv(atom2) == 0)
-				deleteAtom(atom2);
+			if (checkTouch(i, true) != 0)
+				moveXY(i, 6, 6);
 		}
 	}
 
 	// ----------------------------------------------------------------------------
-	/*
-	 * Delete all atoms that have been marked for deletion (atom.deleteFlag == true)
-	 */
-	public void deleteAtomGroup() {
-
-		// does not work only bonds are deleted
-		// for (int i=1;i<=natoms;i++) {
-		// if(atoms[i].deleteFlag)
-		// deleteAtom(i);
-		// }
-
-		while (true) {
-			int atd = 0;
-			for (int i = natoms; i >= 1; i--)
-				if (atoms[i].deleteFlag && i > atd) {
-					atd = i;
-				}
-			if (atd == 0)
-				break;
-			deleteAtom(atd);
-			atoms[atd].deleteFlag = false;
-		}
-
-	}
-
-	/**
-	 * remove all coordination bonds. returns the number of bonds that have been
-	 * removed Application: SMILES cannot represent them
-	 */
-	public int deleteCoordinationBonds() {
-		int cbCount = 0;
-		B: while (true) {
-			for (int b = 1; b <= nbonds; b++) {
-				if (bonds[b].bondType == Bond.COORDINATION) {
-					this.deleteBond(b, false); // this decreases nbonds, thus the loop is not valid anymore and has to
-												// be restarted
-					cbCount++;
-					continue B;
-				}
-			}
-			break;
-		}
-
-		return cbCount;
-
-	}
-
-	// ----------------------------------------------------------------------------
-	// called after delete atom/bond/group
-	// when >NH+< remove charge, so it will be -N< and not -NH+<
-	void backCations(int atom) {
-		for (int i = 1; i <= nv(atom); i++) {
-			int j = v(atom)[i];
-			if (q(j) > 0)
-				incrQ(i, -1); // q(j)--;
-		}
-	}
-
-	// ----------------------------------------------------------------------------
-	void backCations(int atom1, int atom2) {
-		if (q(atom1) > 0)
-			incrQ(atom1, -1);
-		if (q(atom2) > 0)
-			incrQ(atom1, -1);
-	}
-
-	// ----------------------------------------------------------------------------
-	void flipGroup(int atom) {
-		// flip group on this atom
-		if (nv(atom) < 2)
-			return;
-	}
-
-	// ----------------------------------------------------------------------------
-	/**
-	 * toggle the stereo status of the selected bond
-	 * 
-	 * @param bondIndex
-	 */
-	public void toggleBondStereo(int bondIndex) {
-		// alebo vola z drawingArea.mouseDown s (touchBond) a bondType je rozna,
-		// alebo z completeBond, vtedy je bondType vzdy 1
-		// robi to inteligente, presmykuje medzi 4, len kde je to mozne
-		// v stereob je uschovane aj querytype ked ide o Bond.QUERY bond
-
-		Bond bond = this.bonds[bondIndex];
-		if (bond.isSingle() || bond.isCoordination()) { // accept coordination bond with stereo
-			// Bond.UP a Bond.DOWN daju hrot na va[], Bond.XUP, Bond.XDOWN na vb[]
-			int atom1 = bonds[bondIndex].va;
-			int atom2 = bonds[bondIndex].vb;
-			if (nv(atom1) < 2 && nv(atom2) < 2) { // <=2 nemoze byt kvoli allenu
-				bond.stereo = 0;
-				info("Stereomarking meaningless on this bond !");
-				return;
-			}
-			// atom1 - stary, atom2 - novy atom
-			if (JME.webme) {
-				// handling webme (up / down templates)
-				// just switching up/xup and down/xdown
-				if (!jme.revertStereo) {
-					if (bond.stereo == Bond.STEREO_UP)
-						bond.stereo = Bond.STEREO_XUP;
-					else if (bond.stereo == Bond.STEREO_XUP)
-						bond.stereo = Bond.STEREO_UP;
-					else {
-						if (nv(atom2) <= nv(atom1))
-							bond.stereo = Bond.STEREO_UP;
-						else
-							bond.stereo = Bond.STEREO_XUP;
-					}
-				} else {
-					if (bond.stereo == Bond.STEREO_DOWN)
-						bond.stereo = Bond.STEREO_XDOWN;
-					else if (bond.stereo == Bond.STEREO_XDOWN)
-						bond.stereo = Bond.STEREO_DOWN;
-					else {
-						if (nv(atom2) <= nv(atom1))
-							bond.stereo = Bond.STEREO_DOWN;
-						else
-							bond.stereo = Bond.STEREO_XDOWN;
-					}
-				}
-			}
-
-			// standard editor stuff
-			switch (bond.stereo) {
-			case 0: // aby bol hrot spravne (nie na nerozvetvenom)
-				// Bond.UP dava normalne hrot na va[]
-				if (nv(atom2) <= nv(atom1))
-					bond.stereo = Bond.STEREO_UP;
-				else
-					bond.stereo = Bond.STEREO_XUP;
-				break;
-			case Bond.STEREO_UP:
-				bond.stereo = Bond.STEREO_DOWN;
-				break;
-			case Bond.STEREO_DOWN:
-				bond.stereo = Bond.STEREO_EITHER;
-				break;
-			case Bond.STEREO_EITHER:
-				if (nv(atom2) > 2)
-					bond.stereo = Bond.STEREO_XUP;
-				else
-					bond.stereo = Bond.STEREO_UP;
-				break;
-			case Bond.STEREO_XUP:
-				bond.stereo = Bond.STEREO_XDOWN;
-				break;
-			case Bond.STEREO_XDOWN:
-				bond.stereo = Bond.STEREO_XEITHER;
-				break;
-			case Bond.STEREO_XEITHER:
-				if (nv(atom1) > 2)
-					bond.stereo = Bond.STEREO_UP;
-				else
-					bond.stereo = Bond.STEREO_XUP;
-				break;
-
-			}
-		} else if (bond.bondType == Bond.DOUBLE) {
-			bond.toggleNormalCrossedDoubleBond();
-			// if (bond.stereo == Bond.EZ) bond.stereo = 0; else bond.stereo = Bond.EZ;
-		} else {
-			info("Stereomarking allowed only on single and double bonds!");
-		}
-	}
-
-	// ----------------------------------------------------------------------------
-	// returns stereo atom to which this bond points
-	int getStereoAtom(int bond) {
-		// Bond.UP a Bond.DOWN daju hrot na va[], Bond.XUP, Bond.XDOWN na vb[]
-		switch (bonds[bond].stereo) {
-		case Bond.STEREO_UP:
-		case Bond.STEREO_DOWN:
-			return bonds[bond].va;
-		case Bond.STEREO_XUP:
-		case Bond.STEREO_XDOWN:
-			return bonds[bond].vb;
-		}
-		return 0;
-	}
-
-	/**
-	 * 
-	 * @param atom         to be added to
-	 * @param up           flip bond to other side - only possible if the touched
-	 *                     atom has 1 valence values for flip: 0,-1 or 1
-	 * @param forceLinear  if prev or this will be a triple bond
-	 * @param addingDouble if this will be a double bond, as it will be linear, in
-	 *                     that case, if the prev bond is double.
-	 * @return true if the up was the parameter used
-	 */
-	public boolean addBondToAtom(int atom, int up, boolean forceLinear, boolean addingDouble) {
-		boolean upWasUsed = false;
-		createAtomFromOther(null);
-		switch (nv(atom)) {
-		case 0:
-			XY(natoms, x(atom) + RBOND * .866, y(atom) + RBOND * .5);
-			break;
-		case 1:
-			int atom1 = v(atom)[1];
-			int atom3 = 0; // reference, aby to slo rovno
-			if (nv(atom1) == 2) {
-				if (v(atom1)[1] == atom) 
-					atom3 = v(atom1)[2];
-				else
-					atom3 = v(atom1)[1];
-			}
-			double dx = x(atom) - x(atom1);
-			double dy = y(atom) - y(atom1);
-			double rx = Math.sqrt(dx * dx + dy * dy);
-			if (rx < 0.001)
-				rx = 0.001;
-			double sina = dy / rx;
-			double cosa = dx / rx;
-			double xx;
-			double yy;
-			// checking for allene -N=C=S, X#C-, etc
-			// chain je ako linear !
-			Bond b = getBond(atom, atom1);
-			if (forceLinear	
-					|| b.bondType == Bond.TRIPLE
-					|| addingDouble && b.bondType == Bond.DOUBLE) {
-				xx = rx + RBOND;
-				yy = 0.;
-			} else {
-				xx = rx + RBOND * Math.cos(Math.PI / 3.);
-				yy = RBOND * Math.sin(Math.PI / 3.);
-			}
-			if (atom3 > 0) // to keep growing chain linear
-				if (((y(atom3) - y(atom1)) * cosa - (x(atom3) - x(atom1)) * sina) > 0.)
-					yy = -yy;
-			// flip bond to other site
-			if (up > 0 && yy < 0.)
-				yy = -yy;
-			else if (up < 0 && yy > 0.)
-				yy = -yy;
-			XY(natoms, x(atom1) + xx * cosa - yy * sina, y(atom1) + yy * cosa + xx * sina);
-
-			upWasUsed = true;
-
-			break;
-
-		case 2:
-			double[] newPoint = new double[2];
-			getNewPoint(atom, RBOND, newPoint);
-			XY(natoms, newPoint[0], newPoint[1]);
-			break;
-
-		case 3:
-		case 4:
-		case 5:
-			// postupne skusa linearne predlzenie vsetkych vazieb z act_a
-			for (int i = 1; i <= nv(atom); i++) {
-				atom1 = v(atom)[i];
-				dx = x(atom) - x(atom1);
-				dy = y(atom) - y(atom1);
-				rx = Math.sqrt(dx * dx + dy * dy);
-				if (rx < 0.001)
-					rx = 0.001;
-				XY(natoms, x(atom) + RBOND * dx / rx, y(atom) + RBOND * dy / rx);
-				// teraz testuje ci sa nedotyka
-				if (checkTouch(natoms) == 0 || i == nv(atom))
-					break;
-			}
-			break;
-		default: // error
-			natoms--;
-			info("Are you trying to draw an hedgehog ?", JME.LA_FAILED);
-			return upWasUsed;
-		}
-		completeBond(atom);
-
-		xorg = x(natoms);
-		yorg = y(natoms); // used after moving, when moving !OK
-
-		return upWasUsed;
-
-	}
-
 	/**
 	 * A new bond between the last atom and the touched atom has been created. if
 	 * the two atoms are too close, then increase the bond order between the two
@@ -2299,7 +997,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		 * 
 		 */
 		// check for touch of end of new bond with some atom
-		int atom = checkTouch(natoms); // the atom index that is the closest among the too close ones
+		int atom = checkTouch(natoms, false); // the atom index that is the closest among the too close ones
 		if (atom == 0)
 			return;
 
@@ -2332,20 +1030,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		incrNV(this.touched_org, -1); // the new atom was added last, thus just need to decrease the nv
 		this.addBothNeighbors(atom, touched_org);
 		setBondCenter(bonds[nbonds]);
-	}
-
-	/**
-	 * Create a bond between the touched atom and last added atom PE code - depends
-	 * on JME
-	 */
-	void completeBond(int touchedAtom) {
-		createAndAddNewBond(touchedAtom, natoms, 
-				(jme.action == Actions.ACTION_BOND_DOUBLE ? Bond.DOUBLE
-				: jme.action == Actions.ACTION_BOND_TRIPLE ? Bond.TRIPLE 
-				: Bond.SINGLE));
-		// creating new bond with stereo tool
-		if (jme.action == Actions.ACTION_STEREO)
-			toggleBondStereo(nbonds);
 	}
 
 	// necessary to add "smaller" bonds in scaled molecule bt WebME
@@ -2384,118 +1068,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @return
 	 */
 
-	// ----------------------------------------------------------------------------
-	public Atom createAtom() {
-		return createAtomFromOther(null);
-	}
-
 	@Override
 	protected Atom createAtomFromOther(Atom atomToDuplicate) {
 		atomLabels = null;
 		return super.createAtomFromOther(atomToDuplicate);
 	}
-
-	// ----------------------------------------------------------------------------
-	Atom createAtom(String symbol) {
-		// parses SMILES-like atomic label and set atom parameters
-		Atom atom = createAtom(); // sets natoms
-		setAtom(natoms, symbol);
-		return atom;
-	}
-
-	// setAtom is used when reding input file and when using the X button in the GUI
-	// ----------------------------------------------------------------------------
-	public void setAtom(int atom, String symbol) {
-		// volane pri spracovavani mol alebo jme z createAtom
-		// alebo pri kliknuti na X atom x x boxu
-		// aj po query
-
-		// if in [] forces this valence state as AN_X, 2004.01
-		if (symbol.startsWith("[") && symbol.endsWith("]")) {
-			symbol = symbol.substring(1, symbol.length() - 1);
-			AN(atom, Atom.AN_X);
-			atoms[atom].label= symbol;
-			atoms[atom].nh = 0;
-			return;
-		}
-
-		if (symbol.length() < 1)
-			System.err.println("Error - null atom !");
-
-		// BB: isotopic : 13C
-		// symbol = this.atoms[atom].parseAtomSymbolIsotop(symbol);
-		symbol = this.atoms[atom].parseAtomicSymbolPatternIsotopMappAndCharge(symbol, this.parameters);
-
-		/*
-		 * iso[atom] = 0; Pattern p = Pattern.compile("^(\\d+)([A-Z][a-z]?)(\\b.*)");
-		 * Matcher m = p.matcher(symbol); if(m.find()) { int isomass =
-		 * Integer.parseInt(m.group(1)); String element = m.group(2);
-		 * if(AtomicElements.isKnown(element, isomass)) { iso[atom] = isomass; symbol =
-		 * element + m.group(3); //add the rest of the match to the symbol
-		 * 
-		 * }
-		 * 
-		 * }
-		 */
-
-		// ak je tam , alebo ; ide o query aj ked zacina so znamym symbolom
-		boolean isQuery = false;
-		if (symbol.indexOf(",") > -1)
-			isQuery = true;
-		if (symbol.indexOf(";") > -1)
-			isQuery = true;
-		if (symbol.indexOf("#") > -1)
-			isQuery = true;
-		if (symbol.indexOf("!") > -1)
-			isQuery = true;
-		int hpos = symbol.indexOf("H");
-		atomProcessing: {
-			if (isQuery) {
-				atoms[atom].label = symbol;
-				AN(atom, Atom.AN_X);
-				atoms[atom].nh = 0;
-				break atomProcessing;
-			}
-			String as = symbol;
-			if (hpos > 0)
-				as = symbol.substring(0, hpos);
-			AN(atom, Atom.checkAtomicSymbol(as)); // as & symbol su rozdielne/
-			if (an(atom) == Atom.AN_X)
-				atoms[atom].label= as;
-
-			symbol += " "; // aby netrebalo stale checkovat koniec
-
-			// number of hydrogens (moze but aj H0)
-			int nhs = 0;
-			if (hpos > 0) { // > 0, nie -1
-				nhs = 1;
-				char c = symbol.charAt(++hpos);
-				if (c >= '0' && c <= '9')
-					nhs = c - '0';
-			}
-			if (an(atom) == Atom.AN_X) {
-				atoms[atom].nh = nhs;
-			}
-		}
-	}
-
-	// ----------------------------------------------------------------------------
-	void setAtomHydrogenCount(int atom, int nh) {
-		// upravuje to len pre X atomy !
-		if (an(atom) == Atom.AN_X) {
-			// label[atom] += "H";
-			this.atoms[atom].label += "H";
-			if (nh > 1)
-				// label[atom] += nh;
-				this.atoms[atom].label += nh;
-		}
-	}
-
-	// ----------------------------------------------------------------------------
-	void setAtomFormalCharge(int atom, int nq) {
-		atoms[atom].q = nq;
-	}
-	// ----------------------------------------------------------------------------
 
 	/**
 	 * 
@@ -2575,7 +1152,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	// ----------------------------------------------------------------------------
 
-
 //	/**
 //	 * SIDE EFFECT: set this.a[] !!!!!!!!!!!!!!!!!! what is this variable good for?
 //	 * 
@@ -2638,7 +1214,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	// used in the tests, should not be used in JME
 	public String createSmiles() {
-		return createSmiles(parameters); 
+		return createSmiles(parameters);
 	}
 
 	/**
@@ -2670,16 +1246,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return false;
 	}
 
-	protected int setAtomMapFromInput(int atomIndex, int map) {
-		if (atomIndex > 0 && atomIndex <= this.nAtoms()) {
-			Atom atom = this.atoms[atomIndex];
-
-			atom.setMapOrMark(map, !parameters.mark);
-		}
-
-		return map;
-	}
-
 	// --------------------------------------------------------------------------
 	/**
 	 * Create a MOL or RXN. The paprameter header is usually the SMILES
@@ -2689,11 +1255,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 */
 	public String createMolFile(String header) {
 		return JMEWriter.createMolFile((JMECore) this, header, true, computeCoordinate2DboundingBox());
-	}
-
-	public void cleanAfterChanged(boolean polarNitro) {
-		setValenceState();
-		cleanPolarBonds(polarNitro); // TODO: need parameter polarnitro
 	}
 
 	// ----------------------------------------------------------------------------
@@ -2938,32 +1499,16 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return false;
 	}
 
-	// ----------------------------------------------------------------------------
-
-	/**
-	 * Warning: side effect: the order of the atoms is changed turned off
-	 */
-	public void numberAtomsSequentially() {
-		for (int i = 1; i <= natoms; i++) {
-			this.atoms[i].setMap(i);
-		}
-	}
-
-//	// ----------------------------------------------------------------------------
-//	@Override
-//	public void XY(double x, double y) {
-//	}
-
 	public void info(String msg, int laFailed) {
 		info(msg);
 		jme.lastAction = laFailed;
 	}
 
-	public JMEmol compute2DcoordinatesIfMissing()  {
+	public JMEmol compute2DcoordinatesIfMissing() {
 		return (has2Dcoordinates() ? null : OclAdapter.compute2Dcoordinates(this));
 	}
 
-	public void clearRotation() { 
+	public void clearRotation() {
 		centerx = centery = Double.NaN;
 	}
 
@@ -2980,6 +1525,172 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return OclAdapter.reComputeBondOrderIfAromaticBondType(this);
 	}
 
-}
+	/**
+	 * JMEmol version translates action to bond type and adds GUI.TOUCH_LIMIT.
+	 * @param action
+	 * @param ia
+	 * @param up
+	 * @param forceLinear
+	 * 
+	 * @return true if up parameter was used
+	 */
+	public boolean addBondToAtom(int action, int ia, int up, boolean forceLinear) {
+		int bondType = (action == Actions.ACTION_BOND_TRIPLE ? Bond.TRIPLE
+				: action == Actions.ACTION_BOND_DOUBLE ? Bond.DOUBLE : Bond.SINGLE);
+		Boolean b = super.addBondToAtom(bondType, ia, up, forceLinear, GUI.TOUCH_LIMIT);
+		if (b == null)
+			return false;
+		// creating new bond with stereo tool
+		if (action == Actions.ACTION_STEREO)
+			toggleBondStereo(nbonds);
+		xorg = x(natoms);
+		yorg = y(natoms); // used after moving, when moving !OK
+		return b.booleanValue();
+	}
 
-// ----------------------------------------------------------------------------
+	public void cleanAfterChanged(boolean polarNitro) {
+		setValenceState();
+		cleanPolarBonds(polarNitro); // TODO: need parameter polarnitro
+	}
+
+
+	/// The following methods COULD Be in JMECore, but are not, because they are just the results of GUI actions. 
+	
+	/*
+	 * Delete all atoms that have been marked for deletion (atom.deleteFlag == true)
+	 */
+	public void deleteAtomGroup() {
+		while (true) {
+			int atd = 0;
+			for (int i = natoms; i >= 1; i--)
+				if (atoms[i].deleteFlag && i > atd) {
+					atd = i;
+				}
+			if (atd == 0)
+				break;
+			deleteAtom(atd);
+			atoms[atd].deleteFlag = false;
+		}
+	}
+
+	/**
+	 * remove all coordination bonds. returns the number of bonds that have been
+	 * removed Application: SMILES cannot represent them
+	 */
+	public int deleteCoordinationBonds() {
+		int cbCount = 0;
+		// BH 2023.01.29 delete from top down for no need for outer while loop
+		for (int b = nbonds + 1; --b >= 1;) {
+			if (bonds[b].bondType == Bond.COORDINATION) {
+				deleteBond(b, false);
+				cbCount++;
+			}
+		}
+		return cbCount;
+	}
+
+	/**
+	 * toggle the stereo status of the selected bond
+	 * 
+	 * @param bondIndex
+	 */
+	public void toggleBondStereo(int bondIndex) {
+		// alebo vola z drawingArea.mouseDown s (touchBond) a bondType je rozna,
+		// alebo z completeBond, vtedy je bondType vzdy 1
+		// robi to inteligente, presmykuje medzi 4, len kde je to mozne
+		// v stereob je uschovane aj querytype ked ide o Bond.QUERY bond
+
+		Bond bond = this.bonds[bondIndex];
+		if (bond.isSingle() || bond.isCoordination()) { // accept coordination bond with stereo
+			// Bond.UP a Bond.DOWN daju hrot na va[], Bond.XUP, Bond.XDOWN na vb[]
+			int atom1 = bonds[bondIndex].va;
+			int atom2 = bonds[bondIndex].vb;
+			if (nv(atom1) < 2 && nv(atom2) < 2) { // <=2 nemoze byt kvoli allenu
+				bond.stereo = 0;
+				info("Stereomarking meaningless on this bond !");
+				return;
+			}
+			// atom1 - stary, atom2 - novy atom
+//			if (JME.webme) {
+//				// handling webme (up / down templates)
+//				// just switching up/xup and down/xdown
+//				if (!jme.revertStereo) {
+//					if (bond.stereo == Bond.STEREO_UP)
+//						bond.stereo = Bond.STEREO_XUP;
+//					else if (bond.stereo == Bond.STEREO_XUP)
+//						bond.stereo = Bond.STEREO_UP;
+//					else {
+//						if (nv(atom2) <= nv(atom1))
+//							bond.stereo = Bond.STEREO_UP;
+//						else
+//							bond.stereo = Bond.STEREO_XUP;
+//					}
+//				} else {
+//					if (bond.stereo == Bond.STEREO_DOWN)
+//						bond.stereo = Bond.STEREO_XDOWN;
+//					else if (bond.stereo == Bond.STEREO_XDOWN)
+//						bond.stereo = Bond.STEREO_DOWN;
+//					else {
+//						if (nv(atom2) <= nv(atom1))
+//							bond.stereo = Bond.STEREO_DOWN;
+//						else
+//							bond.stereo = Bond.STEREO_XDOWN;
+//					}
+//				}
+//			}
+//
+			// standard editor stuff
+			switch (bond.stereo) {
+			case 0: // aby bol hrot spravne (nie na nerozvetvenom)
+				// Bond.UP dava normalne hrot na va[]
+				if (nv(atom2) <= nv(atom1))
+					bond.stereo = Bond.STEREO_UP;
+				else
+					bond.stereo = Bond.STEREO_XUP;
+				break;
+			case Bond.STEREO_UP:
+				bond.stereo = Bond.STEREO_DOWN;
+				break;
+			case Bond.STEREO_DOWN:
+				bond.stereo = Bond.STEREO_EITHER;
+				break;
+			case Bond.STEREO_EITHER:
+				if (nv(atom2) > 2)
+					bond.stereo = Bond.STEREO_XUP;
+				else
+					bond.stereo = Bond.STEREO_UP;
+				break;
+			case Bond.STEREO_XUP:
+				bond.stereo = Bond.STEREO_XDOWN;
+				break;
+			case Bond.STEREO_XDOWN:
+				bond.stereo = Bond.STEREO_XEITHER;
+				break;
+			case Bond.STEREO_XEITHER:
+				if (nv(atom1) > 2)
+					bond.stereo = Bond.STEREO_UP;
+				else
+					bond.stereo = Bond.STEREO_XUP;
+				break;
+
+			}
+		} else if (bond.bondType == Bond.DOUBLE) {
+			bond.toggleNormalCrossedDoubleBond();
+			// if (bond.stereo == Bond.EZ) bond.stereo = 0; else bond.stereo = Bond.EZ;
+		} else {
+			info("Stereomarking allowed only on single and double bonds!");
+		}
+	}
+
+	/**
+	 * Warning: side effect: the order of the atoms is changed turned off
+	 */
+	public void numberAtomsSequentially() {
+		for (int i = 1; i <= natoms; i++) {
+			this.atoms[i].setMap(i);
+		}
+	}
+
+
+
+}

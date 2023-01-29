@@ -2,7 +2,6 @@ package jme.event;
 
 import jme.JMEmol;
 import jme.JMEmolList;
-import jme.JMEmolList.EnsembleAtom;
 import jme.core.AtomBondCommon;
 
 ////START JAVA_IMPORT

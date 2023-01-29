@@ -14,20 +14,13 @@ import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
 import jme.io.JMEWriter;
 
-
-
-
-
-
-
-
-
 /**
- * Class that parses input string that contains multiple molecules formats
- * ,
- * writes out molecules,  and  manage a collection of JMEmol.
- * Molecules can have a reaction role if the input type is reaction.
- * Does not need any JME instance!!!!
+ * Class that parses input string that contains multiple molecules formats,
+ * writes out molecules, and manage a collection of JMEmol. Molecules can have a
+ * reaction role if the input type is reaction. 
+ * 
+ * Does not need any JME instance.
+ * 
  * @author bruno
  *
  */
@@ -41,107 +34,63 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		public int atomIndex;
 		public int atomEnsembleIndex;
 	
-		public  EnsembleAtom (JMEmolList moleculeParts,  int molIndex,
-				int atomIndex) {
-	
-			assert  atomIndex >= 0 && molIndex >= 0;
-			
-	
+		public EnsembleAtom(JMEmolList moleculeParts, int molIndex, int atomIndex) {
+			assert atomIndex >= 0 && molIndex >= 0;
 			int cumulAtomCount = 0;
 			int molCount = 0;
-			FOR_EACH_MOL: for (JMEmol mol: moleculeParts) {
-				molCount++; //Feb 2020: was missing
-	
+			for (JMEmol mol : moleculeParts) {
+				molCount++; // Feb 2020: was missing
 				this.molIndex = molCount;
 				this.mol = mol;
-	
-				if (molIndex > 0) {
-					if (molIndex == molCount) {
-						this.atomEnsembleIndex = atomIndex + cumulAtomCount;
-						this.atomIndex = atomIndex;
-	
-						break FOR_EACH_MOL;
-					}
-	
-				} else {
+				if (atomIndex > cumulAtomCount + mol.nAtoms()) {
 					// atomIndex is an ensemble index
-					if (atomIndex <= cumulAtomCount + mol.nAtoms()) {
-						this.atomEnsembleIndex = atomIndex;
-						this.atomIndex = this.atomEnsembleIndex - cumulAtomCount;
-	
-						break FOR_EACH_MOL;
-	
-					}
-	
+					this.atomEnsembleIndex = atomIndex;
+					this.atomIndex = this.atomEnsembleIndex - cumulAtomCount;
+					break;
 				}
-	
+				if (molIndex > 0 && molIndex == molCount) {
+					this.atomEnsembleIndex = atomIndex + cumulAtomCount;
+					this.atomIndex = atomIndex;
+					break;
+				}
 				cumulAtomCount += mol.nAtoms();
-	
 			}
-	
 			if (this.mol != null) {
 				this.atom = this.mol.getAtom(this.atomIndex);
 			}
-		}
-	
-		
+		}		
 	}
-
 	
-	// kind of duplicated code with EnsembleAtom
 	public static class EnsembleBond {
 		public int molIndex; // 0 based
 		public JMEmol mol;
 		public Bond bond;
 		public int bondIndex;
 		public int bondEnsembleIndex;
-	
-		
-		public EnsembleBond(JMEmolList molList, int molIndex,
-				int bondIndex) {
-	
-	//		if (molIndex < 0 || bondIndex < 0) {
-	//			GWT.log("Invalid index for getEnsembleBond()");
-	//			return null;
-	//		}
-	
-	
+			
+		public EnsembleBond(JMEmolList molList, int molIndex, int bondIndex) {
 			int cumulBondCount = 0;
 			int molCount = 0;
-			FOR_EACH_MOL: for (JMEmol mol: molList) {
+			for (JMEmol mol : molList) {
 				molCount++;
-	
 				this.molIndex = molCount;
 				this.mol = mol;
-	
-				if (molIndex > 0) {
-					if (molIndex == molCount) {
-						this.bondEnsembleIndex = bondIndex + cumulBondCount;
-						this.bondIndex = bondIndex;
-	
-						break FOR_EACH_MOL;
-					}
-	
-				} else {
+				if (bondIndex > cumulBondCount + mol.nBonds()) {
 					// bondIndex is an ensemble index
-					if (bondIndex <= cumulBondCount + mol.nBonds()) {
-						this.bondEnsembleIndex = bondIndex;
-						this.bondIndex = this.bondEnsembleIndex - cumulBondCount;
-	
-						break FOR_EACH_MOL;
-	
-					}
-	
+					this.bondEnsembleIndex = bondIndex;
+					this.bondIndex = this.bondEnsembleIndex - cumulBondCount;
+					break;
 				}
-	
+				if (molIndex > 0 && molIndex == molCount) {
+					this.bondEnsembleIndex = bondIndex + cumulBondCount;
+					this.bondIndex = bondIndex;
+					break;
+				}
 				cumulBondCount += mol.nBonds();
-	
 			}
-	
 			if (this.mol != null) {
 				this.bond = this.mol.getBond(this.bondIndex);
 			}
-	
 		}
 	}
 
@@ -150,8 +99,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	String warning = null;
 	protected Exception error = null;
 
-	
-	
 	public void reset() {
 		removeAll();
 		errorMsg = null;
@@ -183,12 +130,10 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	}
 	
 	public JMEmolList.EnsembleAtom getEnsembleAtom( int mol, int atom) {
-		// log("computeAtomEnsembleIndex");
 		if (mol < 0 || atom < 0) {
 			JMEUtil.log("Invalid index for getEnsembleAtom()");
 			return null;
 		}
-
 		return new JMEmolList.EnsembleAtom(this, mol, atom);
 		
 	}
@@ -198,45 +143,16 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			JMEUtil.log("Invalid index for getEnsembleBond()");
 			return null;
 		}
-
 		return new EnsembleBond(this, mol, bond);
 		
 	}
-	
-	
-	 // duplicated with 
-	// 		// Sept 2019
-	// EnsembleAtom ea = this.getEnsembleAtom(molIndex, atomIndex);
 
-	//TODO: move to JME or to mollist object
-	// mol : 0 based
 	public int computeAtomEnsembleIndex( int mol, int atom) {
-		// log("computeAtomEnsembleIndex");
 		return this.getEnsembleAtom( mol, atom).atomEnsembleIndex;
-		
 	}
 	
-	
-	
-	// mol : 0 based
 	public int computeBondEnsembleIndex( int mol, int bond) {
-
-
 		return this.getEnsembleBond(mol, bond).bondEnsembleIndex;
-		
-//		int bondCount = 0;
-//		int bondE = 0;
-//		
-//		for(int m = 1; m <= numberofMoleculeParts; m++) {
-//			if(m == mol) {
-//				bondE = bond + bondCount;
-//				break;
-//			}
-//			bondCount += moleculeParts[m].nBonds();
-//
-//		}
-//		
-//		return bondE;
 	}
 
 	/*
@@ -254,8 +170,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		isReaction = (molecule.indexOf(">") > -1); //false means it is a molecule
 		int nt = st.countTokens();
 		int roleIndex = 0;
-		
-		
+				
 		for (int i = 1; i <= nt; i++) {
 			String s = st.nextToken();
 			s.trim();
@@ -302,10 +217,10 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	// can raise exception
 	public boolean readMDLstringInput(String s, Parameters pars) {
 
-		this.reset();
+		reset();
 		isReaction = s.startsWith("$RXN");
 		if (!isReaction) {
-			return this.readSingleMOL(s, pars);
+			return readSingleMOL(s, pars);
 		}
 		String separator = JMEUtil.findLineSeparator(s);
 		StringTokenizer st = new StringTokenizer(s, separator, true);
@@ -425,53 +340,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 
 
 	}
-	
-	/**
-	 * First is reactant, then agent, then product
-	 * @return
-	 */
-//	public JMEmolList[] groupByReactionRole()  {
-//		JMEmolList groups[] = new JMEmolList[3];
-//		groups[0] = new JMEmolList();
-//		groups[1] = new JMEmolList();
-//		groups[2] = new JMEmolList();
-//		
-//		for(JMEmol each: this) {
-//			int role = each.getReactionRole();
-//			switch(role) {
-//			case ReactionRole.REACTANT:
-//				groups[0].add(each);
-//				break;
-//			case ReactionRole.AGENT:
-//				groups[1].add(each);
-//				break;
-//			case ReactionRole.PRODUCT:
-//				groups[2].add(each);
-//				break;
-//			}
-//			
-//		}
-//
-//		return groups;
-//	}
-	
-	/**
-	 * Arguments for generateMolFileOrRxn()
-	 * TODO: should be merged in MolecularHandlingParameters
-	 * @author bruno
-	 *
-	 */
-	public static class MolFileOrRxnParameters {
-		public String header = "";
-		public boolean stampDate = false;
-		public boolean isV3000 = false;
-		public boolean mergeReationComponents = false;
-		public boolean debugDoNotUpdateReactionRole = false;
-	}
-
-
-
-
+		
 	/**
 	 * 
 	 * @param showImplicitHydrogens : atom symbols like CH3
@@ -488,7 +357,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		
 		} else {
 			for(JMEmol mol : this) {
-				String jme = JMEWriter.createJME(mol, showImplicitHydrogens, boundingBox);
+				String jme = JMEWriter.createJMEString(mol, showImplicitHydrogens, boundingBox);
 				if (jme.length() > 0) {
 					if (result.length() > 0)
 						result += "|";
@@ -510,26 +379,22 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	}
 	
 	public JMEmolList reactionParts(int reactionRole, boolean mergeMolecules) {
-		JMEmolList reactionParts =  new JMEmolList();
-		
-		for(JMEmol mol : this) {
-			if(mol.nAtoms() > 0 && mol.getReactionRole()==reactionRole )
+		JMEmolList reactionParts = new JMEmolList();
+
+		for (JMEmol mol : this) {
+			if (mol.nAtoms() > 0 && mol.getReactionRole() == reactionRole)
 				reactionParts.add(mol);
 		}
-		
-		if(mergeMolecules && reactionParts.size() > 1 ) {
+
+		if (mergeMolecules && reactionParts.size() > 1) {
 			JMEmol merged = JMEmol.mergeMols(reactionParts);
 			merged.setReactionRole(reactionRole);
 			reactionParts = new JMEmolList();
 			reactionParts.add(merged);
 		}
-		
 		return reactionParts;
-	
-
 	}
 
-	
 	//duplicated code with generateJmeFile
 	public String generateSmilesOrSmirks(Parameters pars) {
 		String result = "";
@@ -560,10 +425,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	 * @param MolFileOrRxnParameters instance
 	 * @return
 	 */
-	public String generateMolFileOrRxn(MolFileOrRxnParameters pars) {
-		
-		
-		
+	public String generateMolFileOrRxn(JMEWriter.MolFileOrRxnParameters pars) {
 		String s = "";
 		String newLine = "\n";
 		
@@ -615,7 +477,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	}
 
 	
-	protected static String createMolfile(JMEmol mol, MolFileOrRxnParameters arg) {
+	protected static String createMolfile(JMEmol mol, JMEWriter.MolFileOrRxnParameters arg) {
 		return (arg.isV3000 ? JMEWriter.createExtendedMolFile(mol, arg.header, arg.stampDate, null)
 				: JMEWriter.createMolFile(mol, arg.header, arg.stampDate, null));
 	}
@@ -809,7 +671,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		
 		for(JMEmol mol : this) {
 			if(reactionRole == JMEmol.ReactionRole.ANY || mol.getReactionRole() == reactionRole) {
-				int m = mol.geMaxAtomMap();
+				int m = mol.getMaxAtomMap();
 				if(m>max)
 					max = m;
 			}
@@ -939,12 +801,12 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		if (bondCount > 0) {
 			sumlen = sumlen / bondCount;
 			// scale = RBOND / sumlen;
-			scale = this.first().RBOND / sumlen; // BB
+			scale = JMECore.RBOND / sumlen; // BB
 
 		} else {
 			for (JMEmol mol : this) {
 				if (mol.nAtoms() > 1) {
-					scale = 3. * mol.RBOND / mol.distance(1, 2); // BB
+					scale = 3. * JMECore.RBOND / mol.distance(1, 2); // BB
 					break;
 				}
 

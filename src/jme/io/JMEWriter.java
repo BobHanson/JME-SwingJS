@@ -16,7 +16,21 @@ import jme.core.JMECore;
 
 public class JMEWriter extends JMECore {
 
-		public static String createJME(JMECore mol, boolean addHydrogens, Box box) {
+		/**
+	 * Arguments for generateMolFileOrRxn()
+	 * TODO: should be merged in MolecularHandlingParameters
+	 * @author bruno
+	 *
+	 */
+	public static class MolFileOrRxnParameters {
+		public String header = "";
+		public boolean stampDate = false;
+		public boolean isV3000 = false;
+		public boolean mergeReationComponents = false;
+		public boolean debugDoNotUpdateReactionRole = false;
+	}
+
+		public static String createJMEString(JMECore mol, boolean addHydrogens, Box box) {
 			return new JMEWriter(mol).createJME(addHydrogens, box);
 		}
 

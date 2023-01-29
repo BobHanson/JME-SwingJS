@@ -1,8 +1,16 @@
 package jme.core;
 
-import jme.core.Box;
 import jme.event.JMEStatusListener;
 
+/**
+ * A molecule class that has no GUI dependencies. Subclasses include JMEmol, JMESmiles, and JMEWriter.
+ * 
+ * It does not need to be abstract. 
+ * 
+ * 
+ * @author hansonr
+ *
+ */
 public class JMECore {
 
 	public static class Parameters {
@@ -111,20 +119,88 @@ public class JMECore {
 		parameters = m.parameters;
 		natoms = m.natoms;
 		nbonds = m.nbonds;
+		chiralFlag = m.chiralFlag;
+		
 		atoms = new Atom[natoms + 1];
 		for (int i = atoms.length; --i >= 0;) {
 			if (m.atoms[i] != null) {
 				atoms[i] = m.atoms[i].deepCopy();
 			}
 		}
-
+		
 		bonds = new Bond[nbonds + 1];
 		for (int i = bonds.length; --i >= 0;) {
 			if (m.bonds[i] != null) {
 				bonds[i] = m.bonds[i].deepCopy();
 			}
 		}
+	}
 
+	public JMECore(JMEStatusListener jme, JMECore m, int part) {
+		this(jme, m.parameters);
+		m.computeMultiPartIndices(); // compute the partIndex
+		int newn[] = new int[m.natoms + 1]; // cislovanie stare -> nove
+		for (int i = 1, n = m.natoms; i <= n; i++) {
+			if (atoms[i].partIndex == part)
+				newn[i] = natoms;
+		}
+		for (int i = 1; i <= m.nbonds; i++) {
+			int atom1 = m.bonds[i].va;
+			int atom2 = m.bonds[i].vb;
+			int p1 = atoms[atom1].partIndex;
+			int p2 = atoms[atom2].partIndex;			
+			if (p1 != part && p2 != part)
+				continue;
+			if (p1 != p2) { // musia byt obidve part
+				System.err.println("MOL multipart inconsistency - report bug !");
+				continue;
+			}
+			Bond newAddedBond = createAndAddBondFromOther(m.bonds[i]);
+			newAddedBond.va = newn[atom1];
+			newAddedBond.vb = newn[atom2];
+		}
+		this.setNeighborsFromBonds(); // update the adjencylist
+	}
+
+	public JMECore(JMEStatusListener jme, JMECore[] mols) {
+		this(jme, (Parameters) null);
+		if (mols.length > 0 && mols[0] != null)
+			parameters = mols[0].parameters; 
+		int nmols = mols.length;
+		for (int i = 0; i < nmols; i++) {
+			natoms += mols[i].natoms;
+			nbonds += mols[i].nbonds;
+			// if any is chiral, then the whole new molecule is chiral
+			if (mols[i].getChiralFlag())
+				this.setChiralFlag(true);
+		}
+		this.atoms = new Atom[natoms + 1];
+		this.bonds = new Bond[nbonds + 1];
+
+		int na = 0, nb = 0, nadd = 0;
+		for (int i = 0; i < nmols; i++) {
+			for (int j = 1, ni = mols[i].natoms; j <= ni; j++) {
+				na++;
+				this.atoms[na] = mols[i].atoms[j].deepCopy();
+			}
+			for (int j = 1, ni = mols[i].nbonds; j <= ni; j++) {
+				nb++;
+				bonds[nb] = mols[i].bonds[j].deepCopy();
+				bonds[nb].va += nadd;
+				bonds[nb].vb += nadd;
+			}
+			nadd = na;
+		}
+		setNeighborsFromBonds(); // update the adjencylist
+	}
+
+	public boolean isEmpty() {
+		return (natoms == 0);
+	}
+
+	public void reset() {
+		natoms = 0;
+		nbonds = 0;
 	}
 
 	public int getAtomCount() {
@@ -270,6 +346,7 @@ public class JMECore {
 	}
 
 	public void setPart(JMECore m, int part) {
+		chiralFlag = m.chiralFlag;
 		int newAtomIndexMap[] = new int[m.natoms + 1]; // cislovanie stare -> nove
 		for (int i = 1; i <= m.natoms; i++) {
 			if (m.atoms[i].partIndex != part)
@@ -289,6 +366,12 @@ public class JMECore {
 		setNeighborsFromBonds(); // update the adjencylist
 	}
 
+	/**
+	 * This method can be overridden to add more features.
+	 * 
+	 * @param atomToDuplicate
+	 * @return
+	 */
 	protected Atom createAtomFromOther(Atom atomToDuplicate) {
 		natoms++;
 		if (natoms > atoms.length - 1) {
@@ -1169,5 +1252,598 @@ public class JMECore {
 
 	}
 
+	public Atom createAtom() {
+		return createAtomFromOther(null);
+	}
+
+	/**
+	 * Used when reding input file and when using the X button in the GUI.
+	 * 
+	 * @param atom
+	 * @param symbol
+	 */
+	public void setAtom(int atom, String symbol) {
+		// volane pri spracovavani mol alebo jme z createAtom
+		// alebo pri kliknuti na X atom x x boxu
+		// aj po query
+
+		// if in [] forces this valence state as AN_X, 2004.01
+		if (symbol.startsWith("[") && symbol.endsWith("]")) {
+			symbol = symbol.substring(1, symbol.length() - 1);
+			AN(atom, Atom.AN_X);
+			atoms[atom].label= symbol;
+			atoms[atom].nh = 0;
+			return;
+		}
+
+		if (symbol.length() < 1)
+			System.err.println("Error - null atom !");
+
+		// BB: isotopic : 13C
+		// symbol = this.atoms[atom].parseAtomSymbolIsotop(symbol);
+		symbol = this.atoms[atom].parseAtomicSymbolPatternIsotopMappAndCharge(symbol, this.parameters);
+
+		/*
+		 * iso[atom] = 0; Pattern p = Pattern.compile("^(\\d+)([A-Z][a-z]?)(\\b.*)");
+		 * Matcher m = p.matcher(symbol); if(m.find()) { int isomass =
+		 * Integer.parseInt(m.group(1)); String element = m.group(2);
+		 * if(AtomicElements.isKnown(element, isomass)) { iso[atom] = isomass; symbol =
+		 * element + m.group(3); //add the rest of the match to the symbol
+		 * 
+		 * }
+		 * 
+		 * }
+		 */
+
+		// ak je tam , alebo ; ide o query aj ked zacina so znamym symbolom
+		boolean isQuery = false;
+		if (symbol.indexOf(",") > -1)
+			isQuery = true;
+		if (symbol.indexOf(";") > -1)
+			isQuery = true;
+		if (symbol.indexOf("#") > -1)
+			isQuery = true;
+		if (symbol.indexOf("!") > -1)
+			isQuery = true;
+		int hpos = symbol.indexOf("H");
+		atomProcessing: {
+			if (isQuery) {
+				atoms[atom].label = symbol;
+				AN(atom, Atom.AN_X);
+				atoms[atom].nh = 0;
+				break atomProcessing;
+			}
+			String as = symbol;
+			if (hpos > 0)
+				as = symbol.substring(0, hpos);
+			AN(atom, Atom.checkAtomicSymbol(as)); // as & symbol su rozdielne/
+			if (an(atom) == Atom.AN_X)
+				atoms[atom].label= as;
+
+			symbol += " "; // aby netrebalo stale checkovat koniec
+
+			// number of hydrogens (moze but aj H0)
+			int nhs = 0;
+			if (hpos > 0) { // > 0, nie -1
+				nhs = 1;
+				char c = symbol.charAt(++hpos);
+				if (c >= '0' && c <= '9')
+					nhs = c - '0';
+			}
+			if (an(atom) == Atom.AN_X) {
+				atoms[atom].nh = nhs;
+			}
+		}
+	}
 	
+	/**
+	 * Create and add a new bond to my bond list
+	 * 
+	 * @param atom1
+	 * @param atom2
+	 * @param bondType
+	 * @return the new Bond
+	 */
+	public Bond createAndAddNewBond(int at1, int at2, int bondType) {
+		// assert (at1 != at2);
+		Bond newBond = createAndAddBondFromOther(null); // the new bond index is this.nbonds
+		addBothNeighbors(at1, at2); // set up the adjacency lists
+		newBond.va = at1;
+		newBond.vb = at2;
+		// compute bond centers
+		setBondCenter(newBond);
+		newBond.bondType = bondType;
+		return newBond;
+	}
+
+
+	/**
+	 * 
+	 * @param bondType     the bond type being added
+	 * @param atom         to be added to
+	 * @param up           flip bond to other side - only possible if the touched
+	 *                     atom has 1 valence values for flip: 0,-1 or 1
+	 * @param forceLinear  if forcing this to be linear while building
+	 * @param addingDouble if this will be a double bond, as it will be linear, in
+	 *                     that case, if the prev bond is double.
+	 * @param limit        the limit for counting a touch
+	 * @return null if too many bonds already, true if the up was the parameter used
+	 */
+	public Boolean addBondToAtom(int bondType, int ia, int up, boolean forceLinear, double limit) {
+		boolean upWasUsed = false;
+		Atom atom = atoms[ia];
+		if (atom.nv > 5) {
+//			info("Are you trying to draw an hedgehog ?", JME.LA_FAILED);
+			return null;
+		}
+		createAtomFromOther(null);
+		switch (atom.nv) {
+		case 0:
+			XY(natoms, atom.x + RBOND * .866, atom.y + RBOND * .5);
+			break;
+		case 1:
+			int ia1 = atom.v[1];
+			Atom atom1 = atoms[ia1];
+			Atom atom3 = (atom1.nv != 2 ? null : atom1.v[1] == ia ? atoms[atom1.v[2]] : atoms[atom1.v[1]]);
+			double dx = atom.x - atom1.x;
+			double dy = atom.y - atom1.y;
+			double rx = Math.sqrt(dx * dx + dy * dy);
+			if (rx < 0.001)
+				rx = 0.001;
+			double sina = dy / rx;
+			double cosa = dx / rx;
+			double xx;
+			double yy;
+			// checking for allene -N=C=S, X#C-, etc
+			// chain je ako linear !
+			Bond b = getBond(ia, ia1);
+			if (forceLinear	
+					|| bondType == Bond.TRIPLE || b.bondType == Bond.TRIPLE
+					|| bondType == Bond.DOUBLE && b.bondType == Bond.DOUBLE) {
+				xx = rx + RBOND;
+				yy = 0.;
+			} else {
+				xx = rx + RBOND * Math.cos(Math.PI / 3.);
+				yy = RBOND * Math.sin(Math.PI / 3.);
+			}
+			if (atom3 != null) // to keep growing chain linear
+				if (((atom3.y - atom1.y) * cosa - (atom3.x - atom1.x) * sina) > 0)
+					yy = -yy;
+			// flip bond to other site
+			if (up > 0 && yy < 0)
+				yy = -yy;
+			else if (up < 0 && yy > 0)
+				yy = -yy;
+			XY(natoms, atom1.x + xx * cosa - yy * sina, atom1.y + yy * cosa + xx * sina);
+			upWasUsed = true;
+			break;
+		case 2:
+			double[] newPoint = new double[2];
+			getNewPoint(ia, RBOND, newPoint);
+			XY(natoms, newPoint[0], newPoint[1]);
+			break;
+		case 3:
+		case 4:
+		case 5:
+			// postupne skusa linearne predlzenie vsetkych vazieb z act_a
+			for (int i = 1; i <= atom.nv; i++) {
+				atom1 = atoms[atom.v[i]];
+				dx = atom.x - atom1.x;
+				dy = atom.y - atom1.y;
+				rx = Math.sqrt(dx * dx + dy * dy);
+				if (rx < 0.001)
+					rx = 0.001;
+				XY(natoms, atom.x + RBOND * dx / rx, atom.y + RBOND * dy / rx);
+				// teraz testuje ci sa nedotyka
+				if (i == atom.nv || checkTouchToAtom(natoms, 1, natoms, limit, true) == 0)
+					break;
+			}
+			break;
+		}
+		createAndAddNewBond(ia, natoms, bondType);
+		return Boolean.valueOf(upWasUsed);
+ 	}
+
+	/**
+	 * checking touch of atom with other atoms in my self selected by the range
+	 * [first, last]
+	 * 
+	 * @param atom
+	 * @param first    atom for the atom loop
+	 * @param lastAtom index for the atom loop
+	 * @return the atom index that is the closest among the too close ones if close
+	 *         enough, or 0 if no atoms is close enough
+	 */
+	protected int checkTouchToAtom(int ia, int firstAtom, int lastAtom, double limit, boolean justOne) {
+		// checking touch of atom with other atoms
+		double dx, dy, rx;
+		double min = limit + 1;
+		int touch = 0;
+		Atom atom = atoms[ia];
+		for (int i = firstAtom; i <= lastAtom; i++) {
+			if (ia == i)
+				continue;
+			// compute squared distance
+			dx = atom.x - atoms[i].x;
+			dy = atom.y - atoms[i].y;
+			rx = dx * dx + dy * dy;
+			if (rx < limit)
+				if (rx < min) {
+					min = rx;
+					touch = i;
+					if (justOne)
+						return i;
+				}
+		}
+		return touch;
+	}
+
+	public boolean hasCloseContactWith(JMECore other, double minAtomDist) {
+
+		for (int a1 = 1, n = nAtoms(); a1 <= n; a1++) {
+			Atom at1 = getAtom(a1);
+			for (int a2 = 1, n2 = other.nAtoms(); a2 <= n2; a2++) {
+				Atom at2 = other.getAtom(a2);
+				if (at1.hasCloseContactWith(at2, minAtomDist)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	public int testAtomAndBondTouch(double xx, double yy, boolean ignoreAtoms, boolean ignoreBonds, double[] retMin) {
+		int i, found = 0;
+		double rx;
+		double min = retMin[0];
+		if (!ignoreBonds) {
+			for (i = 1; i <= nbonds; i++) {
+				Bond b = this.bonds[i];
+				rx = squareEuclideanDist(xx, yy, b.bondCenterX, b.bondCenterY);
+				if (rx < min) {
+					min = rx;
+					found = -i;
+//				}
+// BH -- why would one check ALL bonds, and then not set found?
+//				if (found != 0) {
+					// here if ANY atom is found??
+					// One problem : if the two atoms are very close, it is impossible to select the
+					// bond
+					// try with two more positions along the bond axis, at 1/3 and 2/3 of the
+					// distance between the two atoms
+					double ax = atoms[b.va].x;
+					double ay = atoms[b.va].y;
+					double vx = atoms[b.vb].x - ax;
+					double vy = atoms[b.vb].y - ay;
+
+					for (int third = 1; third <= 2; third++) {
+						double x3 = ax + third * vx / 3;
+						double y3 = ay + third * vy / 3;
+						rx = squareEuclideanDist(xx, yy, x3, y3);
+						if (rx < min) {
+							min = rx;
+						}
+					}
+				}
+			}
+		}
+
+		if (!ignoreAtoms) {
+			// Do the same for the atoms
+			// min may be smaller for an atom even if a bond was found
+			for (i = 1; i <= natoms; i++) {
+				rx = squareEuclideanDist(xx, yy, x(i), y(i));
+				if (rx < min) {
+					min = rx;
+					found = i;
+				}
+			}
+		}		
+		// BB: handle case for which the bond length is larger than usual
+		// TODO: complicated, there must be a way to simplify the trigonometry
+		if (found == 0 && !ignoreBonds) {
+			for (i = 1; i <= nbonds; i++) {
+				int at1 = this.bonds[i].va;
+				int at2 = this.bonds[i].vb;
+				double at1X = x(at1);
+				double at1Y = y(at1);
+				double at2X = x(at2);
+				double at2Y = y(at2);
+
+				// work with two vectors:
+				// at1->xx, at1->at2
+
+				// new coordinate reference: at1
+				at2X -= at1X;
+				at2Y -= at1Y;
+				double xx2 = xx - at1X;
+				double yy2 = yy - at1Y;
+
+				double sqBondLength = at2X * at2X + at2Y * at2Y;
+				double sqDistToAtom1 = xx2 * xx2 + yy2 * yy2;
+				double sqDistToAtom2 = squareEuclideanDist(xx2, yy2, at2X, at2Y);
+				// if too far away
+				if (sqDistToAtom1 + sqDistToAtom2 > sqBondLength + min) {
+					continue;
+				}
+
+				double dp = dotProduct(xx2, yy2, at2X, at2Y);
+				if (dp < 0) {
+					continue; // mouse is on the other side of the bond
+				}
+
+				// projection of the xx2 vector on the at2 vector gives the cos angle
+				sqBondLength = Math.sqrt(sqBondLength);
+				sqDistToAtom1 = Math.sqrt(sqDistToAtom1);
+
+				double cos = dp / (sqBondLength * sqDistToAtom1);
+				if (cos >= 1) {
+					continue;
+				}
+				double otherAngle = Math.PI * 0.5 - Math.acos(cos); // triangle: sum of all angles is Pi: "cos" +
+																	// otherAngle + 90 deg
+				double dist = sqDistToAtom1 * Math.cos(otherAngle);
+				dist *= dist; // min is the square of the minmum distance
+				if (dist < min) {
+					found = i * -1;
+					min = dist;
+					//no break: there could be more than one long bond connected to the
+					// same atom
+				}
+
+			}
+		}
+		retMin[0] = min;
+		return found;
+	}
+
+	public void scaleXY(double scale) {
+		if (scale > 0) {
+			for (int at = 1; at <= natoms; at++) {
+				atoms[at].scaleXY(scale);
+			}
+			setBondCenters(); // needed for mouse over
+		}
+	}
+
+	public Atom createAtom(String symbol) {
+		// parses SMILES-like atomic label and set atom parameters
+		Atom atom = createAtom(); // sets natoms
+		setAtom(natoms, symbol);
+		return atom;
+	}
+
+	protected void setAtomHydrogenCount(int atom, int nh) {
+		Atom a = atoms[atom];
+		if (a.an == Atom.AN_X) {
+			a.label += "H";
+			if (nh > 1)
+				a.label += nh;
+		}
+	}
+
+	public int getHydrogenCount(int i) {
+		return atoms[i].nh;
+	}
+
+	public int getCharge(int i) {
+		return atoms[i].q;
+	}
+
+	public int getMaxAtomMap() {
+		if (this.natoms == 0)
+			return 0;
+		int max = -999999;
+		for (int at = 1; at <= this.natoms; at++) {
+			int map = this.atoms[at].getMap();
+			if (map > max)
+				max = map;
+
+		}
+		return max;
+	}
+
+	public boolean resetAtomMaps() {
+		boolean hasChanged = false;
+		for (int at = 1; at <= this.natoms; at++) {
+			hasChanged = atoms[at].resetMap() || hasChanged;
+		}
+		return hasChanged;
+	}
+
+	public boolean has2Dcoordinates() {
+		if (natoms == 0) {
+			return true;
+		}
+		if (has3Dcoordinates()) {
+			return false;
+		}
+		if (natoms == 2) {
+			return atoms[1].x != atoms[2].x || atoms[1].y != atoms[2].y;
+		}
+		for (int i = 1; i <= this.natoms; i++) {
+			if (atoms[i].x != 0 || atoms[i].y != 0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Feb 2020
+	/**
+	 * If at least one z value != 0 TODO: all atoms have the same z value => 2D
+	 * 
+	 * @return
+	 */
+	public boolean has3Dcoordinates() {
+		if (this.nAtoms() <= 1) {
+			return true;
+		}
+		for (int at = 1; at <= this.natoms; at++) {
+			// if (z(at) != 0) {
+			if (Math.abs(z(at)) > 0.001) {
+				// CHEMBL CHEMBL3752999 patch: z != 0
+				// 4.8805 -14.0706 0.0001 C 0 0
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 
+	 * @return the reference bond length that was used for scaling or 0 if scaling
+	 *         was not possible
+	 */
+	public double internalBondLengthScaling() {
+		// proper scaling (to RBOND)
+		double sumlen = 0, scale = 0;
+		double max = 0;
+		double min = Double.MAX_VALUE;
+		double refBondLength = RBOND;
+
+		for (int i = 1; i <= nbonds; i++) {
+			Bond b = bonds[i];
+			double d = distance(b.va, b.vb);
+			sumlen += d;
+			if (d > max)
+				max = d;
+			if (d < min)
+				min = d;
+		}
+
+		if (sumlen == 0) 
+			return 0;
+		if (nbonds > 0) {
+			double average = sumlen / nbonds;
+			// most of the time there is no significant difference between min and max
+			// a few bonds are much longer -- min
+			// a few bonds are much shorter -- max
+			scale = (average - min < max - average ? min : max);
+			scale = refBondLength / scale;
+		} else if (natoms > 1) { // disconnected structure(s)
+			scale = 3 * refBondLength / distance(1, 2);
+		}
+		this.scaleXY(scale);
+		this.setBondCenters(); // BB added June 2020
+		return refBondLength;
+	}
+
+	public double centerX() {
+		double sum = 0;
+		for (int i = 1; i <= natoms; i++) {
+			sum += x(i);
+		}
+		return (natoms > 0 ? sum / natoms : 0);
+	}
+
+	public double centerY() {
+		double sum = 0;
+		for (int i = 1; i <= natoms; i++) {
+			sum += y(i);
+		}
+		return (natoms > 0 ? sum / natoms : 0);
+	}
+
+	public double closestAtomDistance(double xx, double yy) {
+		double min = Double.MAX_VALUE;
+
+		for (int i = 1; i <= natoms; i++) {
+			double rx = squareEuclideanDist(xx, yy, x(i), y(i));
+			if (rx < min) {
+				min = rx;
+			}
+		}
+		return Math.sqrt(min);
+	}
+
+	/**
+	 * Checking for too-close atoms. This can be a problem for CDX or CDXML files with fragments.
+	 * 
+	 * @return
+	 */
+	public boolean checkNeedsCleaning() {
+		// have atoms; check for very close
+		for (int i = natoms + 1; --i >= 1;) {
+			double x = atoms[i].x;
+			double y = atoms[i].y;
+			for (int j = i; --j >= 1;) {
+				double x2 = atoms[j].x;
+				double y2 = atoms[j].y;
+				if (Math.abs(x - x2) + Math.abs(y - y2) < 2) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	public int setAtomMapFromInput(int atomIndex, int map) {
+		if (atomIndex > 0 && atomIndex <= this.nAtoms()) {
+			Atom atom = this.atoms[atomIndex];
+
+			atom.setMapOrMark(map, !parameters.mark);
+		}
+
+		return map;
+	}
+
+	/**
+	 * 
+	 * @param delbond
+	 * @param deleteLonelyAtoms
+	 */
+	public void deleteBond(int delbond, boolean deleteLonelyAtoms) {
+		// deletes bond between atoms delat1 and delat2
+
+		int a1 = bonds[delbond].va;
+		Atom atom1 = atoms[a1];
+		int a2 = bonds[delbond].vb;
+		Atom atom2 = atoms[a2];
+
+		for (int i = delbond; i < nbonds; i++) {
+			this.bonds[i] = this.bonds[i + 1];
+		}
+		nbonds--;
+
+		// updating nv[] and v[][]
+		int k = 0;
+		int ni = atom1.nv;
+		for (int i = 1; i <= ni; i++)
+			if (atom1.v[i] != a2)
+				atom1.v[++k] = atom1.v[i];
+		atom1.nv = k;
+		k = 0;
+		ni = atom2.nv;
+		for (int i = 1; i <= ni; i++)
+			if (atom2.v[i] != a1)
+				atom2.v[++k] = atom2.v[i];
+		atom2.nv = k;
+		
+		if (deleteLonelyAtoms) {
+			// deleting lonely atom(s)
+			if (a1 < a2) {
+				k = a1;
+				a1 = a2;
+				a2 = k;
+			}
+			if (atoms[a1].nv == 0)
+				deleteAtom(a1);
+			if (atoms[a2].nv == 0)
+				deleteAtom(a2);
+		}
+	}
+
+	/**
+	 * Finish up after creation from JME string, MOL data, or Jmol adapter
+	 */
+	public void finalizeMolecule() {
+		setNeighborsFromBonds();
+		deleteHydrogens(parameters.hydrogenParams);
+		complete(parameters.computeValenceState); // este raz, zachytit zmeny
+		if (parameters.internalBondScalingForInput) {
+			internalBondLengthScaling();
+		}
+	}
+
 }

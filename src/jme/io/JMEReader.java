@@ -3,10 +3,24 @@
  */
 package jme.io;
 
+import java.util.Hashtable;
+import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jmol.api.JmolAdapter;
+import org.jmol.api.JmolAdapterAtomIterator;
+import org.jmol.api.JmolAdapterBondIterator;
+import org.jmol.util.Edge;
+import org.jmol.util.Elements;
+
+import javajs.util.P3d;
+import jme.JMEUtil;
+import jme.core.Atom;
+import jme.core.AtomicElements;
+import jme.core.Bond;
+import jme.core.JMECore;
 import jme.ocl.SVGDepictorWithEmbeddedChemicalStructure;
 
 /**
@@ -368,5 +382,348 @@ public class JMEReader {
 	public static boolean equals(Object a, Object b) {
 	        return (a == b) || (a != null && a.equals(b));
 	    }
+
+	public static void createJMEFromString(JMECore mol, String jmeString) {
+		if (jmeString.startsWith("\""))
+			jmeString = jmeString.substring(1, jmeString.length());
+		if (jmeString.endsWith("\""))
+			jmeString = jmeString.substring(0, jmeString.length() - 1);
+		if (jmeString.length() < 1) {
+			mol.natoms = 0;
+			return;
+		}
+		try {
+			StringTokenizer st = new StringTokenizer(jmeString);
+			int natomsx = Integer.valueOf(st.nextToken()).intValue();
+			int nbondsx = Integer.valueOf(st.nextToken()).intValue();
+			// natoms and nbonds filled in createAtom() & createBond()
+			// System.err.println("TEST a b >"+natomsx + " " +nbondsx+"<");
+
+			// --- reading basic data for atoms
+			for (int i = 1; i <= natomsx; i++) {
+				// Atom atom = this.atoms[i];
+				// processing atomic symbol => Xx | Hn | charge | :n
+				// symbol je vsetko od zaciatku do H + -
+				// ak Xx spozna - spracuje vsetko, ak je to X, berie cely a testuje len :n
+				String symbol = st.nextToken();
+				Atom atom = mol.createAtom(symbol);
+				atom.x = Double.valueOf(st.nextToken()).doubleValue();
+				atom.y = -Double.valueOf(st.nextToken()).doubleValue();
+			}
+			// --- bonds
+			for (int i = 1; i <= nbondsx; i++) {
+				Bond bond = mol.createAndAddBondFromOther(null);
+				bond.va = Integer.valueOf(st.nextToken()).intValue();
+				bond.vb = Integer.valueOf(st.nextToken()).intValue();
+				int bondType = Integer.valueOf(st.nextToken()).intValue();
+				// musi premenit bondType -1 up a -2 down (z va na vb) na stereob
+				int stereob = 0;
+				if (bondType == -1) {
+					bondType = 1;
+					stereob = Bond.STEREO_UP;
+				} else if (bondType == -2) {
+					bondType = 1;
+					stereob = Bond.STEREO_DOWN;
+				} else if (bondType == -5) {
+					bondType = 2;
+					stereob = Bond.STEREO_EZ;
+				} // ez stereo
+				// query bonds created in query window
+				else if (bondType == Bond.QB_ANY || bondType == Bond.QB_AROMATIC || bondType == Bond.QB_RING
+						|| bondType == Bond.QB_NONRING) {
+					stereob = bondType;
+					bondType = Bond.QUERY;
+				}
+				bond.bondType = bondType;
+				bond.stereo = stereob;
+			}			
+			mol.finalizeMolecule();
+		} // end of try
+		catch (Exception e) {
+			System.err.println("read JSME string exception - " + e.getMessage());
+			// e.printStackTrace();
+			mol.natoms = 0;
+			throw (e);
+		}
+	}
+
+	public static void createJMEFromMolData(JMECore mol, String molData) {
+
+		String line = "";
+		String separator = JMEUtil.findLineSeparator(molData);
+
+		// BB: if something else than the molfile, e.g. smiles
+		if (separator == null) {
+			return;
+		}
+
+		StringTokenizer st = new StringTokenizer(molData, separator, true);
+
+		for (int i = 1; i <= 4; i++) {
+			line = JMEUtil.nextData(st, separator); 
+		}
+		int natomsx = Integer.valueOf(line.substring(0, 3).trim()).intValue();
+		int nbondsx = Integer.valueOf(line.substring(3, 6).trim()).intValue();
+		int chiral = 0;
+		try {
+			chiral = Integer.valueOf(line.substring(14, 15).trim()).intValue();
+		} catch (Exception e) {
+			// happens when the count line is mostly blank
+		}
+
+		mol.setChiralFlag(chiral == 1);
+
+		// number of bonds to this atom including implicit H's
+		int valences[] = new int[natomsx + 1];
+		for (int i = 1; i <= natomsx; i++) {
+			Atom atom = mol.createAtom();
+			line = JMEUtil.nextData(st, separator);
+			atom.x = Double.valueOf(line.substring(0, 10).trim()).doubleValue();
+			atom.y = -Double.valueOf(line.substring(10, 20).trim()).doubleValue(); // Note: multiplied by -1
+			atom.z = Double.valueOf(line.substring(20, 30).trim()).doubleValue();
+			// symbol 32-34 dolava centrovany (v String 31-33)
+			int endsymbol = 34;
+			if (line.length() < 34)
+				endsymbol = line.length();
+			String symbol = line.substring(31, endsymbol).trim();
+			// String q = line.substring(36,39);
+			mol.setAtom(i, symbol); // sets an[i]
+
+			// atom mapping - 61 - 63
+			if (line.length() >= 62) {
+				String s = line.substring(60, 63).trim();
+				if (s.length() > 0) {
+					int mark = Integer.valueOf(s).intValue();
+					if (mark > 0) {
+						mol.setAtomMapFromInput(i, mark);
+					}
+				}
+			}
+			// BB isotope -
+			if (line.length() >= 36) {
+				String s = line.substring(34, 36).trim();
+				if (s.length() > 0) {
+					int delta = Integer.valueOf(s).intValue();
+
+					// delta can be [-3, +4]
+					// 0 means natural abundance
+					if (delta != 0 && delta >= -3 && delta <= 4) {
+						int iso = AtomicElements.getIsotopicMassOfElementDelta(symbol, delta);
+						if (iso < 0)
+							iso = 0;
+						mol.atoms[i].iso = iso;
+					}
+				}
+			}
+
+			// BB charge - not tested
+			if (line.length() >= 39) {
+				String s = line.substring(37, 39).trim();
+				if (s.length() > 0) {
+					int delta = Integer.valueOf(s).intValue();
+					// delta can be [-3, +4]
+					// 0 means natural abundance
+					if (delta > 0 && delta <= 7) {
+						int charge = 0;
+						switch (delta) {
+						case 1:
+							charge = 3;
+							break;
+						case 2:
+							charge = 2;
+							break;
+						case 3:
+							charge = 1;
+							break;
+						case 4:
+							charge = 0; // TODO: doublet;
+							break;
+						case 5:
+							charge = -1;
+							break;
+						case 6:
+							charge = -2;
+							break;
+						case 7:
+							charge = -3;
+							break;
+
+						}
+						mol.Q(i, charge);
+					}
+				}
+			}
+
+			// BB valence
+			if (line.length() >= 45) {
+				String s = line.substring(43, 45).trim();
+				if (s.length() > 0)
+					valences[i] = Integer.valueOf(s).intValue();
+			}
+		}
+
+		for (int i = 1; i <= nbondsx; i++) {
+			Bond bond = mol.createAndAddBondFromOther(null);
+			line = JMEUtil.nextData(st, separator);
+			bond.va = Integer.valueOf(line.substring(0, 3).trim()).intValue();
+			bond.vb = Integer.valueOf(line.substring(3, 6).trim()).intValue();
+			int nasvx = Integer.valueOf(line.substring(6, 9).trim()).intValue();
+			int bondType;
+
+			if (nasvx == 1)
+				bondType = Bond.SINGLE;
+			else if (nasvx == 2)
+				bondType = Bond.DOUBLE;
+			else if (nasvx == 3)
+				bondType = Bond.TRIPLE;
+			// else if (nasvx == 4) bondType = Bond.AROMATIC;
+			else if (nasvx == 8)
+				bondType = Bond.COORDINATION; // see comment for the MOL writer
+
+			// aromatic ???
+			else
+				bondType = Bond.QUERY;
+			int stereoVal = 0;
+			if (line.length() > 11)
+				stereoVal = Integer.valueOf(line.substring(9, 12).trim()).intValue();
+			// ??? treba s nasvx
+			if (bondType == Bond.SINGLE || bondType == Bond.COORDINATION) {
+
+				if (stereoVal == 1) {
+					bond.stereo = Bond.STEREO_UP;
+				} else if (stereoVal == 6) {
+					bond.stereo = Bond.STEREO_DOWN;
+				} else if (stereoVal == 4) {
+					bond.stereo = Bond.STEREO_EITHER; // new Feb 2017
+				}
+			}
+			if (nasvx == Bond.DOUBLE && stereoVal == 3) {
+				bondType = Bond.DOUBLE;
+				bond.stereo = Bond.STEREO_EZ;
+			} // crossed bond, Feb 2017
+
+			bond.bondType = bondType;
+		}
+
+		// reading charges and other information
+		while (st.hasMoreTokens()) {
+			if ((line = st.nextToken()) == null)
+				break;
+			if (line.startsWith("M  END"))
+				break;
+
+			if (line.startsWith("M  CHG")) {
+				StringTokenizer stq = new StringTokenizer(line);
+				stq.nextToken();
+				stq.nextToken();
+				int ndata = Integer.valueOf(stq.nextToken()).intValue();
+				for (int i = 1; i <= ndata; i++) {
+					int a = Integer.valueOf(stq.nextToken()).intValue();
+					mol.atoms[a].q = Integer.valueOf(stq.nextToken()).intValue();
+				}
+			}
+
+			// BB
+			if (line.startsWith("M  ISO")) {
+				StringTokenizer stq = new StringTokenizer(line);
+				stq.nextToken();
+				stq.nextToken();
+				int ndata = Integer.valueOf(stq.nextToken()).intValue();
+				for (int i = 1; i <= ndata; i++) {
+					int a = Integer.valueOf(stq.nextToken()).intValue();
+					// TODO: Change the atom symbol for display only
+					// TODO: check validity atom index -> excepstion handling
+					mol.atoms[a].iso = Integer.valueOf(stq.nextToken()).intValue();
+
+				}
+			}
+
+			if (line.startsWith("M  APO")) { // 2004.05
+				StringTokenizer stq = new StringTokenizer(line);
+				stq.nextToken();
+				stq.nextToken();
+				int ndata = Integer.valueOf(stq.nextToken()).intValue();
+				for (int i = 1; i <= ndata; i++) {
+					int a = Integer.valueOf(stq.nextToken()).intValue();
+					int nr = Integer.valueOf(stq.nextToken()).intValue();
+					// addinf Rnr to atom a
+					// BH 2023.01.28 no linear addition or new action
+					mol.addBondToAtom(Bond.SINGLE, a, 0, false, 0);
+					mol.setAtom(mol.natoms, "R" + nr);
+				}
+			}
+		}
+
+		// BB May 2017
+		// compute the atom.nh if valence provided
+		// example : AlH3 with implicit H's
+		for (int i = 1; i <= natomsx; i++) {
+			if (valences[i] > 0) {
+				int nv = mol.atoms[i].nv;
+				// valences[i] is the total number of bonds to this atom, including implicit H
+				if (valences[i] != 15) {
+					int nh = valences[i] - nv;
+					if (nh > 0)
+						mol.atoms[i].nh = nh;
+				} else {
+					mol.atoms[i].nh = 0;
+				}
+			}
+		}
+		mol.finalizeMolecule();
+	}
+
+	public static void createJMEFromJmolAdapter(JMECore mol, Object[] iterators) {
+		JmolAdapterAtomIterator atomIterator = (JmolAdapterAtomIterator) iterators[0];
+		JmolAdapterBondIterator bondIterator = (JmolAdapterBondIterator) iterators[1];
+		Map<Object, Integer> atomMap = new Hashtable<Object, Integer>();
+		while (atomIterator.hasNext()) {
+			String sym = Elements.elementSymbolFromNumber(atomIterator.getElementNumber());
+			// from Jmol -- could be 13C;
+			Atom a = mol.createAtom(sym);
+			atomMap.put(atomIterator.getUniqueID(), Integer.valueOf(mol.natoms));
+			P3d pt = atomIterator.getXYZ();
+			a.x = pt.x;
+			a.y = -pt.y;
+			a.q = atomIterator.getFormalCharge();
+			mol.setAtom(mol.natoms, JmolAdapter.getElementSymbol(atomIterator.getElement()));
+		}
+		while (bondIterator.hasNext()) {
+			Bond b = mol.createAndAddBondFromOther(null);
+			b.va = atomMap.get(bondIterator.getAtomUniqueID1()).intValue();
+			b.vb = atomMap.get(bondIterator.getAtomUniqueID2()).intValue();
+			int bo = bondIterator.getEncodedOrder();
+			switch (bo) {
+			case Edge.BOND_STEREO_NEAR:
+				b.bondType = Bond.SINGLE;
+				b.stereo = Bond.STEREO_UP;
+				break;
+			case Edge.BOND_STEREO_FAR:
+				b.bondType = Bond.SINGLE;
+				b.stereo = Bond.STEREO_DOWN;
+				break;
+			case Edge.BOND_COVALENT_SINGLE:
+			case Edge.BOND_AROMATIC_SINGLE:
+				b.bondType = Bond.SINGLE;
+				break;
+			case Edge.BOND_COVALENT_DOUBLE:
+			case Edge.BOND_AROMATIC_DOUBLE:
+				b.bondType = Bond.DOUBLE;
+				break;
+			case Edge.BOND_COVALENT_TRIPLE:
+				b.bondType = Bond.TRIPLE;
+				break;
+			case Edge.BOND_AROMATIC:
+			case Edge.BOND_STEREO_EITHER:
+			default:
+				if ((bo & 0x07) != 0)
+					b.bondType = (bo & 0x07);
+				break;
+			}
+		}
+
+		mol.finalizeMolecule();
+	}
+
 
 }

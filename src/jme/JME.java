@@ -73,13 +73,12 @@ import javax.swing.SwingUtilities;
 
 import jme.ColorManager.ColorInfo;
 import jme.JMEmol.ReactionRole;
-import jme.JMEmolList.MolFileOrRxnParameters;
 import jme.core.Atom;
 import jme.core.AtomBondCommon;
 import jme.core.Bond;
 import jme.core.Box;
-import jme.core.JMECore;
 import jme.core.Box.Axis;
+import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
 import jme.core.JMECore.Parameters.HydrogenParams;
 import jme.event.InspectorEvent;
@@ -94,6 +93,7 @@ import jme.gui.QueryBox;
 import jme.io.FileDropper;
 import jme.io.JMEReader;
 import jme.io.JMEReader.MajorChemicalFormat;
+import jme.io.JMEWriter;
 import jme.io.SDFstack;
 import jme.io.TextTransfer;
 import jme.io.TextTransfer.PasteAction;
@@ -1013,7 +1013,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			mapJMenuItem = new JMenuItem(deleteAtomMapMoleculeAction);
 			mapJMenuItem.addActionListener(this);
 			popup.add(mapJMenuItem);
-			mapJMenuItem.setEnabled(mol.geMaxAtomMap() > 0);
+			mapJMenuItem.setEnabled(mol.getMaxAtomMap() > 0);
 
 		}
 
@@ -1955,7 +1955,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return this.molFileOrRxn(null, true, isV3000, options.exportRXNmergeOption);
 	}
 
-	public String molFile(MolFileOrRxnParameters pars) {
+	public String molFile(JMEWriter.MolFileOrRxnParameters pars) {
 
 		if (pars.debugDoNotUpdateReactionRole) {
 			moleculePartsList.isReaction = true;
@@ -1970,7 +1970,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	public String molFileOrRxn(String header_, boolean stampDate_, boolean isV3000_, boolean mergeReationComponents) {
 
-		MolFileOrRxnParameters pars = new MolFileOrRxnParameters() {
+		JMEWriter.MolFileOrRxnParameters pars = new JMEWriter.MolFileOrRxnParameters() {
 			{
 				header = header_; // 1st line of the MOL
 				stampDate = stampDate_;
@@ -3664,10 +3664,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					// JSME_Event has the atom number
 					this.recordAtomEvent(SET_ATOM);
 					structureChangePerformed = true;
-
 				}
-				// mol.cleanAfterChanged(); // to add Hs
-
 			}
 		}
 
@@ -3675,11 +3672,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// extend with other actions:
 		// phenyl ring (shortcut is "1"
 		// 2 for double bond?, see the help for the shortcucts
-		/*
-		 * atoms C, N, O, P, S, F, L (for Cl), B (for Br), I, H, R bonds - for single
-		 * bond, = for double bond rings 3..8 for 3 to 8 membered rings, 1 for phenyl
-		 * and 0 for furyl groups a - COOH, y - NO2, z - SO3H, t - tert. butyl, ft - CF3
-		 */
+		//
+		// atoms C, N, O, P, S, F, L (for Cl), B (for Br), I, H, R bonds - for single
+		// bond, = for double bond rings 3..8 for 3 to 8 membered rings, 1 for phenyl
+		// and 0 for furyl groups a - COOH, y - NO2, z - SO3H, t - tert. butyl, ft - CF3
+		//
 		if (!structureChangePerformed && (activeMol.touchedAtom > 0 || activeMol.touchedBond > 0)) {
 			// the addRing function can handle both bond and atom
 			// duplicated code
@@ -3696,10 +3693,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				// BB Oct 2015: add bond & change bond without switch to double bond bond tool
 
 				if (activeMol.touchedAtom > 0) {
-					// lastAction = LA_BOND; // in addBond may be set to 0
-					lastAction = 0; // correction - ohterwise mouse drag will move the end of the new added bond
-									// instead of moving the molecule
-					// mol.preSave();
+					lastAction = 0;
+					// correction - otherwise, mouse drag will move the end of 
+					// the new added bond instead of moving the molecule
 					getBuilder(activeMol).addBond();
 					this.recordBondEvent(ADD_BOND);
 					structureChangePerformed = true;
@@ -3730,11 +3726,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						activeMol.bonds[activeMol.touchedBond].toggleNormalCrossedDoubleBond();
 						structureChangePerformed = true;
 					}
-
 				}
-
 			}
-
 		}
 		if (structureChangePerformed) {
 			setMustRedrawMolecularArea(true);
@@ -4367,7 +4360,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 									int reactionRole = activeMol.getReactionRole();
 									newMap = findMaxAtomMapOfMoleculeParts(moleculePartsList, reactionRole);
 								} else {
-									newMap = activeMol.geMaxAtomMap();
+									newMap = activeMol.getMaxAtomMap();
 								}
 								// allow same atom map for several atoms of the group is shift is pressed
 								if (!this.mouseShift || newMap == 0) // BB june 2020: if shift is on and new mapping:
