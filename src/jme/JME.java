@@ -5013,8 +5013,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			info("-Furyl");
 			return Actions.ACTION_RING_FURANE;
 		case '1':
-			return Actions.ACTION_RING_PH;
-//			return Actions.ACTION_BOND_SINGLE;
+//			return Actions.ACTION_RING_PH;
+			return Actions.ACTION_BOND_SINGLE;
 		case '2':
 		case '=':
 			if (action == Actions.ACTION_AN_O) {
