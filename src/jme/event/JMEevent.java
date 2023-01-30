@@ -99,9 +99,11 @@ public class JMEevent {
 		if (eAtom != null) {
 			AtomBondCommon atomObj = eAtom.atom;
 			if (atomObj == null) {
-				assert (false);
-			}
+				// BH 2023.01.30 this can occur after atom deletion
+				eAtom = moleculeParts.getEnsembleAtom(mol, atom);
+			} else {
 			atomBackgroundColorIndex = atomObj.getMark();
+			}
 
 		}
 
