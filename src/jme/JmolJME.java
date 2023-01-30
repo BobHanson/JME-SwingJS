@@ -138,6 +138,7 @@ public class JmolJME extends JME implements WindowListener {
 		} else {
 			if (exit0) {
 			frame.addWindowListener(new WindowAdapter() {
+					@Override
 					public void windowClosing(WindowEvent evt) {
 						System.exit(0);
 					}
@@ -515,6 +516,7 @@ public class JmolJME extends JME implements WindowListener {
 		}
 	}
 
+	@Override
 	protected void readDroppedData(Object newValue) {
 		String data = newValue.toString();
 		String trimmed = data.trim();
@@ -533,14 +535,16 @@ public class JmolJME extends JME implements WindowListener {
 
 	}
 
+	@Override
 	protected void readSmiles(String data) {
 		try {
-			readMolFile(newParser().SMILEStoMOL(data));
+			readMolFile(getParser().SMILEStoMOL(data));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 
+	@Override
 	protected void readDroppedTextFile(String fileName) {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		InputStream fis = null;
@@ -683,6 +687,7 @@ public class JmolJME extends JME implements WindowListener {
 		addMenuItem(popup,hasAtom, "Save " + "as " + "CDXML file", "Jmol-saveCDXML");
 	}
 
+	@Override
 	protected boolean subclassHandleMenuAction(String cmd) {
 		switch (cmd) {
 		case "Jmol-savePNG":
@@ -753,6 +758,7 @@ public class JmolJME extends JME implements WindowListener {
 		parentWindow = null;
 	}
 
+	@Override
 	protected void handleAdditionalParameters() {
 
 	}
@@ -800,6 +806,7 @@ public class JmolJME extends JME implements WindowListener {
 			frame.setName("JME"); // for embedding in <div id="testApplet-JME-div">
 			frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
 			frame.addWindowListener(new WindowAdapter() {
+				@Override
 				public void windowClosing(WindowEvent evt) {
 					System.exit(0);
 				}
@@ -838,6 +845,7 @@ public class JmolJME extends JME implements WindowListener {
 		frame.setName("JME"); // for embedding in <div id="testApplet-JME-div">
 
 		frame.addWindowListener(new WindowAdapter() {
+			@Override
 			public void windowClosing(WindowEvent evt) {
 				System.exit(0);
 			}

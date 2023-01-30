@@ -157,6 +157,7 @@ public class Atom implements AtomBondCommon {
 		resetBackgroundColors();
 	}
 
+	@Override
 	public Atom deepCopy() {
 		return copyTo(new Atom());
 	}
@@ -198,6 +199,7 @@ public class Atom implements AtomBondCommon {
 		return this.map != NOT_MAPPED_OR_MARKED;
 	}
 
+	@Override
 	public boolean resetObjectMark() {
 
 		return this.resetMap();
@@ -452,6 +454,7 @@ public class Atom implements AtomBondCommon {
 	 * 
 	 * @param c
 	 */
+	@Override
 	public void addBackgroundColor(int c) {
 		for (int i = 0; i < backgroundColors.length; i++) {
 			if (backgroundColors[i] == c) {
@@ -463,6 +466,7 @@ public class Atom implements AtomBondCommon {
 		backgroundColors[backgroundColors.length - 1] = c;
 	}
 
+	@Override
 	public void resetBackgroundColors() {
 		backgroundColors = new int[] { NOT_MAPPED_OR_MARKED };
 	}
@@ -472,6 +476,7 @@ public class Atom implements AtomBondCommon {
 	 * 
 	 * @return true if changed
 	 */
+	@Override
 	public boolean resetMark() {
 		if (mark == NOT_MAPPED_OR_MARKED)
 			return false;
@@ -479,14 +484,17 @@ public class Atom implements AtomBondCommon {
 		return true;
 	}
 
+	@Override
 	public int getMark() {
 		return Math.max(mark, 0);
 	}
 
+	@Override
 	public void setMark(int markOrMap) {
 		mark = markOrMap;
 	}
 
+	@Override
 	public boolean isMarked() {
 		return mark > 0;
 	}

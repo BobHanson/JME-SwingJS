@@ -15,6 +15,8 @@ import jme.core.JMESmiles;
 import jme.gui.Actions;
 import jme.gui.AtomDisplayLabel;
 import jme.gui.GUI;
+import jme.gui.GUI.Ring;
+import jme.gui.GUI.RingInfo;
 import jme.io.JMEReader;
 import jme.io.JMEWriter;
 import jme.ocl.OclAdapter;
@@ -71,6 +73,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	private double centerx = Double.NaN, centery;
 	private AtomDisplayLabel[] atomLabels;
 
+	private RingInfo ringInfo;
+	private boolean haveDoubleBonds;
+
 	// used for junit testing
 	public JMEmol() {
 		this(null, (Parameters) null);
@@ -100,6 +105,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		super((JMECore) m);
 		jme = m.jme;
 		reactionRole = m.reactionRole;
+		ringInfo = m.ringInfo;
 	}
 
 	/**
@@ -126,6 +132,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		super(jme, m, part);
 		this.jme = jme;
 		reactionRole = m.reactionRole;
+		ringInfo = m.ringInfo;
 	}
 
 	/**
@@ -325,11 +332,12 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	}
 
 	// ----------------------------------------------------------------------------
+	@Override
 	public void draw(PreciseGraphicsAWT og) {
 		int atom1, atom2;
 		double xa, ya, xb, yb;
-		double sirka2s, sirka2c;
-		double sirka2 = 2., sirka3 = 3.;
+		double sin2, cos2;
+		final double offset2 = 2, offset3 = 3;
 
 		if (this.nAtoms() == 0)
 			return; // bug fix github #25
@@ -372,21 +380,21 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					atom1 = bonds[i].va;
 					atom2 = bonds[i].vb;
 					setCosSin(atom1, atom2);
-					sirka2c = (sirka3 * 3) * cosSin[0];
-					sirka2s = (sirka3 * 3) * cosSin[1];
+					cos2 = (offset3 * 3) * temp[0];
+					sin2 = (offset3 * 3) * temp[1];
 
-					sirka2s *= rs;
-					sirka2c *= rs;
+					sin2 *= rs;
+					cos2 *= rs;
 
 					double[] xr = new double[4], yr = new double[4];
-					xr[0] = x(atom1) + sirka2s;
-					yr[0] = y(atom1) - sirka2c;
-					xr[1] = x(atom2) + sirka2s;
-					yr[1] = y(atom2) - sirka2c;
-					xr[2] = x(atom2) - sirka2s;
-					yr[2] = y(atom2) + sirka2c;
-					xr[3] = x(atom1) - sirka2s;
-					yr[3] = y(atom1) + sirka2c;
+					xr[0] = x(atom1) + sin2;
+					yr[0] = y(atom1) - cos2;
+					xr[1] = x(atom2) + sin2;
+					yr[1] = y(atom2) - cos2;
+					xr[2] = x(atom2) - sin2;
+					yr[2] = y(atom2) + cos2;
+					xr[3] = x(atom1) - sin2;
+					yr[3] = y(atom1) + cos2;
 					og.fillPolygon(xr, yr, 4);
 				}
 			}
@@ -395,7 +403,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// atom + bond background coloring - done before drawing the atoms
 		// if (markColorBackground ||
 		// this.parameters.showAtomMapNumberWithBackgroundColor) {
-		double cs = sirka2 * 12;
+		double cs = offset2 * 12;
 
 		// atoms : circle behind the atom position - does not cover the atom symbol
 		// (will be done later)
@@ -428,6 +436,23 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// this.findRingBonds(isRingBond);
 
 		// draw bonds
+		
+		if (ringInfo == null && haveDoubleBonds) {
+			setRingInfo();
+		}
+//		if (ringInfo != null) {
+//			og.setColor(Color.red);
+//			for (int i = 0; i < ringInfo.rings.size(); i++) {
+//				Ring r = ringInfo.rings.get(i);
+//				if (r.bondCount > 0)
+//					og.drawString("" + i + "/" + r.bondCount, r.cx-5, r.cy-2);
+//			}
+//		}
+
+		// BH 2023 atomLabels needed for drawing double bonds
+		
+		computeAtomLabels();
+
 		for (int i = 1; i <= nbonds; i++) {
 			// og.setColor(Color.black);
 
@@ -447,13 +472,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				// og.setColor(Color.RED);
 				continue; // do not draw the bond , that is more visible than red color
 			}
-//			if (doColoring == 1) {
-//				if (bgc(atom1) != 0 && bgc(atom1) == bgc(atom2)) {
-//					setPresetPastelBackGroundColor(og, atom1, true); //based on the color of atom1
-//				}
-//			}
-
-			if (bond.stereo == Bond.STEREO_XUP || bond.stereo == Bond.STEREO_XDOWN
+			if (bond.stereo == Bond.STEREO_XUP 
+					|| bond.stereo == Bond.STEREO_XDOWN
 					|| bond.stereo == Bond.STEREO_XEITHER) // kvoli spicke vazby
 			{
 				int d = atom1;
@@ -468,46 +488,37 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 			if (!(bond.isSingle() || bond.isCoordination()) || bond.stereo != 0) {
 				setCosSin(atom1, atom2); // BH??? test distance was 1, not .001?
-//				dx = xb - xa;
-//				dy = yb - ya;
-//				dd = Math.sqrt(dx * dx + dy * dy);
-//				if (dd < 1.)
-//					dd = 1.;
-//				sina = dy / dd;
-//				cosa = dx / dd;
 			}
 			switch (bond.bondType) {
 			case Bond.DOUBLE:
 				// BB crossed bond display: not magenta anymore
 				// if (bond.stereo >= 10) og.setColor(Color.magenta); // E,Z je farebna
-				sirka2c = sirka2 * cosSin[0];
-				sirka2s = sirka2 * cosSin[1];
+				cos2 = offset2 * temp[0];
+				sin2 = offset2 * temp[1];
 				if (bond.stereo != Bond.STEREO_EZ) {
-					og.drawLine(xa + sirka2s, ya - sirka2c, xb + sirka2s, yb - sirka2c);
-					og.drawLine(xa - sirka2s, ya + sirka2c, xb - sirka2s, yb + sirka2c);
+					if (Double.isNaN(bond.guideX) && (
+							Double.isNaN(bond.guideY) 
+							|| !atomLabels[bond.va].noLabelAtom
+							|| !atomLabels[bond.vb].noLabelAtom)) {
+						og.drawLine(xa + sin2, ya - cos2, xb + sin2, yb - cos2);
+						og.drawLine(xa - sin2, ya + cos2, xb - sin2, yb + cos2);
+					} else {
+						og.drawLine(xa, ya, xb, yb);
+						drawSideLine(og, bond, xa, ya, xb, yb, cos2, sin2);
+					}
 				} else { // BB: crossed bond
-					og.drawLine(xa + sirka2s, ya - sirka2c, xb - sirka2s, yb + sirka2c);
-					og.drawLine(xa - sirka2s, ya + sirka2c, xb + sirka2s, yb - sirka2c);
+					og.drawLine(xa + sin2, ya - cos2, xb - sin2, yb + cos2);
+					og.drawLine(xa - sin2, ya + cos2, xb + sin2, yb - cos2);
 
 				}
 				og.setColor(Color.black);
 				break;
 			case Bond.TRIPLE:
-				double ixa = xa;
-				double iya = ya;
-				double ixb = xb;
-				double iyb = yb;
-				og.drawLine(ixa, iya, ixb, iyb);
-				double sirka3c = sirka3 * cosSin[0];
-				double sirka3s = sirka3 * cosSin[1];
-				og.drawLine(ixa + sirka3s, iya - sirka3c, ixb + sirka3s, iyb - sirka3c);
-				og.drawLine(ixa - sirka3s, iya + sirka3c, ixb - sirka3s, iyb + sirka3c);
-				/*
-				 * g.drawLine((int)Math.round(xa+sirka3s),(int)Math.round(ya-sirka3c),
-				 * (int)Math.round(bondCenterX+sirka3s),(int)Math.round(bondCenterY-sirka3c));
-				 * g.drawLine((int)Math.round(xa-sirka3s),(int)Math.round(ya+sirka3c),
-				 * (int)Math.round(bondCenterX-sirka3s),(int)Math.round(bondCenterY+sirka3c));
-				 */
+				og.drawLine(xa, ya, xb, yb);
+				double cos3 = offset3 * temp[0];
+				double sin3 = offset3 * temp[1];
+				og.drawLine(xa + sin3, ya - cos3, xb + sin3, yb - cos3);
+				og.drawLine(xa - sin3, ya + cos3, xb - sin3, yb + cos3);
 				break;
 			case Bond.QUERY:// case 0: // dotted //BB : removed 0 because of coordination
 				for (int k = 0; k < 10; k++) {
@@ -531,42 +542,42 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				break;
 			default: // Bond.SINGLE, alebo stereo
 				if (bond.stereo == Bond.STEREO_UP || bond.stereo == Bond.STEREO_XUP) {
-					sirka2c = sirka3 * cosSin[0];
-					sirka2s = sirka3 * cosSin[1];
+					cos2 = offset3 * temp[0];
+					sin2 = offset3 * temp[1];
 					double[] px = new double[3];
 					double[] py = new double[3];
-					px[0] = xb + sirka2s;
-					py[0] = yb - sirka2c;
+					px[0] = xb + sin2;
+					py[0] = yb - cos2;
 					px[1] = xa;
 					py[1] = ya;
-					px[2] = xb - sirka2s;
-					py[2] = yb + sirka2c;
+					px[2] = xb - sin2;
+					py[2] = yb + cos2;
 					og.fillPolygon(px, py, 3);
 				} else if (bond.stereo == Bond.STEREO_DOWN || bond.stereo == Bond.STEREO_XDOWN) {
-					sirka2c = sirka3 * cosSin[0];
-					sirka2s = sirka3 * cosSin[1];
+					cos2 = offset3 * temp[0];
+					sin2 = offset3 * temp[1];
 					for (double k = 0; k < 10; k++) {
 						double xax = xa - (xa - xb) / 10. * k;
 						double yax = ya - (ya - yb) / 10. * k;
 						double sc = k / 10.;
-						og.drawLine(xax + sirka2s * sc, yax - sirka2c * sc, xax - sirka2s * sc, yax + sirka2c * sc);
+						og.drawLine(xax + sin2 * sc, yax - cos2 * sc, xax - sin2 * sc, yax + cos2 * sc);
 					}
 				} else if (bond.stereo == Bond.STEREO_EITHER || bond.stereo == Bond.STEREO_XEITHER) {
 					double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-					sirka2c = sirka3 * cosSin[0];
-					sirka2s = sirka3 * cosSin[1];
+					cos2 = offset3 * temp[0];
+					sin2 = offset3 * temp[1];
 					double m = 8;
 					for (double k = 0; k < m + 1; k += 1) {
 						double xax = xa - (xa - xb) / m * k;
 						double yax = ya - (ya - yb) / m * k;
 						double sc = k / m; // thickness ?
-						x1 = xax + sirka2s * sc;
-						y1 = yax - sirka2c * sc;
+						x1 = xax + sin2 * sc;
+						y1 = yax - cos2 * sc;
 						if (k > 0) {
 							og.drawLine(x2, y2, x1, y1);
 						}
-						x2 = xax - sirka2s * sc;
-						y2 = yax + sirka2c * sc;
+						x2 = xax - sin2 * sc;
+						y2 = yax + cos2 * sc;
 						og.drawLine(x1, y1, x2, y2);
 
 					}
@@ -591,9 +602,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				}
 			}
 		}
-
-		computeAtomLabels();
-
 		og.setFont(jme.gui.atomDrawingAreaFont);
 		double h = GUI.stringHeight(jme.gui.atomDrawingAreaFontMet); // vyska fontu
 
@@ -698,25 +706,18 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				atom1 = bonds[touchedBond].va;
 				atom2 = bonds[touchedBond].vb;
 				setCosSin(atom1, atom2);
-//				dx = x(atom2) - x(atom1);
-//				dy = y(atom2) - y(atom1);
-//				dd = Math.sqrt(dx * dx + dy * dy);
-//				if (dd < 1.)
-//					dd = 1.;
-//				sina = dy / dd;
-//				cosa = dx / dd;
-				sirka2c = (sirka3 + 1) * cosSin[0];
-				sirka2s = (sirka3 + 1) * cosSin[1];
+				cos2 = (offset3 + 1) * temp[0];
+				sin2 = (offset3 + 1) * temp[1];
 				double[] px = new double[5];
 				double[] py = new double[5];
-				px[0] = x(atom1) + sirka2s;
-				px[1] = x(atom2) + sirka2s;
-				py[0] = y(atom1) - sirka2c;
-				py[1] = y(atom2) - sirka2c;
-				px[3] = x(atom1) - sirka2s;
-				px[2] = x(atom2) - sirka2s;
-				py[3] = y(atom1) + sirka2c;
-				py[2] = y(atom2) + sirka2c;
+				px[0] = x(atom1) + sin2;
+				px[1] = x(atom2) + sin2;
+				py[0] = y(atom1) - cos2;
+				py[1] = y(atom2) - cos2;
+				px[3] = x(atom1) - sin2;
+				px[2] = x(atom2) - sin2;
+				py[3] = y(atom1) + cos2;
+				py[2] = y(atom2) + cos2;
 				px[4] = px[0];
 				py[4] = py[0]; // bug in 1.01
 				if (jme.action != Actions.ACTION_DELGROUP) // pri DELGROUP nekresli modro
@@ -768,6 +769,46 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	}
 
+	private void drawSideLine(PreciseGraphicsAWT og, Bond bond, double xa, double ya, double xb, double yb, double cos2,
+			double sin2) {
+		double cx = bond.centerX;
+		double cy = bond.centerY;
+		double ox = cx + sin2 * 2;
+		double oy = cy - cos2 * 2;
+		double gx = bond.guideX;
+		double gy = bond.guideY;
+		double min = 3;
+
+//		og.setColor(Color.red);
+//		og.drawString("x", cx-2, cy+3);
+//		og.drawString("o", gx - 2, gy +3);
+
+		// check for trans.
+		if ((cx - gx) * (cx - gx) + (cy - gy) * (cy - gy) < min) {
+			gx = Double.NaN;
+		}
+
+		// check for offset wrong side
+		double f = (Double.isNaN(gx) ? -2f
+				: (ox - gx) * (ox - gx) + (oy - gy) * (oy - gy) > (cx - gx) * (cx - gx) + (cy - gy) * (cy - gy) ? -2
+						: 2);
+
+		double g = 0.1;
+		double dx = xb - xa;
+		double dy = yb - ya;
+		xa += dx * g;
+		xb -= dx * g;
+		ya += dy * g;
+		yb -= dy * g;
+
+		double x1 = xa + sin2 * f;
+		double y1 = ya - cos2 * f;
+		double x2 = xb + sin2 * f;
+		double y2 = yb - cos2 * f;
+
+		og.drawLine(x1, y1, x2, y2);
+	}
+
 	/**
 	 * ///////////////////////////////////////////// // atom labels
 	 * 
@@ -785,6 +826,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		atomLabels = AtomDisplayLabel.createLabels(this, rb, fm, h, showHs, showMap, atomLabels);
 	}
 
+	@Override
 	public Box computeBoundingBoxWithAtomLabels(Box union) {
 		if (natoms == 0)
 			return union;
@@ -819,7 +861,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			} else {
 				// bond width normal length follows mouse pointer
 				setCosSin(touched_org, 0);
-				XY(natoms, x(touched_org) + JMECore.RBOND * cosSin[0], y(touched_org) + JMECore.RBOND * cosSin[1]);
+				XY(natoms, x(touched_org) + JMECore.RBOND * temp[0], y(touched_org) + JMECore.RBOND * temp[1]);
 			}
 			return;
 		}
@@ -1689,6 +1731,26 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		for (int i = 1; i <= natoms; i++) {
 			this.atoms[i].setMap(i);
 		}
+	}
+
+
+	private void setRingInfo() {
+		ringInfo = new GUI.RingInfo(this);
+		System.out.println("ringInfo");	
+	}
+	
+	@Override
+	public void setBondCenters() {
+		ringInfo = null;
+		haveDoubleBonds = false;
+		super.setBondCenters();
+	}
+
+	@Override
+	public void setBondCenter(Bond b) {
+		super.setBondCenter(b);
+		if (b.bondType == Bond.DOUBLE)
+			haveDoubleBonds = true;
 	}
 
 

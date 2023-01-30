@@ -344,6 +344,7 @@ public class JMEBuilder {
 		completeRing(nmembered);
 		// a aby to bolo uz po mouse down OK
 		checkRing(nmembered);
+		mol.setBondCenters();
 		// po check ring (inak nerobi avoid), pri stopke pridavani
 		if (returnTouch > -1)
 			touchedAtom = returnTouch;
@@ -397,8 +398,8 @@ public class JMEBuilder {
 		// alternating double bonds for phenyl and furane template
 		// 2007.12 fixed problematic adding
 		if (action == Actions.ACTION_RING_PH) {
-			setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE);
 			if (touchedBond > 0) {
+				setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE);
 				if (b.isSingle()) {
 					// fancy stuff - fusing two phenyls by single bond
 					atom3 = 0;
@@ -429,6 +430,8 @@ public class JMEBuilder {
 				} else {
 					setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE);
 				}
+			} else {
+				setBonds(Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE, Bond.SINGLE, Bond.DOUBLE);
 			}
 		} else if (action == Actions.ACTION_RING_FURANE || action == Actions.ACTION_RING_3FURYL) {
 			if (touchedBond > 0) {

@@ -1,11 +1,15 @@
 package jme.ocl;
 
+import java.util.Arrays;
+
 import com.actelion.research.chem.AbstractDepictor;
 import com.actelion.research.chem.AromaticityResolver;
 import com.actelion.research.chem.IDCodeParser;
+import com.actelion.research.chem.Molecule;
 //OpenChemLib import
 import com.actelion.research.chem.MolfileCreator;
 import com.actelion.research.chem.MolfileParser;
+import com.actelion.research.chem.RingCollection;
 import com.actelion.research.chem.SVGDepictor;
 import com.actelion.research.chem.SmilesParser;
 import com.actelion.research.chem.StereoMolecule;
@@ -17,6 +21,9 @@ import jme.JMEmol;
 import jme.Parser;
 import jme.core.Atom;
 import jme.core.Bond;
+import jme.core.JMECore;
+import jme.gui.GUI.Ring;
+import jme.gui.GUI.RingInfo;
 
 public class OclAdapter implements Parser {
 
@@ -43,8 +50,9 @@ public class OclAdapter implements Parser {
 		double width = 400;
 		double height = 300;
 		// TODO : error handling
-		StereoMolecule mol = new StereoMolecule();
-		if (new MolfileParser().parse(mol, molFile)) {
+		StereoMolecule mol = new StereoMolecule();		
+		
+		if (new MolfileParser().parse(mol, molFile)) {			
 			// recipe found in openchemlib-js
 			SVGDepictor svgd = new SVGDepictorWithEmbeddedChemicalStructure(mol, molFile);
 			svgd.setLegacyMode(false); // include font information
@@ -224,6 +232,94 @@ public class OclAdapter implements Parser {
 		return result;
 	}
 
+	@Override
+	public void getRingInfo(RingInfo info, JMECore mol) {		
+		StereoMolecule m = new StereoMolecule();
+		for (int i = 1; i <= mol.natoms; i++) {
+			Atom a = mol.atoms[i];
+			int an = 6; // set this to 3 to not do any aromatic calc
+			switch (a.an) {
+			case Atom.AN_B:
+				an = 5;
+				break;
+			case Atom.AN_N:
+				an = 7;
+				break;
+			case Atom.AN_O:
+				an = 8;
+			case Atom.AN_P:
+				an = 15;
+				break;
+			case Atom.AN_S:
+				an = 16;
+			case Atom.AN_SE:
+				an = 34;
+				break;
+			case Atom.AN_SI:
+				an = 14;
+				break;
+			case Atom.AN_F:
+			case Atom.AN_CL:
+			case Atom.AN_BR:
+			case Atom.AN_I:
+				an = 9; // don't care!
+				break;
+			case Atom.AN_H:
+				an = 1;
+				break;
+			}
+			m.addOrChangeAtom(a.x, a.y, an, 0, 0, 0, null);
+		}
+		for (int i = 1; i <= mol.nbonds; i++) {
+			Bond b = mol.bonds[i];
+			int type = b.bondType;
+			switch (b.bondType) {
+			case Bond.SINGLE:
+			case Bond.DOUBLE:
+				type = b.bondType;
+				break;
+			case Bond.TRIPLE:
+				type = Molecule.cBondTypeTriple;
+				break;
+			default:
+				type = 1;
+				break;
+			}
+			m.addOrChangeBond(b.va - 1, b.vb - 1, type);
+		}
 
+		try {
+			RingCollection sys = m.getRingSet();
+			for (int i = sys.getSize(); --i >= 0;) {
+				boolean isAromatic = sys.isAromatic(i);
+				if (isAromatic)
+					info.bsAromaticRings.set(i);
+				Ring r = new Ring();
+				info.rings.add(r);
+				int[] bonds = sys.getRingBonds(i);
+				System.out.println(i + " " + Arrays.toString(bonds));
+				for (int j = bonds.length; --j >= 0;) {
+					int pt = bonds[j] + 1;
+					r.bsBonds.set(pt);
+					int a1 = mol.bonds[pt].va;
+					int a2 = mol.bonds[pt].vb;
+					r.bsAtoms.set(a1);
+					r.bsAtoms.set(a2);
+					r.isAromatic = isAromatic;
+					if (mol.atoms[a1].an != Atom.AN_C)
+						r.isHetero = true;
+				}
+				r.size = r.bsAtoms.cardinality();
+				r.bondCount = r.bsBonds.cardinality();
+				info.bsRingAtoms.or(r.bsAtoms);
+				info.bsRingBonds.or(r.bsBonds);
+				if (isAromatic)
+					info.bsAromaticAtoms.or(r.bsAtoms);
+			}
+		} catch (Exception e) {
+			System.out.println(e);
+		}
+
+	}
 
 }

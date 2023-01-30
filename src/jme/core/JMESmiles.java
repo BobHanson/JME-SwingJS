@@ -807,8 +807,8 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 			if (i == 3 && p[3] == 0)
 				continue;
 			setCosSin(center, p[i]);
-			cos[i] = cosSin[0];
-			sin[i] = cosSin[1];
+			cos[i] = temp[0];
+			sin[i] = temp[1];
 		}
 
 		// sorts p[1] - p[3] - 1 smallest
@@ -1049,8 +1049,8 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 			return; // vyhadzuje aj allene vazby
 
 		setCosSin(atom1, atom2);
-		double y1 = (y(ref1) - y(atom1)) * cosSin[0] - (x(ref1) - x(atom1)) * cosSin[1];
-		double y2 = (y(ref2) - y(atom1)) * cosSin[0] - (x(ref2) - x(atom1)) * cosSin[1];
+		double y1 = (y(ref1) - y(atom1)) * temp[0] - (x(ref1) - x(atom1)) * temp[1];
+		double y2 = (y(ref2) - y(atom1)) * temp[0] - (x(ref2) - x(atom1)) * temp[1];
 		if (Math.abs(y1) < 2 || Math.abs(y2) < 2) {
 			info("Not unique E/Z geometry !");
 			return;
@@ -1245,7 +1245,7 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 		// urcuje poziciu ref2
 		int atom2 = cumuleneAtoms[numberCumuleneAtoms - 1];
 		setCosSin(end, atom2);
-		double y2 = (y(ref2) - y(atom2)) * cosSin[0] - (x(ref2) - x(atom2)) * cosSin[1];
+		double y2 = (y(ref2) - y(atom2)) * temp[0] - (x(ref2) - x(atom2)) * temp[1];
 // BH??? dy*cos - dx*sin??
 //		dx = x(cumuleneAtoms[numberCumuleneAtoms - 1]) - x(end);
 //		dy = y(cumuleneAtoms[numberCumuleneAtoms - 1]) - y(end);

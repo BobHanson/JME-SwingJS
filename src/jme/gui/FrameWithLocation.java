@@ -43,6 +43,7 @@ class FrameWithLocation extends JFrame {
 		// Add a window listener JDK 1.1 for closing the window using the X button of
 		// the window
 		this.addWindowListener(new WindowAdapter() {
+			@Override
 			public void windowClosing(WindowEvent evt) {
 				setVisible(false);
 			}

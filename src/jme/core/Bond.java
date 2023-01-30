@@ -27,8 +27,11 @@ public class Bond implements AtomBondCommon {
 
 	public int stereo;
 	public String btag;
-	public double bondCenterX;
-	public double bondCenterY;
+	public double centerX, centerY;
+	/**
+	 * for double bonds
+	 */
+	public double guideX = Double.NaN, guideY;
 
 	public int partIndex;
 
@@ -36,10 +39,12 @@ public class Bond implements AtomBondCommon {
 
 	int mark = NOT_MAPPED_OR_MARKED;
 
+
 	public Bond() {
 		resetBackgroundColors();
 	}
 
+	@Override
 	public Bond deepCopy() {
 		return copyTo(new Bond());
 	}
@@ -52,8 +57,10 @@ public class Bond implements AtomBondCommon {
 		b.bondType = this.bondType;
 		b.stereo = this.stereo;
 		b.btag = this.btag; // should we deep copy the string?
-		b.bondCenterX = this.bondCenterX;
-		b.bondCenterY = this.bondCenterY;
+		b.centerX = this.centerX;
+		b.centerY = this.centerY;
+		b.guideX = this.guideX;
+		b.guideY = this.guideY;
 		b.partIndex = this.partIndex;
 		return b;
 	}
@@ -151,6 +158,7 @@ public class Bond implements AtomBondCommon {
 		return setCoordination(!isCoordination());
 	}
 
+	@Override
 	public boolean resetObjectMark() {
 		boolean hasChanged = this.backgroundColors[0] != NOT_MAPPED_OR_MARKED;
 		this.resetBackgroundColors();
@@ -163,6 +171,7 @@ public class Bond implements AtomBondCommon {
 	 * 
 	 * @param c
 	 */
+	@Override
 	public void addBackgroundColor(int c) {
 		for (int i = 0; i < backgroundColors.length; i++) {
 			if (backgroundColors[i] == c) {
@@ -173,6 +182,7 @@ public class Bond implements AtomBondCommon {
 		backgroundColors[backgroundColors.length - 1] = c;
 	}
 
+	@Override
 	public void resetBackgroundColors() {
 		this.backgroundColors = new int[] { NOT_MAPPED_OR_MARKED };
 	}
@@ -185,6 +195,7 @@ public class Bond implements AtomBondCommon {
 	/**
 	 * @return true if changed
 	 */
+	@Override
 	public boolean resetMark() {
 		if (mark == NOT_MAPPED_OR_MARKED)
 			return false;
@@ -192,15 +203,18 @@ public class Bond implements AtomBondCommon {
 		return true;
 	}
 
+	@Override
 	public int getMark() {
 		return Math.max(mark, 0);
 	}
 
+	@Override
 	public void setMark(int mark) {
 		this.mark = mark;
 
 	}
 
+	@Override
 	public boolean isMarked() {
 		return mark > 0;
 	}

@@ -119,6 +119,7 @@ public class AtomInspector {
 		// Add a window listener JDK 1.1 for closing the window using the X button of
 		// the window
 		modalDialog.addWindowListener(new WindowAdapter() {
+			@Override
 			public void windowClosing(WindowEvent evt) {
 				modalDialog.setVisible(false);
 			}

@@ -65,7 +65,7 @@ public class AtomDisplayLabel {
 		// BB better display for OH or o- : the bond will point at the atom symbol "O"
 		// and not at the center of the "OH"
 		String hydrogenSymbols = "";
-		if (showHs && !this.noLabelAtom) {
+		if (showHs && !noLabelAtom) {
 			if (a.nh > 0) {
 				hydrogenSymbols += "H";
 				if (a.nh > 1) {

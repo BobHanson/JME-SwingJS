@@ -1,7 +1,11 @@
 package jme;
 
+import jme.core.JMECore;
+import jme.gui.GUI.RingInfo;
+
 public interface Parser {
 
+	void getRingInfo(RingInfo info, JMECore core);
 	String getOclCode(String molFile);
 
 	String getOclSVG(String molFile);

@@ -160,7 +160,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public static final String NumberParsingErrorMsg = "Number parsing";
 	public static final String NotEnoughDataMsgError = "Not enough data";
 
-	protected String parserImpl = "jme.OclParser";
+	protected static String parserImpl = "jme.ocl.OclAdapter";
 
 	public static final String OCL_ID_CODE_LABEL = "OCL ID code" /* + " to the clipboard" */;
 	public static final String UN_MARK_ATOM = "unMarkAtom";
@@ -469,6 +469,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public static String changeAtomMarkAction = "Change atom mark value";
 	static String autoAtomMapMoleculeAction = "Auto atom map molecule";
 	static String deleteAtomMapMoleculeAction = "Delete all atom map molecule";
+	private static Parser oclAdapter;
 	final static String deleteHydrogensMoleculeAction = "Delete hydrogens";
 	final static String compute2DcoordinatesMoleculeAction = "Compute 2D coordinates";
 
@@ -1291,6 +1292,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
+	@Override
 	public void repaint() {
 		if (!headless)
 			super.repaint();
@@ -2321,7 +2323,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	public String getOclCode() {
 		String molFile = this.molFileOrRxn(null, false, true, false);
-		return newParser().getOclCode(molFile);
+		return getParser().getOclCode(molFile);
 	}
 
 	/**
@@ -2331,7 +2333,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 */
 	public String getOclSVG() {
 		String molFile = this.molFileOrRxn(null, false, true, false); // use v3000
-		return newParser().getOclSVG(molFile);
+		return getParser().getOclSVG(molFile);
 	}
 
 	/**
@@ -2342,7 +2344,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return
 	 */
 	public String OclCodeToMOL(String oclCode) {
-		return newParser().OclCodeToMOL(oclCode);
+		return getParser().OclCodeToMOL(oclCode);
 	}
 
 	/**
@@ -2354,7 +2356,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @throws Exception
 	 */
 	public String SMILEStoMOL(String smiles) throws Exception {
-		return newParser().SMILEStoMOL(smiles);
+		return getParser().SMILEStoMOL(smiles);
 	}
 
 	/**
@@ -2426,17 +2428,17 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @throws Exception
 	 */
 	public String v3000toV2000MOL(String v3000Mol) throws Exception {
-		return newParser().v3000toV2000MOL(v3000Mol);
+		return getParser().v3000toV2000MOL(v3000Mol);
 	}
 
-	protected Parser newParser() {
-		return (Parser) getInterface(parserImpl);
+	public static Parser getParser() {
+		return (oclAdapter == null ? (oclAdapter = (Parser) getInterface(parserImpl)) : oclAdapter);
 	}
 
-	protected Parser getInterface(String name) {
+	protected static Object getInterface(String name) {
 		try {
 			Class<?> x = Class.forName(name);
-			return (Parser) (x == null ? null : x.newInstance());
+			return  (x == null ? null : x.newInstance());
 		} catch (Exception e) {
 			System.out.println("Interface.getInterface Error creating instance for " + parserImpl + ": \n" + e);
 			return null;
@@ -2816,6 +2818,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// --- end of public functions
 	// ------------------------------------------------
 	// ----------------------------------------------------------------------------
+	@Override
 	public void paint(Graphics g) {
 		/* The java applet viewer calls this method when the applet window is resized */
 		Graphics g2 = g.create();
@@ -2897,6 +2900,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	// ----------------------------------------------------------------------------
+	@Override
 	public void update(Graphics g2d) {
 		// pri fill ma rectangle sirku a vysku presne, pri draw o 1 vacsiu
 		// Dimension d = getSize();
@@ -3303,15 +3307,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				setMustRedrawMolecularArea(true); // needed for e.g. undo
 
 				action = actionOld;
-				/*
-				 * if(!this.canMultipleUndo) { //PE's original undo // undo po new molecule (pri
-				 * new smol = null) if (smol == null) { actualMoleculePartIndex =
-				 * numberofMoleculeParts; // mohlo sa medzitym zmenit clear(); } else if
-				 * (afterClear) { saved = ++numberofMoleculeParts; actualMoleculePartIndex =
-				 * numberofMoleculeParts; afterClear = false; } // undo po standard change (aj
-				 * po delete s upravenym saved) if (smol == null) break; // no molecule in undo
-				 * stack activeMol = smol.deepCopy(); moleculeParts[saved] = activeMol; } else {
-				 */ // multiple undo handling
+				// multiple undo handling
 				if (!this.molChangeManager.canUndo()) {
 					info("No more undo");
 
@@ -3326,7 +3322,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				if (!this.molChangeManager.canUndo())
 					break; // no molecule in undo stack
 
-				this.retoreState(this.molChangeManager.undo());
+				this.restoreState(this.molChangeManager.undo());
 				this.recordAfterStructureChangedEvent(UNDO);
 				this.willPostSave(false);
 
@@ -3359,7 +3355,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					// undo po standard change (aj po delete s upravenym saved)
 					if (!this.molChangeManager.canRedo())
 						break; // no molecule in undo stack
-					this.retoreState(this.molChangeManager.redo());
+					this.restoreState(this.molChangeManager.redo());
 					this.recordAfterStructureChangedEvent(REDO);
 					this.willPostSave(false);
 
@@ -3567,61 +3563,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		} else { // pressed > 300 (left menu - atoms)
 			// BB
 			gui.mustReDrawLeftMenu = true;
-			gui.mustReDrawTopMenu = true; // deselection of an item in the top menu
+			gui.mustReDrawTopMenu = true; 
+			// deselection of an item in the top menu
 			// if the action is coming from a keyboard structure change, then there is no
 			// need to redraw the the menu
 			active_an = mapActionToAtomNumberXorR(pressed);
 
-			// BB added August 2017
 			clearInfo(); // clear any messages
-
-//			switch (pressed) {
-//			case Actions.ACTION_AN_C:
-//				active_an = AN_C;
-//				break;
-//			case Actions.ACTION_AN_N:
-//				active_an = AN_N;
-//				break;
-//			case Actions.ACTION_AN_O:
-//				active_an = AN_O;
-//				break;
-//			case Actions.ACTION_AN_F:
-//				active_an = AN_F;
-//				break;
-//			case Actions.ACTION_AN_CL:
-//				active_an = AN_CL;
-//				break;
-//			case Actions.ACTION_AN_BR:
-//				active_an = AN_BR;
-//				break;
-//			case Actions.ACTION_AN_I:
-//				active_an = AN_I;
-//				break;
-//			case Actions.ACTION_AN_S:
-//				active_an = AN_S;
-//				break;
-//			case Actions.ACTION_AN_P:
-//				active_an = AN_P;
-//				break;
-//			case Actions.ACTION_AN_H:
-//				active_an = AN_H;
-//				break;
-//			case Actions.ACTION_AN_X:
-//				this.handleAtomXbox();
-//				active_an = AN_X;
-//				
-//				break;
-			/*
-			 * case Actions.ACTION_AN_R: active_an = AN_R; break; case Actions.ACTION_AN_R1:
-			 * active_an = AN_R1; break; case Actions.ACTION_AN_R2: active_an = AN_R2;
-			 * break; case Actions.ACTION_AN_R3: active_an = AN_R3;
-			 * 
-			 * 
-			 * break;
-			 */
-
-//			}
-
 			if (active_an == Atom.AN_X) {
 				this.handleAtomXbox();
 			}
@@ -3731,6 +3679,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 		if (structureChangePerformed) {
 			setMustRedrawMolecularArea(true);
+			activeMol.setBondCenters();
 			action = actionOld;
 			// BB avoid menu change during repaint() after a key press that has changed the
 			// structure, like pressing 2 , add a double bond but do not switch to db tool
@@ -4048,8 +3997,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			y = closestMolecule.atoms[mol.atomIndex].y;
 		} else {
 			// closestMolecule.findBondCenters();
-			x = closestMolecule.bonds[mol.bondIndex].bondCenterX;
-			y = closestMolecule.bonds[mol.bondIndex].bondCenterY;
+			x = closestMolecule.bonds[mol.bondIndex].centerX;
+			y = closestMolecule.bonds[mol.bondIndex].centerY;
 
 		}
 
@@ -6313,7 +6262,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return state;
 	}
 
-	protected void retoreState(SavedState state) {
+	protected void restoreState(SavedState state) {
 		basicRetoreState(state);
 
 		// Notifify the JavaScript world that my structure has changed
@@ -7370,7 +7319,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	protected void readSmiles(String data) {
 		try {
-			readMolFile(newParser().SMILEStoMOL(data));
+			readMolFile(getParser().SMILEStoMOL(data));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -8077,6 +8026,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public static void main(String args[]) {
 		JFrame frame = new JFrame("JME Molecular Editor");
 		frame.addWindowListener(new WindowAdapter() {
+			@Override
 			public void windowClosing(WindowEvent evt) {
 				System.exit(0);
 			}

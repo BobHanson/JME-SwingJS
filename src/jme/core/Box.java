@@ -15,6 +15,7 @@ public class Box extends Rectangle2D.Double {
 	public Box() {
 	}
 	
+	@Override
 	public boolean isEmpty() {
 		return this.width <= 0 || this.height <= 0;
 	}

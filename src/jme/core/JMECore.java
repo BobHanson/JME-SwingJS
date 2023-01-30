@@ -96,8 +96,8 @@ public class JMECore {
 	public Atom atoms[] = new Atom[NSTART_SIZE_ATOMS_BONDS];
 	public Bond bonds[] = new Bond[NSTART_SIZE_ATOMS_BONDS];
 
-	public int natoms = 0;
-	public int nbonds = 0;
+	public int natoms;
+	public int nbonds;
 	
 	public Boolean chiralFlag = Boolean.FALSE;
 
@@ -119,8 +119,7 @@ public class JMECore {
 		parameters = m.parameters;
 		natoms = m.natoms;
 		nbonds = m.nbonds;
-		chiralFlag = m.chiralFlag;
-		
+		chiralFlag = m.chiralFlag;		
 		atoms = new Atom[natoms + 1];
 		for (int i = atoms.length; --i >= 0;) {
 			if (m.atoms[i] != null) {
@@ -387,13 +386,11 @@ public class JMECore {
 		// changing [X+]-[Y-] into X=Y (such as non-symmetric nitro bonds)
 		// changing [X+]=[Y+] into X-Y (such as C+=C+ after fusing )
 		// key polarnitro added since version 2002.05
-
 		for (int i = 1; i <= nbonds; i++) {
 			Bond bond = bonds[i];
 			int atom1 = bond.va;
 			int atom2 = bond.vb;
 			int bondType = bond.bondType;
-
 			if ((q(atom1) == 1 && q(atom2) == -1) || (q(atom1) == -1 && q(atom2) == 1)) {
 				if (bondType == Bond.SINGLE || bondType == Bond.DOUBLE) { // tu nie E,Z
 
@@ -764,8 +761,8 @@ public class JMECore {
 	}
 
 	public void setBondCenter(Bond b) {
-		b.bondCenterX = (atoms[b.va].x + atoms[b.vb].x) / 2;
-		b.bondCenterY = (atoms[b.va].y + atoms[b.vb].y) / 2;
+		b.centerX = (atoms[b.va].x + atoms[b.vb].x) / 2;
+		b.centerY = (atoms[b.va].y + atoms[b.vb].y) / 2;
 	}
 
 	/**
@@ -981,7 +978,7 @@ public class JMECore {
 		return x1 * x2 + y1 * y2;
 	}
 
-	protected final double[] cosSin = new double[2];
+	protected final double[] temp = new double[2];
 	// static constants
 	public static final double RBOND = 25;
 
@@ -991,8 +988,8 @@ public class JMECore {
 		double rx = Math.sqrt(dx * dx + dy * dy);
 		if (rx < 0.001)
 			rx = 0.001;
-		cosSin[0] = dx / rx;
-		cosSin[1] = dy / rx;
+		temp[0] = dx / rx;
+		temp[1] = dy / rx;
 	}
 
 
@@ -1196,18 +1193,16 @@ public class JMECore {
 	 * @param delatom
 	 */
 	public void deleteAtom(int delatom) {
-		int i, j, atom1, atom2;
-
 		// Actualizes bonds
-		j = 0;
-		int deltaSBO = 0; // BB:
-		for (i = 1; i <= nbonds; i++) {
+		int bondCount = 0;
+		int deltaSBO = 0;
+		for (int i = 1; i <= nbonds; i++) {
 			Bond bondI = bonds[i];
-			atom1 = bondI.va;
-			atom2 = bondI.vb;
+			int atom1 = bondI.va;
+			int atom2 = bondI.vb;
 			if (atom1 != delatom && atom2 != delatom) {
-				j++;
-				Bond bondJ = bonds[j]; // BondJ is replacing BondI
+				bondCount++;
+				Bond bondJ = bonds[bondCount]; // BondJ is replacing BondI
 				bondI.copyTo(bondJ);
 				bondJ.va = atom1;
 				if (atom1 > delatom)
@@ -1219,9 +1214,8 @@ public class JMECore {
 				deltaSBO += bondI.bondType;
 			}
 		}
-		nbonds = j;
-
-		for (i = delatom; i < natoms; i++) {
+		nbonds = bondCount;
+		for (int i = delatom; i < natoms; i++) {
 			atoms[i] = atoms[i + 1];
 		}
 		natoms--;
@@ -1231,13 +1225,11 @@ public class JMECore {
 
 		// updating nv[] and v[][]
 		// updating also nh on neighbors (added in Oct 04 to fix canonisation)
-		for (i = 1; i <= natoms; i++) {
+		for (int i = 1; i <= natoms; i++) {
 			Atom a = atoms[i];
-			int k = 0;
-			int ni = a.nv;
-			for (j = 1; j <= ni; j++) {
-				atom1 = a.v[j];
-
+			int nv = 0;
+			for (int j = 1, ni = a.nv; j <= ni; j++) {
+				int atom1 = a.v[j];
 				if (atom1 == delatom) {
 					// a.nh++; // added nh[i]++ 10.04
 					a.nh += deltaSBO; // BB
@@ -1245,11 +1237,10 @@ public class JMECore {
 				}
 				if (atom1 > delatom)
 					atom1--;
-				a.v[++k] = atom1;
+				a.v[++nv] = atom1;
 			}
-			NV(i, k);
+			a.nv = nv;
 		}
-
 	}
 
 	public Atom createAtom() {
@@ -1499,7 +1490,7 @@ public class JMECore {
 		if (!ignoreBonds) {
 			for (i = 1; i <= nbonds; i++) {
 				Bond b = this.bonds[i];
-				rx = squareEuclideanDist(xx, yy, b.bondCenterX, b.bondCenterY);
+				rx = squareEuclideanDist(xx, yy, b.centerX, b.centerY);
 				if (rx < min) {
 					min = rx;
 					found = -i;
@@ -1795,7 +1786,6 @@ public class JMECore {
 	 */
 	public void deleteBond(int delbond, boolean deleteLonelyAtoms) {
 		// deletes bond between atoms delat1 and delat2
-
 		int a1 = bonds[delbond].va;
 		Atom atom1 = atoms[a1];
 		int a2 = bonds[delbond].vb;
@@ -1844,6 +1834,23 @@ public class JMECore {
 		if (parameters.internalBondScalingForInput) {
 			internalBondLengthScaling();
 		}
+	}
+
+
+	public int getSp2Other(int ia, int not, boolean first) {
+		Atom a = atoms[ia];
+		if (first) {
+			for (int i = 1; i <= a.nv; i++) {
+				if (a.v[i] != not && atoms[a.v[i]].an != Atom.AN_H)
+					return a.v[i];
+			}
+			return 0;
+		}
+		for (int i = a.nv + 1; --i >= 1;) {
+			if (a.v[i] != not && atoms[a.v[i]].an != Atom.AN_H)
+				return a.v[i];
+		}
+		return 0;
 	}
 
 }

@@ -6,6 +6,10 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.geom.Rectangle2D;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Comparator;
+import java.util.List;
 
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
@@ -16,11 +20,14 @@ import jme.JME;
 import jme.PreciseGraphicsAWT;
 import jme.PreciseImage;
 import jme.core.Atom;
+import jme.core.Bond;
+import jme.core.JMECore;
 
 public class GUI {
 
-	public static boolean isSwingJS = /** @j2sNative true || */false;
-	
+	public static boolean isSwingJS = /** @j2sNative true || */
+			false;
+
 	// BB: true for touch device iPad, Android
 
 	private static Boolean touchSupported;
@@ -56,7 +63,7 @@ public class GUI {
 	 * @return a radius
 	 */
 	public static final int TOUCH_LIMIT = 50;
-	
+
 	final public static int fontSize = 13; // with a value != 12, the stringWidth errors are minimized in JS
 	final public static int smallerFontSize = fontSize - 2; // OK for the Java VM
 
@@ -93,7 +100,7 @@ public class GUI {
 	public static final double standardMenuCellSize = 24; // the original value
 
 	private JME jme;
-	
+
 	public Font atomDrawingAreaFont;
 	public FontMetrics atomDrawingAreaFontMet;
 
@@ -111,8 +118,7 @@ public class GUI {
 	public boolean mustReDrawInfo = true;
 	public boolean mustReDrawRightBorderImage = true;
 
-	public double menuCellSize = standardMenuCellSize; 
-	
+	public double menuCellSize = standardMenuCellSize;
 
 	public Icon dragAndDropIcon;
 	public Icon fullScreenIcon;
@@ -121,10 +127,12 @@ public class GUI {
 
 	private double ioArrowWidth;
 
-	// BB: the number of cells in the top menu - was ACTION_X
-	public static final int TOP_ACTION_COUNT = Actions.ACTION_JME - 100; // assume that ACTION_JME is the last menu entry on
-																	// the top row
+	static RingComparator ringComparator;
 
+	// BB: the number of cells in the top menu - was ACTION_X
+	public static final int TOP_ACTION_COUNT = Actions.ACTION_JME - 100; // assume that ACTION_JME is the last menu
+																			// entry on
+	// the top row
 
 	public GUI(JME jme) {
 		this.jme = jme;
@@ -732,8 +740,8 @@ public class GUI {
 		if (!mustReDrawRightBorderImage)
 			return;
 
-		Rectangle2D.Double screenArea = new Rectangle2D.Double(jme.dimension.width - jme.rightBorder(), jme.topMenuHeight(),
-				jme.rightBorder(), jme.molecularAreaPixelHeight);
+		Rectangle2D.Double screenArea = new Rectangle2D.Double(jme.dimension.width - jme.rightBorder(),
+				jme.topMenuHeight(), jme.rightBorder(), jme.molecularAreaPixelHeight);
 		PreciseGraphicsAWT og = GUI.getScaledGraphicsOfPreciseImage(jme.rightBorderImage, jme.menuScale, screenArea);
 
 		double imgWidth = jme.rightBorder(1);
@@ -763,18 +771,18 @@ public class GUI {
 
 	// ----------------------------------------------------------------------------
 	public void drawTopMenu(Graphics g) {
-		
-		
+
 //Swing will handle this differently
 //		if (!jme.mustReDrawTopMenu)
 //			return;
-		
-		// BH 2023 topMenuImage can be null even in Java if this is happening on the main thread. 
+
+		// BH 2023 topMenuImage can be null even in Java if this is happening on the
+		// main thread.
 		if (jme.topMenuImage == null)
 			return;
-		
+
 		int action = jme.action;
-		
+
 		Rectangle2D.Double screenArea = new Rectangle2D.Double(0, 0, jme.dimension.width, jme.topMenuHeight());
 		PreciseGraphicsAWT og = GUI.getScaledGraphicsOfPreciseImage(jme.topMenuImage, jme.menuScale, screenArea);
 
@@ -848,8 +856,7 @@ public class GUI {
 		} else {
 			og.setColor(jme.brightColor);
 			og.drawLine(0, 0, 0, imgHeight - 1); // left
-			og.drawLine(0, leftMenuCellCount * menuCellSize, imgHeight - 1,
-					leftMenuCellCount * menuCellSize); // predel
+			og.drawLine(0, leftMenuCellCount * menuCellSize, imgHeight - 1, leftMenuCellCount * menuCellSize); // predel
 
 			og.setColor(jme.bgColor.darker());
 			// og.drawLine(imgWidth - 1, 0, imgWidth - 1, imgHeight - 1 - menuCellSize); //
@@ -876,7 +883,8 @@ public class GUI {
 		int textYPosition = 15;
 		// screen position of the info bar at the bottom of the applet
 		Rectangle2D.Double screenArea = new Rectangle2D.Double(jme.leftMenuWidth(),
-				jme.dimension.height - jme.infoAreaHeight(), jme.dimension.width - jme.leftMenuWidth(), jme.infoAreaHeight());
+				jme.dimension.height - jme.infoAreaHeight(), jme.dimension.width - jme.leftMenuWidth(),
+				jme.infoAreaHeight());
 		PreciseGraphicsAWT og = getScaledGraphicsOfPreciseImage(jme.infoAreaImage, jme.menuScale, screenArea);
 
 		double imgWidth = screenArea.width / jme.menuScale; // the width is reduced if scale > 1
@@ -926,7 +934,7 @@ public class GUI {
 	}
 
 	public void draw(Graphics g2d) {
-		ioMargin = 3; 
+		ioMargin = 3;
 		ioArrowWidth = (menuCellSize - 2 * ioMargin) / 1.5;
 		drawInfo(g2d);
 		drawTopMenu(g2d);
@@ -1091,7 +1099,6 @@ public class GUI {
 
 	}
 
-
 	/**
 	 * the menu cell border differs in new and old look
 	 * 
@@ -1143,7 +1150,6 @@ public class GUI {
 		}
 
 		jme.add(popup);
-
 		return popup;
 	}
 
@@ -1153,12 +1159,168 @@ public class GUI {
 
 	}
 
-	public static PreciseGraphicsAWT getScaledGraphicsOfPreciseImage(PreciseImage pi, double scale, Rectangle2D.Double screenArea) {
+	public static PreciseGraphicsAWT getScaledGraphicsOfPreciseImage(PreciseImage pi, double scale,
+			Rectangle2D.Double screenArea) {
 		PreciseGraphicsAWT og = pi.getGraphics(JME.scalingIsPerformedByGraphicsEngine ? scale : 1);
 		og.setDrawOnScreenCoordinates(screenArea);
 		return og;
 	}
 
+	public static class RingComparator implements Comparator<Ring> {
 
-	
+		public int phase = 0;
+		
+		@Override
+		public int compare(Ring a, Ring b) {
+			// 1) aromatic over not aromatic, any size
+			if (a.isAromatic != b.isAromatic) {
+				return (a.isAromatic ? -1 : 1);
+			}
+			// 2) more bonds wins
+			if (a.bondCount != b.bondCount) {
+				return (a.bondCount > b.bondCount ? -1 : 1);
+			}
+			// 3) larger ring wins
+			if (a.size != b.size) {
+				return (a.size > b.size ? -1 : 1);
+			}
+			// 4) hetero loses
+			if (a.isHetero != b.isHetero) {
+				return (a.isHetero ? 1 : -1);
+			}
+			return 0;
+		}
+
+	}
+
+	public static class Ring {
+		public BitSet bsBonds = new BitSet();
+		public BitSet bsAtoms = new BitSet();
+		public boolean isAromatic;
+		public boolean isHetero;
+		public int bondCount;
+		public int size;
+		public double cx;
+		public double cy;
+	}
+
+	public static class RingInfo {
+		final public BitSet bsAromaticRings = new BitSet();
+		final public BitSet bsAromaticBonds = new BitSet();
+		final public List<Ring> rings = new ArrayList<>();
+		final public BitSet bsRingBonds = new BitSet();
+		final public BitSet bsRingAtoms = new BitSet();
+		final public BitSet bsAromaticAtoms = new BitSet();
+
+		public RingInfo(JMECore mol) {
+			BitSet bsDouble = new BitSet();
+			for (int i = 1; i <= mol.nbonds; i++) {
+				Bond b = mol.bonds[i];
+				if (b.bondType == Bond.DOUBLE) {
+					bsDouble.set(i);
+				}
+				b.guideX = Double.NaN;
+			}
+			JME.getParser().getRingInfo(this, mol);
+			if (rings.size() < 1)
+				return;
+			// delete duplicate bonds and set guide points
+			for (int i = 0, n = rings.size(); i < n; i++) {
+				Ring r = rings.get(i);
+				r.bsBonds.and(bsDouble);
+				r.bondCount = r.bsBonds.cardinality();
+			}
+			BitSet bsBonds = new BitSet();
+			BitSet bsToDo = new BitSet();
+			bsToDo.set(0,  rings.size());
+			removeDuplicates(bsToDo, 3, bsBonds, true);
+			removeDuplicates(bsToDo, 2, bsBonds, true);
+			removeDuplicates(bsToDo, 1, bsBonds, true);
+			removeDuplicates(bsToDo, 3, bsBonds, false);
+			removeDuplicates(bsToDo, 2, bsBonds, false);
+			removeDuplicates(bsToDo, 1, bsBonds, false);
+			for (int i = 0, n = rings.size(); i < n; i++) {
+				Ring r = rings.get(i);
+				r.bondCount = r.bsBonds.cardinality();
+			}
+			if (ringComparator == null)
+				ringComparator = new RingComparator();
+			rings.sort(ringComparator);
+
+			for (int i = 0, n = rings.size(); i < n; i++) {
+				Ring r = rings.get(i);
+				System.out.println(i + " " + r.isAromatic + " " + r.bsAtoms + " " + r.bondCount);
+				double cx = 0;
+				double cy = 0;
+				for (int j = r.bsAtoms.nextSetBit(0); j >= 0; j = r.bsAtoms.nextSetBit(j + 1)) {
+					cx += mol.atoms[j].x;
+					cy += mol.atoms[j].y;
+				}
+				cx /= r.size;
+				cy /= r.size;
+				r.cx = cx;
+				r.cy = cy;
+				for (int j = r.bsBonds.nextSetBit(0); j >= 0; j = r.bsBonds.nextSetBit(j + 1)) {
+					mol.bonds[j].guideX = cx;
+					mol.bonds[j].guideY = cy;
+				}
+			}
+			// set non-ring bond guides if we can,
+			// based on substituent directions
+			for (int i = 1; i <= mol.nbonds; i++) {
+				Bond b = mol.bonds[i];
+				if (b.bondType == Bond.DOUBLE) {
+					if (!Double.isNaN(b.guideX)) {
+						continue; // already done
+					}
+					Atom a1 = mol.atoms[b.va];
+					Atom a2 = mol.atoms[b.vb];
+					// check for 1,1,2,2
+					if (a1.nv == 3 && a2.nv == 3) {
+						continue; // just set by direction
+					}
+					// check for 1,1 or 2,2
+					if (a1.nv == 3 && a2.nv == 1
+							|| a1.nv == 1 && a2.nv == 3) {
+								b.guideY = Double.NaN;
+							}
+					int ia1s1 = mol.getSp2Other(b.va, b.vb, true);
+					int ia2s1 = mol.getSp2Other(b.vb, b.va, true);
+					int ia1s2 = (a1.nv == 2 ? 0 : mol.getSp2Other(b.va, b.vb, false));
+					int ia2s2 = (a2.nv == 2 ? 0 : mol.getSp2Other(b.vb, b.va, false));
+					if (ia1s1 == 0 || ia2s1 == 0) {
+						// Just H atoms ?  
+						continue;
+					}
+					// just the average of substituent directions. Very simple!
+					int n1 = (ia1s2 == 0 ? 1 : 2);
+					int n2 = (ia2s2 == 0 ? 1 : 2);
+					double gx = mol.atoms[ia1s1].x + mol.atoms[ia2s1].x 
+							+ (n1 == 2 ? mol.atoms[ia1s2].x : 0)
+							+ (n2 == 2 ? mol.atoms[ia2s2].x : 0);
+					double gy = mol.atoms[ia1s1].y + mol.atoms[ia2s1].y 
+							+ (n1 == 2 ? mol.atoms[ia1s2].y : 0)
+							+ (n2 == 2 ? mol.atoms[ia2s2].y : 0);
+					b.guideX = gx / (n1 + n2);		
+					b.guideY = gy / (n1 + n2);
+				}
+			}
+		}
+
+		private void removeDuplicates(BitSet bsToDo, int nBonds, BitSet bsBonds, boolean checkIntersect) {
+			for (int i = bsToDo.nextSetBit(0); i >= 0; i = bsToDo.nextSetBit(i + 1)) {
+				Ring r = rings.get(i);
+				if (r.bondCount < nBonds)
+					continue;
+				if (checkIntersect && r.bsBonds.intersects(bsBonds))
+					continue;
+				bsToDo.clear(i);
+				System.out.println(i + " " + r.bsBonds + " " + bsBonds);
+				r.bsBonds.andNot(bsBonds);
+				r.bondCount = r.bsBonds.cardinality();
+				bsBonds.or(r.bsBonds);
+			}
+		}
+	}
+
 }
