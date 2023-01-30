@@ -15,7 +15,6 @@ import jme.core.JMESmiles;
 import jme.gui.Actions;
 import jme.gui.AtomDisplayLabel;
 import jme.gui.GUI;
-import jme.gui.GUI.Ring;
 import jme.gui.GUI.RingInfo;
 import jme.io.JMEReader;
 import jme.io.JMEWriter;
@@ -452,6 +451,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// BH 2023 atomLabels needed for drawing double bonds
 		
 		computeAtomLabels();
+		og.setFont(jme.gui.getAtomDrawingFont());
+		FontMetrics fm = jme.gui.getAtomDrawingFontMetrics();
+		double h = GUI.stringHeight(fm);
 
 		for (int i = 1; i <= nbonds; i++) {
 			// og.setColor(Color.black);
@@ -527,13 +529,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					og.drawLine(xax, yax, xax, yax);
 				}
 				// query bond text
-				og.setFont(jme.gui.atomDrawingAreaFont);
-				double h = GUI.stringHeight(jme.gui.atomDrawingAreaFontMet); // vyska fontu
 				Object o = bond.btag;
 				String z = "?";
 				if (o != null)
 					z = (String) o;
-				double w = jme.gui.atomDrawingAreaFontMet.stringWidth(z);
+				double w = fm.stringWidth(z);
 				double xstart = (xa + xb) / 2. - w / 2.;
 				double ystart = (ya + yb) / 2. + h / 2 - 1; // o 1 vyssie
 				og.setColor(Color.magenta);
@@ -591,9 +591,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			if (JMEmol.doTags) {
 				String btag = bond.btag;
 				if (btag != null && btag.length() > 0) {
-					og.setFont(jme.gui.atomDrawingAreaFont);
-					double h = GUI.stringHeight(jme.gui.atomDrawingAreaFontMet); // vyska fontu
-					double w = jme.gui.atomDrawingAreaFontMet.stringWidth(btag);
+					double w = fm.stringWidth(btag);
 					double xstart = (xa + xb) / 2. - w / 2.;
 					double ystart = (ya + yb) / 2. + h / 2 - 1; // o 1 vyssie
 					og.setColor(Color.red);
@@ -602,8 +600,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				}
 			}
 		}
-		og.setFont(jme.gui.atomDrawingAreaFont);
-		double h = GUI.stringHeight(jme.gui.atomDrawingAreaFontMet); // vyska fontu
 
 		// BB
 		// try to improve the positioning and direction of the atom label when there are
@@ -628,7 +624,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			// color for the atom symbol
 			og.setColor(JME.color[an(i)]);
 			Color strokeColor = atomTextStrokeColorArray[i];
-			atomLabels[i].draw(og, strokeColor, h, jme.gui.atomDrawingAreaFontMet);
+			atomLabels[i].draw(og, strokeColor, h, fm);
 		}
 
 		// diplay atom maps of atoms that have been marked
@@ -669,8 +665,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		// BB: I changed this part but could not test it
 		// tags (povodne to bolo label)
 		if (JMEmol.doTags) {
-			og.setFont(jme.gui.atomDrawingAreaFont);
-
 			for (int i = 1; i <= natoms; i++) {
 				Atom a = atoms[i];
 				if (a.atag == null || a.atag.equals(""))
@@ -820,10 +814,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	void computeAtomLabels() {
 		boolean showHs = parameters.hydrogenParams.showHs;
 		boolean showMap = (!parameters.mark || parameters.showAtomMapNumberWithBackgroundColor);
-		FontMetrics fm = jme.gui.atomDrawingAreaFontMet;
-		double h = (/* jme == null ? 9.0 : */GUI.stringHeight(fm));
+		FontMetrics fm = jme.gui.getAtomDrawingFontMetrics();
 		double rb = RBOND;
-		atomLabels = AtomDisplayLabel.createLabels(this, rb, fm, h, showHs, showMap, atomLabels);
+		atomLabels = AtomDisplayLabel.createLabels(this, rb, fm, showHs, showMap, atomLabels);
 	}
 
 	@Override
@@ -1736,7 +1729,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	private void setRingInfo() {
 		ringInfo = new GUI.RingInfo(this);
-		System.out.println("ringInfo");	
 	}
 	
 	@Override

@@ -262,7 +262,7 @@ public class AtomDisplayLabel {
 		}
 	}
 
-	public static AtomDisplayLabel[] createLabels(JMEmol mol, double rb, FontMetrics fm, double h, boolean showHs, boolean showMap, AtomDisplayLabel[] labels) {
+	public static AtomDisplayLabel[] createLabels(JMEmol mol, double rb, FontMetrics fm, boolean showHs, boolean showMap, AtomDisplayLabel[] labels) {
 		// first compute for each atom the average X of its neighbors
 		// this will be used to determine the text orientation of the label
 		int natoms = mol.natoms;
@@ -281,6 +281,7 @@ public class AtomDisplayLabel {
 			neighborCount[atom1]++;
 			neighborCount[atom2]++;
 		}
+		double h = GUI.stringHeight(fm);
 		for (int i = 1; i <= natoms; i++) {
 			int n = neighborCount[i];
 			double diff = neighborXSum[i] / n - atoms[i].x;

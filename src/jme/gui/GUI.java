@@ -27,7 +27,7 @@ public class GUI {
 
 	public static boolean isSwingJS = /** @j2sNative true || */
 			false;
-
+	
 	// BB: true for touch device iPad, Android
 
 	private static Boolean touchSupported;
@@ -101,8 +101,8 @@ public class GUI {
 
 	private JME jme;
 
-	public Font atomDrawingAreaFont;
-	public FontMetrics atomDrawingAreaFontMet;
+	private final Font atomDrawingAreaFont;
+	private final FontMetrics atomDrawingAreaFontMet;
 
 	public Font atomMapDrawingAreaFont;
 	public FontMetrics atomMapDrawingAreaFontMet;
@@ -142,7 +142,7 @@ public class GUI {
 		float realFs = atomMolecularDrawingAreaFontSize;
 		int fs = Math.round(realFs);
 		if (atomDrawingAreaFontCache[fs] == null) {
-			atomDrawingAreaFontCache[fs] = new Font(defaultFontFamily, Font.PLAIN, fs);
+			atomDrawingAreaFontCache[fs] = new Font(defaultFontFamily, jme.options.boldAtomLabels ? Font.BOLD : Font.PLAIN, fs);
 		}
 		if (atomDrawingAreaFontMetCache[fs] == null) {
 			atomDrawingAreaFontMetCache[fs] = jme.getFontMetrics(atomDrawingAreaFontCache[fs]);
@@ -1322,5 +1322,14 @@ public class GUI {
 			}
 		}
 	}
+
+	public Font getAtomDrawingFont() {
+		return atomDrawingAreaFont;
+	}
+
+	public FontMetrics getAtomDrawingFontMetrics() {
+		return atomDrawingAreaFontMet;
+	}
+
 
 }

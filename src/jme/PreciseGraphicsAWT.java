@@ -371,14 +371,16 @@ public class PreciseGraphicsAWT {
 	}
 
 	public void setFont(Font font) {
-		this.unscaledFont = font;
-		this.enlargeddFont = font.deriveFont((float) (font.getSize() * JME.precision));
-		this.baseGraphics.setFont(this.enlargeddFont);
+		if (unscaledFont == font)
+			return;
+		unscaledFont = font;
+		enlargeddFont = font.deriveFont((float) (font.getSize() * JME.precision));
+		baseGraphics.setFont(enlargeddFont);
 	}
 
 	
 	public void drawString(String str, double x, double y) {
-		this.baseGraphics.drawString(str, r(x), r(y));
+		baseGraphics.drawString(str, r(x), r(y));
 	}
 	
 	/**
@@ -391,7 +393,7 @@ public class PreciseGraphicsAWT {
 	 * @param strokeWidth
 	 */
 	public void drawStringWithStroke(String str, double x, double y, Color strokeColor, double strokeWidth ) {
-		this.extendedBaseGraphics.drawStringWithStroke(str, r(x), r(y), strokeColor, r(strokeWidth));
+		extendedBaseGraphics.drawStringWithStroke(str, r(x), r(y), strokeColor, r(strokeWidth));
 	}
 	
 	
@@ -407,7 +409,7 @@ public class PreciseGraphicsAWT {
 	 */
 	public void drawStringWithStrokeAndBaselineShifts(String str, double x, double y, Color strokeColor, double strokeWidth,
 			int subscripts[][], int superscript[][]) {
-		this.extendedBaseGraphics.drawStringWithStrokeAndBaselineShifts(str, r(x), r(y), strokeColor, r(strokeWidth), subscripts, superscript);
+		extendedBaseGraphics.drawStringWithStrokeAndBaselineShifts(str, r(x), r(y), strokeColor, r(strokeWidth), subscripts, superscript);
 	}
 	/*
 	 * Convert a coordinate to a pixel position
@@ -422,16 +424,16 @@ public class PreciseGraphicsAWT {
 
 	
 	public void fillOval(double x, double y, double width, double height) {
-		this.baseGraphics.fillOval(r(x), r(y), r(width), r(height));
+		baseGraphics.fillOval(r(x), r(y), r(width), r(height));
 	}
 	public void drawOval(double x, double y, double width, double height) {
-		this.baseGraphics.drawOval(r(x), r(y), r(width), r(height));
+		baseGraphics.drawOval(r(x), r(y), r(width), r(height));
 	}
 
 	
 	
 	public void drawArc(double x, double y, double width, double height, double startAngle, double arcAngle) {
-		this.baseGraphics.drawArc(r(x), r(y), r(width), r(height), (int)Math.round(startAngle), (int)Math.round(arcAngle));
+		baseGraphics.drawArc(r(x), r(y), r(width), r(height), (int)Math.round(startAngle), (int)Math.round(arcAngle));
 	}
 
 	public void translate(double x, double y) {
@@ -450,7 +452,7 @@ public class PreciseGraphicsAWT {
 			yPointsInt[i] = r(yPoints[i]);
 		}
 		
-		this.baseGraphics.drawPolygon(xPointsInt, yPointsInt, nPoints);
+		baseGraphics.drawPolygon(xPointsInt, yPointsInt, nPoints);
 	}
 
 	public void fillPolygon(double xPoints[], double yPoints[], int nPoints) {
@@ -463,11 +465,11 @@ public class PreciseGraphicsAWT {
 			yPointsInt[i] = r(yPoints[i]);
 		}
 		
-		this.baseGraphics.fillPolygon(xPointsInt, yPointsInt, nPoints);
+		baseGraphics.fillPolygon(xPointsInt, yPointsInt, nPoints);
 	}
 
     public void setRenderingHint(Key hintKey, Object hintValue) {
-		this.baseGraphics.setRenderingHint(hintKey,hintValue );
+		baseGraphics.setRenderingHint(hintKey,hintValue );
 		
 	}
 
@@ -476,9 +478,9 @@ public class PreciseGraphicsAWT {
      * @param basicStroke
      */
 	public void setStroke(BasicStroke basicStroke) {
-		this.unscaledStroke = basicStroke;
-		this.enlargedStroke = new BasicStroke((float) (JME.precision * basicStroke.getLineWidth()));		
-		this.baseGraphics.setStroke(this.enlargedStroke);
+		unscaledStroke = basicStroke;
+		enlargedStroke = new BasicStroke((float) (JME.precision * basicStroke.getLineWidth()));		
+		baseGraphics.setStroke(enlargedStroke);
 		
 	}
 

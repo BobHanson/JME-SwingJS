@@ -85,9 +85,11 @@ public class JmolJME extends JME implements WindowListener {
 	 */
 	private boolean allowClean = true;
 	private SmilesMatcher smilesMatcher;
+	String[] args = null;
 
-	public JmolJME() {
-		super(null, true);
+	public JmolJME(String[] args) {
+		super(null, true, args);
+		this.args = args;
 		setRemoveHsC();
 	}
 
@@ -105,7 +107,7 @@ public class JmolJME extends JME implements WindowListener {
 			frame.setResizable(true);
 			frame.setVisible(true);
 		}
-		initialize();
+		initialize(args);
 	}
 
 	private JFrame getJmolFrame(String type, boolean exit0) {
@@ -765,7 +767,7 @@ public class JmolJME extends JME implements WindowListener {
 
 	public static void main(String[] args) {
 		JFrame frame = null;
-		JmolJME jjme = new JmolJME();
+		JmolJME jjme = new JmolJME(new String[] { JME.NO_INIT });
 	    Map<String, Object> info = new Hashtable<String, Object>();
 	    info.put("isApp",Boolean.TRUE);
 	    info.put("headless",Boolean.TRUE);
@@ -778,6 +780,7 @@ public class JmolJME extends JME implements WindowListener {
 		
 		if (args.length > 0) {
 			if (args[0].equals("headless")) {
+				jjme.initialize(args);
 				jjme.options("headless");
 				return;
 			}
@@ -786,9 +789,11 @@ public class JmolJME extends JME implements WindowListener {
 			} else if (args[0].equals("test")) {
 				switch (args[1]) {
 				case "headless":
+					jjme.initialize(args);
 					testJMEHeadless(jjme);
 					return;
 				case "data":
+					jjme.initialize(args);
 					testJmolData(jjme, args);
 					return;
 				}

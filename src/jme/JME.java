@@ -113,6 +113,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public final static String websiteUrl = "https://jsme-editor.github.io/";
 	public final static String programName; // JSME or JME
 
+
+	/**
+	 * JmolJME will do this to allow a later initialization
+	 */
+	public static final String NO_INIT = "$NOINIT$";
+
+
 	public interface HTML5Applet {
 		public Object getParameter(String s);
 	}
@@ -476,8 +483,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	final static String bondCoordination = "et coordination bond";
 	final static String bondSetCoordinationAction = "S" + bondCoordination;
 	final static String bondUnSetCoordinationAction = "Uns" + bondCoordination;
-
-	// functional group selection coming from the HTML example page
+	
+		// functional group selection coming from the HTML example page
 	public String functionalGroups[] = new String[] { "-C(=O)OH", "-C(=O)OMe", "-OC(=O)Me", "-C(=O)N", "-NC=O", "-CMe3",
 			"-CF3", "-CCl3", "-NO2", "-SO2-NH2", "-NH-SO2-Me", "-NMe2", "-C#N", "-C#CH", "-C#C-Me" };
 
@@ -501,21 +508,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected boolean headless;
 
 	public JME() {
-		this(null, false);
+		this(null, false, null);
 	}
 
 	public JME(JFrame frame) {
-		this(frame, false);
+		this(frame, false, null);
 	}
 
-	// ----------------------------------------------------------------------------
-	/**
-	 * Frame entry point; optionally embedded
-	 * 
-	 * @param frame    optional frame
-	 * @param embedded optionally embedded
-	 */
-	public JME(JFrame frame, boolean embedded) {
+	public JME(JFrame frame, boolean embedded, String[] args) {
 		this.embedded = embedded;
 		activeMol = new JMEmol(this, params);
 		lastTouchedMol.mol = activeMol;
@@ -526,8 +526,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// this.alert("isTouchSupported: " + isTouchSupported);
 		// reactionArrowBoundingBox = new Box();
 		setFrame(frame);
-		initialize();
-
+		boolean doInit = true;
+		if (args.length > 0 && !args[0].startsWith("-")) {
+			if (args[0].indexOf(NO_INIT) >=0) {
+				doInit = false;
+			}
+		}
+		if (doInit)
+			initialize(args);
 	}
 
 	public void setFrame(JFrame frame) {
@@ -546,14 +552,19 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	// ----------------------------------------------------------------------------
-	public void initialize() {
-		options.registerJS(this);
+	public void initialize(String[] args) {
 		params.keepSameCoordinatesForOutput = false;
 		params.internalBondScalingForInput = true;
 		params.showAtomMapNumberWithBackgroundColor = false;
 
-		 DragSource ds = new DragSource();
-		 ds.createDefaultDragGestureRecognizer(this, DnDConstants.ACTION_COPY, this);
+		options.registerJS(this);
+
+		if (args.length > 0 && !args[0].startsWith("-")) {
+			options(args[0]);
+		}
+
+		DragSource ds = new DragSource();
+		ds.createDefaultDragGestureRecognizer(this, DnDConstants.ACTION_COPY, this);
 
 		Container parent = this.getParent();
 		if (parent != null) {
@@ -562,12 +573,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		dimension = getSize(); // will be 0,0 in Java and JavaScript;
 
 		setLayout(null);
-		
-		 gui = new GUI(this);
-		
-		// Show the copyright stuff at the bottom of the page when the applet starts
-		info(programName + " " + startInfoText);
+
 		options.getAppletOptions(this);
+
+		gui = new GUI(this);
 
 		action = Actions.ACTION_BOND_SINGLE; // musi to tu but, inak nic
 
@@ -580,12 +589,16 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// and because it has no atoms
 		}
 
+		// Show the copyright stuff at the bottom of the page when the applet starts
+		info(programName + " " + startInfoText);
+		mustRedrawEverything();
+		repaint();
 	}
 
 	public void start(String[] args) {
 		int pt = 0;
-		if (args.length > 0 && !args[1].startsWith("-"))
-			options(args[pt++]);
+		if (args.length > 0 && !args[0].startsWith("-"))
+			pt++;
 
 		dimension = getSize();
 		// no repaint because the applet viewer will call repaint() after start()
@@ -1056,6 +1069,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public void mustRedrawImages(boolean yesOrNo) {
+		if (gui == null)
+			return;
 		gui.mustReDrawLeftMenu = yesOrNo;
 		gui.mustReDrawTopMenu = yesOrNo;
 		setMustRedrawMolecularArea(yesOrNo);
@@ -3114,7 +3129,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 
 		// BB custom antialias and line width for the molecular drawing area
-		Object valueAntiAlias = molecularAreaAntiAlias ? RenderingHints.VALUE_ANTIALIAS_ON
+		Object valueAntiAlias = molecularAreaAntiAlias ? 
+				RenderingHints.VALUE_ANTIALIAS_ON
 				: RenderingHints.VALUE_ANTIALIAS_OFF;
 		og.setRenderingHint(RenderingHints.KEY_ANTIALIASING, valueAntiAlias);
 
@@ -7407,6 +7423,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		/* final */ public  boolean useOclIdCode = false;
 		// OpenChemLib option: useOclIDCode
 		/* final */ public  boolean useOpenChemLib = true; // for SMILES input
+		
+		// BH
+		/* final */ public boolean boldAtomLabels = true;
 
 		boolean multipart = true;
 		boolean query = false;
@@ -7426,7 +7445,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		//String depictservlet = null;
 
 		private String options;
-
+		
 		private Boolean parseOption(String option) {
 			return parseOption(option, "no");
 		}
@@ -7615,6 +7634,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				headless = true;
 			}
 
+			if ((o = parseOption("boldatomlabels")) != null) {
+				boldAtomLabels = o;
+			}
 			if ((o = parseOption("rbutton")) != null) {
 				rButton = o;
 				gui.mustReDrawLeftMenu = true;
@@ -8032,7 +8054,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 		});
 		frame.setBounds(300, 200, 24 * 18, 24 * 16); // urcuje dimensions pre
-		JME jme = new JME(frame);
+		JME jme = new JME(frame, false, args);
 		SwingUtilities.invokeLater(()->{
 			frame.setVisible(true);
 			jme.start(args);			
