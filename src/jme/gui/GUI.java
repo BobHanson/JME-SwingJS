@@ -1230,6 +1230,14 @@ public class GUI {
 				r.bsBonds.and(bsDouble);
 				r.bondCount = r.bsBonds.cardinality();
 			}
+			
+			// sort these, primarily to separate different kinds of
+			// nonaromatic rings. 
+			
+			if (ringComparator == null)
+				ringComparator = new RingComparator();
+			rings.sort(ringComparator);
+
 			BitSet bsBonds = new BitSet();
 			BitSet bsToDo = new BitSet();
 			bsToDo.set(0,  rings.size());
@@ -1243,13 +1251,10 @@ public class GUI {
 				Ring r = rings.get(i);
 				r.bondCount = r.bsBonds.cardinality();
 			}
-			if (ringComparator == null)
-				ringComparator = new RingComparator();
-			rings.sort(ringComparator);
 
 			for (int i = 0, n = rings.size(); i < n; i++) {
 				Ring r = rings.get(i);
-				System.out.println(i + " " + r.isAromatic + " " + r.bsAtoms + " " + r.bondCount);
+				//System.out.println(i + " " + r.isAromatic + " " + r.bsAtoms + " " + r.bondCount);
 				double cx = 0;
 				double cy = 0;
 				for (int j = r.bsAtoms.nextSetBit(0); j >= 0; j = r.bsAtoms.nextSetBit(j + 1)) {
@@ -1307,6 +1312,17 @@ public class GUI {
 			}
 		}
 
+		/**
+		 * Starting with a set of rings indicating all double bonds, 
+		 * selectively pull out rings of different sizes, "claiming" the
+		 * double bonds for that ring so that we can (later) set their 
+		 * guide point to the side of the bond within this ring. 
+		 *  
+		 * @param bsToDo
+		 * @param nBonds
+		 * @param bsBonds
+		 * @param checkIntersect
+		 */
 		private void removeDuplicates(BitSet bsToDo, int nBonds, BitSet bsBonds, boolean checkIntersect) {
 			for (int i = bsToDo.nextSetBit(0); i >= 0; i = bsToDo.nextSetBit(i + 1)) {
 				Ring r = rings.get(i);
@@ -1315,7 +1331,7 @@ public class GUI {
 				if (checkIntersect && r.bsBonds.intersects(bsBonds))
 					continue;
 				bsToDo.clear(i);
-				System.out.println(i + " " + r.bsBonds + " " + bsBonds);
+//				System.out.println(i + " " + r.bsBonds + " " + bsBonds);
 				r.bsBonds.andNot(bsBonds);
 				r.bondCount = r.bsBonds.cardinality();
 				bsBonds.or(r.bsBonds);

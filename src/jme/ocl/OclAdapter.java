@@ -1,12 +1,9 @@
 package jme.ocl;
 
-import java.util.Arrays;
-
 import com.actelion.research.chem.AbstractDepictor;
 import com.actelion.research.chem.AromaticityResolver;
 import com.actelion.research.chem.IDCodeParser;
 import com.actelion.research.chem.Molecule;
-//OpenChemLib import
 import com.actelion.research.chem.MolfileCreator;
 import com.actelion.research.chem.MolfileParser;
 import com.actelion.research.chem.RingCollection;
@@ -232,6 +229,13 @@ public class OclAdapter implements Parser {
 		return result;
 	}
 
+	/**
+	 * Retrieve ring information from OCL, including bonds and atoms in small rings, as well as aromaticity.  
+	 * 
+	 * See GUI.getRingInfo()
+	 * 
+	 * @author Bob Hanson
+	 */
 	@Override
 	public void getRingInfo(RingInfo info, JMECore mol) {		
 		StereoMolecule m = new StereoMolecule();
@@ -297,7 +301,7 @@ public class OclAdapter implements Parser {
 				Ring r = new Ring();
 				info.rings.add(r);
 				int[] bonds = sys.getRingBonds(i);
-				System.out.println(i + " " + Arrays.toString(bonds));
+				//System.out.println(i + " " + Arrays.toString(bonds));
 				for (int j = bonds.length; --j >= 0;) {
 					int pt = bonds[j] + 1;
 					r.bsBonds.set(pt);

@@ -104,8 +104,6 @@ public class JmolJME extends JME implements WindowListener {
 				frame = getJmolFrame(frameType, (parent == null));
 			}
 			setFrame(frame);
-			frame.setResizable(true);
-			frame.setVisible(true);
 		}
 		initialize(args);
 	}

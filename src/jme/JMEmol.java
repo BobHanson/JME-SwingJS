@@ -333,9 +333,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	// ----------------------------------------------------------------------------
 	@Override
 	public void draw(PreciseGraphicsAWT og) {
-		int atom1, atom2;
-		double xa, ya, xb, yb;
-		double sin2, cos2;
 		final double offset2 = 2, offset3 = 3;
 
 		if (this.nAtoms() == 0)
@@ -376,11 +373,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				// setPresetPastelBackGroundColor() returns null if no bacground colors have
 				// been specified != mark
 				if (setPresetPastelBackGroundColor(og, i, false) != null) {
-					atom1 = bonds[i].va;
-					atom2 = bonds[i].vb;
+					int atom1 = bonds[i].va;
+					int atom2 = bonds[i].vb;
 					setCosSin(atom1, atom2);
-					cos2 = (offset3 * 3) * temp[0];
-					sin2 = (offset3 * 3) * temp[1];
+					double cos2 = (offset3 * 3) * temp[0];
+					double sin2 = (offset3 * 3) * temp[1];
 
 					sin2 *= rs;
 					cos2 *= rs;
@@ -430,12 +427,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 		}
 
-		// BB
-		// boolean[] isRingBond = JMEUtil.createBArray(nbonds+1);
-		// this.findRingBonds(isRingBond);
-
 		// draw bonds
-		
+
 		if (ringInfo == null && haveDoubleBonds) {
 			setRingInfo();
 		}
@@ -449,7 +442,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 //		}
 
 		// BH 2023 atomLabels needed for drawing double bonds
-		
+
 		computeAtomLabels();
 		og.setFont(jme.gui.getAtomDrawingFont());
 		FontMetrics fm = jme.gui.getAtomDrawingFontMetrics();
@@ -459,8 +452,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			// og.setColor(Color.black);
 
 			Bond bond = bonds[i];
-			atom1 = bond.va;
-			atom2 = bond.vb;
+			int atom1 = bond.va;
+			int atom2 = bond.vb;
 
 			og.setColor(bond.isCoordination() ? Color.LIGHT_GRAY : Color.BLACK);
 
@@ -474,8 +467,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				// og.setColor(Color.RED);
 				continue; // do not draw the bond , that is more visible than red color
 			}
-			if (bond.stereo == Bond.STEREO_XUP 
-					|| bond.stereo == Bond.STEREO_XDOWN
+			if (bond.stereo == Bond.STEREO_XUP || bond.stereo == Bond.STEREO_XDOWN
 					|| bond.stereo == Bond.STEREO_XEITHER) // kvoli spicke vazby
 			{
 				int d = atom1;
@@ -483,10 +475,10 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				atom2 = d;
 			}
 
-			xa = x(atom1);
-			ya = y(atom1);
-			xb = x(atom2);
-			yb = y(atom2);
+			double xa = x(atom1);
+			double ya = y(atom1);
+			double xb = x(atom2);
+			double yb = y(atom2);
 
 			if (!(bond.isSingle() || bond.isCoordination()) || bond.stereo != 0) {
 				setCosSin(atom1, atom2); // BH??? test distance was 1, not .001?
@@ -495,23 +487,17 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			case Bond.DOUBLE:
 				// BB crossed bond display: not magenta anymore
 				// if (bond.stereo >= 10) og.setColor(Color.magenta); // E,Z je farebna
-				cos2 = offset2 * temp[0];
-				sin2 = offset2 * temp[1];
-				if (bond.stereo != Bond.STEREO_EZ) {
-					if (Double.isNaN(bond.guideX) && (
-							Double.isNaN(bond.guideY) 
-							|| !atomLabels[bond.va].noLabelAtom
-							|| !atomLabels[bond.vb].noLabelAtom)) {
-						og.drawLine(xa + sin2, ya - cos2, xb + sin2, yb - cos2);
-						og.drawLine(xa - sin2, ya + cos2, xb - sin2, yb + cos2);
-					} else {
-						og.drawLine(xa, ya, xb, yb);
-						drawSideLine(og, bond, xa, ya, xb, yb, cos2, sin2);
-					}
-				} else { // BB: crossed bond
+				double cos2 = offset2 * temp[0];
+				double sin2 = offset2 * temp[1];
+				if (bondIsSidelined(bond)) {
+					og.drawLine(xa, ya, xb, yb);
+					drawSideLine(og, bond, xa, ya, xb, yb, cos2, sin2);
+				} else if (bond.stereo == Bond.STEREO_EZ) {
 					og.drawLine(xa + sin2, ya - cos2, xb - sin2, yb + cos2);
 					og.drawLine(xa - sin2, ya + cos2, xb + sin2, yb - cos2);
-
+				} else {
+					og.drawLine(xa + sin2, ya - cos2, xb + sin2, yb - cos2);
+					og.drawLine(xa - sin2, ya + cos2, xb - sin2, yb + cos2);
 				}
 				og.setColor(Color.black);
 				break;
@@ -540,8 +526,15 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				og.drawString(z, xstart, ystart);
 				og.setColor(Color.black);
 				break;
-			default: // Bond.SINGLE, alebo stereo
-				if (bond.stereo == Bond.STEREO_UP || bond.stereo == Bond.STEREO_XUP) {
+			default: 
+				// Bond.SINGLE
+				switch (bond.stereo) {
+				default:
+					// normal single bonds
+					og.drawLine(xa, ya, xb, yb);
+					break;
+				case Bond.STEREO_UP:
+				case Bond.STEREO_XUP:
 					cos2 = offset3 * temp[0];
 					sin2 = offset3 * temp[1];
 					double[] px = new double[3];
@@ -553,7 +546,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 					px[2] = xb - sin2;
 					py[2] = yb + cos2;
 					og.fillPolygon(px, py, 3);
-				} else if (bond.stereo == Bond.STEREO_DOWN || bond.stereo == Bond.STEREO_XDOWN) {
+					break;
+				case Bond.STEREO_DOWN:
+				case Bond.STEREO_XDOWN:
 					cos2 = offset3 * temp[0];
 					sin2 = offset3 * temp[1];
 					for (double k = 0; k < 10; k++) {
@@ -562,7 +557,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 						double sc = k / 10.;
 						og.drawLine(xax + sin2 * sc, yax - cos2 * sc, xax - sin2 * sc, yax + cos2 * sc);
 					}
-				} else if (bond.stereo == Bond.STEREO_EITHER || bond.stereo == Bond.STEREO_XEITHER) {
+					break;
+				case Bond.STEREO_EITHER:
+				case Bond.STEREO_XEITHER:
 					double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
 					cos2 = offset3 * temp[0];
 					sin2 = offset3 * temp[1];
@@ -579,13 +576,10 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 						x2 = xax - sin2 * sc;
 						y2 = yax + cos2 * sc;
 						og.drawLine(x1, y1, x2, y2);
-
 					}
-
-				} else // normal single bonds
-					og.drawLine(xa, ya, xb, yb);
+					break;
+				}
 				break;
-
 			}
 			// bond tags
 			if (JMEmol.doTags) {
@@ -696,12 +690,18 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			if (touchedBond > 0 && jme.action != Actions.ACTION_MOVE_AT) {
 				// don't show a rectangle around the bond if the
 				// action is to move the atom
-
-				atom1 = bonds[touchedBond].va;
-				atom2 = bonds[touchedBond].vb;
+				Bond b = bonds[touchedBond];
+				int atom1 = b.va;
+				int atom2 = b.vb;
 				setCosSin(atom1, atom2);
-				cos2 = (offset3 + 1) * temp[0];
-				sin2 = (offset3 + 1) * temp[1];
+				double cos2 = (offset3 + 1) * temp[0];
+				double sin2 = (offset3 + 1) * temp[1];
+				
+				if (bondIsSidelined(b)) {
+					cos2 *= 1.5;
+					sin2 *= 1.5;
+				}
+
 				double[] px = new double[5];
 				double[] py = new double[5];
 				px[0] = x(atom1) + sin2;
@@ -714,45 +714,12 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				py[2] = y(atom2) + cos2;
 				px[4] = px[0];
 				py[4] = py[0]; // bug in 1.01
-				if (jme.action != Actions.ACTION_DELGROUP) // pri DELGROUP nekresli modro
+
+				if (jme.action != Actions.ACTION_DELGROUP) {
+					// pri DELGROUP nekresli modro
 					og.drawPolygon(px, py, 5);
-
-				if (jme.action == Actions.ACTION_DELGROUP && isRotatableBond(touchedBond)) {
-					// ACTION_DELGROUP is a specila way of deleting a groug of atoms icon: -X-R
-					// two parts of the molecule, one to keep and one to delete
-					// the smallest that will be deleted mut be shown in red
-					// only possible if the selected bond is not a ring bond
-					// marks atoms with unpleasent fate (suggested by Bernd Rohde)
-					// the atoms selected for deleting are in this.a[]?
-
-					int va = bonds[touchedBond].va;
-					int vb = bonds[touchedBond].vb;
-					this.computeMultiPartIndices(touchedBond);
-					int partA = atoms[va].partIndex;
-					int partB = atoms[vb].partIndex;
-					int sizeA = 0;
-					int sizeB = 0;
-
-					for (int i = 1; i <= natoms; i++) {
-						int pi = atoms[i].partIndex;
-						if (pi == partA) {
-							sizeA++;
-						} else if (pi == partB) {
-							sizeB++;
-						}
-					}
-					// choose the smallest part to be deleted
-					int partToDelete = sizeA > sizeB ? partB : partA;
-					// framing atoms to delete in red
-					og.setColor(Color.red);
-					for (int i = 1; i <= natoms; i++) {
-						this.atoms[i].deleteFlag = false;
-						if (atoms[i].partIndex == partToDelete) {
-							this.atoms[i].deleteFlag = true;
-							Rectangle2D.Double r = atomLabels[i].drawBox;
-							og.drawRect(r.x, r.y, r.width, r.height);
-						}
-					}
+				} else if (isRotatableBond(touchedBond)) {
+					drawRotatableBond(og);
 				}
 			}
 		}
@@ -761,6 +728,66 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			og.resetOverrideColor();
 		}
 
+	}
+
+	/**
+	 * Double bonds are sidelined if they are not crossed and either bond.guideX is a number
+	 * (indicating that the guide point has been determined from RingInfo) or guideY is a number, 
+	 * (indicating that it can be determined by from bond direction)
+	 * 
+	 *  AND
+	 *  
+	 *  There is no (non-aromatic) atom label that would preclude sidelining.
+	 *   
+	 *  
+	 * @param bond
+	 * @return
+	 */
+	private boolean bondIsSidelined(Bond bond) {
+		return bond.bondType == Bond.DOUBLE 
+				&& bond.stereo != Bond.STEREO_EZ 
+				&& (!Double.isNaN(bond.guideX) || !Double.isNaN(bond.guideY) 
+				&& atomLabels[bond.va].noLabelAtom && atomLabels[bond.vb].noLabelAtom);
+	}
+
+	/**
+	 * ACTION_DELGROUP is a specila way of deleting a group of atoms icon: -X-R two
+	 * parts of the molecule, one to keep and one to delete the smallest that will
+	 * be deleted must be shown in red only possible if the selected bond is not a
+	 * ring bond marks atoms with unpleasent fate (suggested by Bernd Rohde) the
+	 * atoms selected for deleting are in this.a[]?
+	 * 
+	 * @param og
+	 */
+	private void drawRotatableBond(PreciseGraphicsAWT og) {
+		int va = bonds[touchedBond].va;
+		int vb = bonds[touchedBond].vb;
+		this.computeMultiPartIndices(touchedBond);
+		int partA = atoms[va].partIndex;
+		int partB = atoms[vb].partIndex;
+		int sizeA = 0;
+		int sizeB = 0;
+
+		for (int i = 1; i <= natoms; i++) {
+			int pi = atoms[i].partIndex;
+			if (pi == partA) {
+				sizeA++;
+			} else if (pi == partB) {
+				sizeB++;
+			}
+		}
+		// choose the smallest part to be deleted
+		int partToDelete = sizeA > sizeB ? partB : partA;
+		// framing atoms to delete in red
+		og.setColor(Color.red);
+		for (int i = 1; i <= natoms; i++) {
+			this.atoms[i].deleteFlag = false;
+			if (atoms[i].partIndex == partToDelete) {
+				this.atoms[i].deleteFlag = true;
+				Rectangle2D.Double r = atomLabels[i].drawBox;
+				og.drawRect(r.x, r.y, r.width, r.height);
+			}
+		}
 	}
 
 	private void drawSideLine(PreciseGraphicsAWT og, Bond bond, double xa, double ya, double xb, double yb, double cos2,
@@ -1473,7 +1500,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			if (jme.options.markOnly1) { // only one atom at a time can be marked
 				for (int at = 1; at <= natoms; at++) {
 					if (at != touchedAtom) {
-						this.atoms[at].resetMark(); // if not done, the atoms with maps will still stay blue
+						this.atoms[at].resetMark(); 
+						// if not done, the atoms with maps will still stay blue
 					}
 				}
 			}
@@ -1514,7 +1542,8 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			if (jme.options.markOnly1) { // only one atom at a time can be marked
 				for (int at = 1; at <= nbonds; at++) {
 					if (at != touchedBond) {
-						this.bonds[at].resetMark(); // if not done, the atoms with maps will still stay blue
+						this.bonds[at].resetMark(); 
+						// if not done, the atoms with maps will still stay blue
 					}
 
 				}

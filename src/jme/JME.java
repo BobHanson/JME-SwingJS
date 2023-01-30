@@ -580,6 +580,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		validate();
 
+		mustRedrawEverything();
+		if (myFrame != null) {
+			myFrame.setResizable(true);
+			myFrame.setVisible(true);
+		}
+
 		// BB
 		if (this.canMultipleUndo) {
 			this.molChangeManager = new ChangeManager<SavedState>();
@@ -589,8 +595,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		// Show the copyright stuff at the bottom of the page when the applet starts
 		info(programName + " " + startInfoText);
-		mustRedrawEverything();
-		repaint();
+
 	}
 
 	public void start(String[] args) {
@@ -635,6 +640,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 
 		process(args, pt);
+		repaint();
 	}
 
 	public void process(String[] args, int i) {
@@ -1315,7 +1321,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	@Override
 	public void repaint() {
-		if (!headless)
+		if (!headless && gui != null)
 			super.repaint();
 	}
 
@@ -2834,6 +2840,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// ----------------------------------------------------------------------------
 	@Override
 	public void paint(Graphics g) {
+		if (gui == null || dimension.width == 0)
+			return;
 		/* The java applet viewer calls this method when the applet window is resized */
 		//Graphics g2 = g.create();
 		update(g);
@@ -4764,7 +4772,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public boolean keyDown(KeyEvent e, int key) {
-
+		if (gui == null)
+			return false; // somehow this can happen -- Frame is showing too early?
 		if (key == KeyEvent.VK_SHIFT) {
 			activeMol.clearRotation();
 		}
@@ -4815,7 +4824,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	private int checkKeyPressMeta(int key) {
-		int pressed = 0;
 		switch (key) {
 		case 'C':
 			// NOT USED IN JS !!!!!
@@ -4830,8 +4838,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (options.paste)
 				pasteMolFileFromClipboard();
 			break;
+		case 'Y':
+			return Actions.ACTION_REDO;
+		case 'Z':
+			return Actions.ACTION_UNDO;
 		}
-		return pressed;
+		return 0;
 	}
 
 
@@ -4871,10 +4883,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			return Actions.ACTION_END;
 		case KeyEvent.VK_ESCAPE: // esc
 			return Actions.ACTION_BOND_SINGLE;
-		case 'Y':
-			return Actions.ACTION_REDO;
 		case 'U':
-		case 'Z':
 			return Actions.ACTION_UNDO;
 		}
 		return 0;
@@ -6741,6 +6750,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return the scaled width in pixel of the left menu
 	 */
 	public double leftMenuWidth(double scale) {
+		
+		if (gui == null)
+			System.out.println("???");
 
 		return this.isDepict() ? 0.0 : (gui.menuCellSize * 1 + gui.menuCellBorder()) * scale;
 	}
