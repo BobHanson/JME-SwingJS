@@ -1222,52 +1222,53 @@ public class GUI {
 				b.guideX = Double.NaN;
 			}
 			JME.getParser().getRingInfo(this, mol);
-			if (rings.size() < 1)
-				return;
-			// delete duplicate bonds and set guide points
-			for (int i = 0, n = rings.size(); i < n; i++) {
-				Ring r = rings.get(i);
-				r.bsBonds.and(bsDouble);
-				r.bondCount = r.bsBonds.cardinality();
-			}
-			
-			// sort these, primarily to separate different kinds of
-			// nonaromatic rings. 
-			
-			if (ringComparator == null)
-				ringComparator = new RingComparator();
-			rings.sort(ringComparator);
-
-			BitSet bsBonds = new BitSet();
-			BitSet bsToDo = new BitSet();
-			bsToDo.set(0,  rings.size());
-			removeDuplicates(bsToDo, 3, bsBonds, true);
-			removeDuplicates(bsToDo, 2, bsBonds, true);
-			removeDuplicates(bsToDo, 1, bsBonds, true);
-			removeDuplicates(bsToDo, 3, bsBonds, false);
-			removeDuplicates(bsToDo, 2, bsBonds, false);
-			removeDuplicates(bsToDo, 1, bsBonds, false);
-			for (int i = 0, n = rings.size(); i < n; i++) {
-				Ring r = rings.get(i);
-				r.bondCount = r.bsBonds.cardinality();
-			}
-
-			for (int i = 0, n = rings.size(); i < n; i++) {
-				Ring r = rings.get(i);
-				//System.out.println(i + " " + r.isAromatic + " " + r.bsAtoms + " " + r.bondCount);
-				double cx = 0;
-				double cy = 0;
-				for (int j = r.bsAtoms.nextSetBit(0); j >= 0; j = r.bsAtoms.nextSetBit(j + 1)) {
-					cx += mol.atoms[j].x;
-					cy += mol.atoms[j].y;
+			if (rings.size() > 0) {
+				// delete duplicate bonds and set guide points
+				for (int i = 0, n = rings.size(); i < n; i++) {
+					Ring r = rings.get(i);
+					r.bsBonds.and(bsDouble);
+					r.bondCount = r.bsBonds.cardinality();
 				}
-				cx /= r.size;
-				cy /= r.size;
-				r.cx = cx;
-				r.cy = cy;
-				for (int j = r.bsBonds.nextSetBit(0); j >= 0; j = r.bsBonds.nextSetBit(j + 1)) {
-					mol.bonds[j].guideX = cx;
-					mol.bonds[j].guideY = cy;
+
+				// sort these, primarily to separate different kinds of
+				// nonaromatic rings.
+
+				if (ringComparator == null)
+					ringComparator = new RingComparator();
+				rings.sort(ringComparator);
+
+				BitSet bsBonds = new BitSet();
+				BitSet bsToDo = new BitSet();
+				bsToDo.set(0, rings.size());
+				removeDuplicates(bsToDo, 3, bsBonds, true);
+				removeDuplicates(bsToDo, 2, bsBonds, true);
+				removeDuplicates(bsToDo, 1, bsBonds, true);
+				removeDuplicates(bsToDo, 3, bsBonds, false);
+				removeDuplicates(bsToDo, 2, bsBonds, false);
+				removeDuplicates(bsToDo, 1, bsBonds, false);
+				for (int i = 0, n = rings.size(); i < n; i++) {
+					Ring r = rings.get(i);
+					r.bondCount = r.bsBonds.cardinality();
+				}
+
+				for (int i = 0, n = rings.size(); i < n; i++) {
+					Ring r = rings.get(i);
+					// System.out.println(i + " " + r.isAromatic + " " + r.bsAtoms + " " +
+					// r.bondCount);
+					double cx = 0;
+					double cy = 0;
+					for (int j = r.bsAtoms.nextSetBit(0); j >= 0; j = r.bsAtoms.nextSetBit(j + 1)) {
+						cx += mol.atoms[j].x;
+						cy += mol.atoms[j].y;
+					}
+					cx /= r.size;
+					cy /= r.size;
+					r.cx = cx;
+					r.cy = cy;
+					for (int j = r.bsBonds.nextSetBit(0); j >= 0; j = r.bsBonds.nextSetBit(j + 1)) {
+						mol.bonds[j].guideX = cx;
+						mol.bonds[j].guideY = cy;
+					}
 				}
 			}
 			// set non-ring bond guides if we can,
@@ -1285,28 +1286,25 @@ public class GUI {
 						continue; // just set by direction
 					}
 					// check for 1,1 or 2,2
-					if (a1.nv == 3 && a2.nv == 1
-							|| a1.nv == 1 && a2.nv == 3) {
-								b.guideY = Double.NaN;
-							}
+					if (a1.nv == 3 && a2.nv == 1 || a1.nv == 1 && a2.nv == 3) {
+						b.guideY = Double.NaN;
+					}
 					int ia1s1 = mol.getSp2Other(b.va, b.vb, true);
 					int ia2s1 = mol.getSp2Other(b.vb, b.va, true);
 					int ia1s2 = (a1.nv == 2 ? 0 : mol.getSp2Other(b.va, b.vb, false));
 					int ia2s2 = (a2.nv == 2 ? 0 : mol.getSp2Other(b.vb, b.va, false));
 					if (ia1s1 == 0 || ia2s1 == 0) {
-						// Just H atoms ?  
+						// Just H atoms ?
 						continue;
 					}
 					// just the average of substituent directions. Very simple!
 					int n1 = (ia1s2 == 0 ? 1 : 2);
 					int n2 = (ia2s2 == 0 ? 1 : 2);
-					double gx = mol.atoms[ia1s1].x + mol.atoms[ia2s1].x 
-							+ (n1 == 2 ? mol.atoms[ia1s2].x : 0)
+					double gx = mol.atoms[ia1s1].x + mol.atoms[ia2s1].x + (n1 == 2 ? mol.atoms[ia1s2].x : 0)
 							+ (n2 == 2 ? mol.atoms[ia2s2].x : 0);
-					double gy = mol.atoms[ia1s1].y + mol.atoms[ia2s1].y 
-							+ (n1 == 2 ? mol.atoms[ia1s2].y : 0)
+					double gy = mol.atoms[ia1s1].y + mol.atoms[ia2s1].y + (n1 == 2 ? mol.atoms[ia1s2].y : 0)
 							+ (n2 == 2 ? mol.atoms[ia2s2].y : 0);
-					b.guideX = gx / (n1 + n2);		
+					b.guideX = gx / (n1 + n2);
 					b.guideY = gy / (n1 + n2);
 				}
 			}

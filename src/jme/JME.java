@@ -149,6 +149,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		public boolean isTouched() {
 			return this.mol != null && (this.atomIndex > 0 || this.bondIndex > 0);
 		}
+		
+		@Override
+		public String toString() {
+			return ("[TOUCH " + atomIndex + " " + bondIndex + "]");
+		}
 	}
 
 	public final Options options = new Options();
@@ -253,8 +258,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// editor state
 	public int action;
 
-	Touched lastTouchedMol = new Touched();
-	Touched newTouchedMol = new Touched();
+	Touched lastTouched = new Touched();
+	Touched newTouched = new Touched();
+	Touched keyTouched = new Touched();
 
 	int reactionParts[][]; // computed with getReactionParts()
 	public int active_an;
@@ -516,8 +522,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public JME(JFrame frame, boolean embedded, String[] args) {
 		this.embedded = embedded;
 		activeMol = new JMEmol(this, params);
-		lastTouchedMol.mol = activeMol;
-		newTouchedMol.mol = activeMol;
+		lastTouched.mol = activeMol;
+		newTouched.mol = activeMol;
 		moleculePartsList.add(activeMol);
 		inspectorEvent = new InspectorEvent(this);
 
@@ -3895,12 +3901,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param y
 	 * @return
 	 */
-	public int determineMenuAction(int x, int y, boolean ignoreDisabledActions) {
+	public int determineMenuAction(double x, double y, boolean ignoreDisabledActions) {
 		int action = 0;
 
 		// convert the x,y event coordinate to the menu scale
-		x = (int) Math.round((double) x / this.menuScale);
-		y = (int) Math.round((double) y / this.menuScale);
+		x = (int) Math.round(x / this.menuScale);
+		y = (int) Math.round(y / this.menuScale);
 
 		if (x < leftMenuWidth(1.0) || y < topMenuHeight(1.0)) { // --- inside the menu area
 
@@ -4068,9 +4074,21 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	@Override
 	public void mouseMoved(MouseEvent e) {
-		if (mouseMove(e, e.getX(), e.getY())) {
-			// e.consume();
+		// is depictActionEnabled test needed here?
+		// if depictActionEnabled is used only
+		// for the toggle edit/depict, then no
+		if (isDepict() && !(this.canHandleAtomHighLightCallBack() || this.canHandleBondHighLightCallBack()
+				|| options.depictActionEnabled))
+			// notifyAtomHighLightJSfunction: Luc P request to show atom highlight
+			// in
+			// depict mode
+			return;
+		if (isEventContextMenu(e)) {
+			// BB popup menu for copy&paste has been opened
+			// do nothing to avoid the molecule moving while popup menu is displayed
+			return;
 		}
+		moveTo(e.getX(), e.getY(), 0);
 	}
 
 	@Override
@@ -4286,7 +4304,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// atom clicked
 
 			if (activeMol.touchedAtom > 0 && canDoAtomOrBondAction(action)) {
-				lastTouchedMol.mol = activeMol;
+				lastTouched.mol = activeMol;
 				if (action == Actions.ACTION_QRY) { // setting atom as query atom
 					if (queryBox.isBondQuery())
 						return true;
@@ -4366,7 +4384,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				}
 			} else if (activeMol.touchedBond > 0 && canDoAtomOrBondAction(action)) {
 				// bond clicked
-				lastTouchedMol.mol = activeMol;
+				lastTouched.mol = activeMol;
 				if (action == Actions.ACTION_QRY) {
 					if (!queryBox.isBondQuery())
 						return true;
@@ -4413,7 +4431,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				moleculePartsList.removeEmptyMolecules(); // Jan 2019
 				activeMol = new JMEmol(this, this.params);
 				moleculePartsList.add(activeMol);
-				lastTouchedMol.mol = activeMol;
+				lastTouched.mol = activeMol;
 				smol = null; // kvoli undo
 
 				// BB: TODO : lot of duplicated code
@@ -4524,8 +4542,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 				// find out if the last touched mol is the same
 				// lastTouchedMol was set during mouseDrag
-				if (lastTouchedMol.mol != null && activeMol != lastTouchedMol.mol) {
-					activeMol = mergeMols(lastTouchedMol, activeMol);
+				if (lastTouched.mol != null && activeMol != lastTouched.mol) {
+					activeMol = mergeMols(lastTouched, activeMol);
 				} else {
 					// as before - no merge
 					// checkBond create or increase bond order
@@ -4630,7 +4648,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 		if (lastAction == LA_BOND) {
 			boolean done = false;
-			this.lastTouchedMol.mol.touchedAtom = 0;
+			this.lastTouched.mol.touchedAtom = 0;
 
 			// to be used for adding a bond with another part
 			// need to differentiate the temporary moving atom that was created during
@@ -4638,29 +4656,29 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// from the atom of another fragment because they can overlap
 			// the temp atom is the last one
 			activeMol.natoms--;
-			findMolAndAtomOrBondInDrawingArea(x, y, this.newTouchedMol);
+			findMolAndAtomOrBondInDrawingArea(x, y, newTouched);
 			activeMol.natoms++; // restore
-			if (this.newTouchedMol.mol != null && this.newTouchedMol.atomIndex > 0) {
-				JMEmol touched_JMEmol = newTouchedMol.mol;
-				touched_JMEmol.touchedAtom = this.newTouchedMol.atomIndex;
+			if (this.newTouched.mol != null && this.newTouched.atomIndex > 0) {
+				JMEmol touched_JMEmol = newTouched.mol;
+				touched_JMEmol.touchedAtom = this.newTouched.atomIndex;
 
-				if (touched_JMEmol != activeMol || this.newTouchedMol.atomIndex != activeMol.touched_org) {
+				if (touched_JMEmol != activeMol || this.newTouched.atomIndex != activeMol.touched_org) {
 					// make bond
 					// towards
 					// existing atom
-					activeMol.XY(activeMol.natoms, touched_JMEmol.x(newTouchedMol.atomIndex),
-							touched_JMEmol.y(newTouchedMol.atomIndex));
+					activeMol.XY(activeMol.natoms, touched_JMEmol.x(newTouched.atomIndex),
+							touched_JMEmol.y(newTouched.atomIndex));
 					// move the new atom to the coordinate of the
 					// closest touched atom "snap"
 					// actually it does not move while it still close to the touched atom
 					// System.out.println("SNAP otheratom");
-					touched_JMEmol.touchedAtom = newTouchedMol.atomIndex;
+					touched_JMEmol.touchedAtom = newTouched.atomIndex;
 
 					done = true;
 					// lastTouchedMol will be used by mouseUp() to create the new bnond between the
 					// two
 					//
-					this.lastTouchedMol.initMyselfWith(this.newTouchedMol);
+					this.lastTouched.initMyselfWith(this.newTouched);
 				}
 			}
 			if (!done) {
@@ -4698,77 +4716,71 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return true;
 	}
 
-	public boolean mouseMove(MouseEvent e, int x, int y) {
-
-		// is depictActionEnabled test needed here? if depictActionEnabled is used only
-		// for the toggle edit/depict, then no
-		if (isDepict() && !(this.canHandleAtomHighLightCallBack() || this.canHandleBondHighLightCallBack()
-				|| options.depictActionEnabled)) // notifyAtomHighLightJSfunction: Luc P request to show atom highlight
-													// in
-			// depict mode
-			return true;
-		// BB popup menu for copy&paste has been opened
-		if (isEventContextMenu(e)) {
-			// do nothing to avoid the molecule moving while popup menu is displayed
-			return true;
-		}
+	public boolean moveTo(double x, double y, int newAtom) {
 		mustRedrawNothing(); // shoInfo() will change that
 		boolean repaintFlag = false;
-		int action = this.determineMenuAction(x, y, true);
-		if (this.isActionEnabled(action)) {
-			if (action != this.mouseWasOverAction) {
-				// kind of new event
-				repaintFlag = this.handleMouseLeaveActionMenu(this.mouseWasOverAction);
-				repaintFlag = this.handleMouseEnterActionMenu(action) || repaintFlag;
-				this.mouseWasOverAction = action;
+		if (newAtom == 0) {
+			int action = this.determineMenuAction(x, y, true);
+			if (this.isActionEnabled(action)) {
+				if (action != this.mouseWasOverAction) {
+					// kind of new event
+					repaintFlag = this.handleMouseLeaveActionMenu(this.mouseWasOverAction);
+					repaintFlag = this.handleMouseEnterActionMenu(action) || repaintFlag;
+					this.mouseWasOverAction = action;
+				}
 			}
+			findMolAndAtomOrBondInDrawingArea(x, y, newTouched);
+		} else {
+			keyTouched.mol = newTouched.mol = activeMol;
+			keyTouched.atomIndex = newTouched.atomIndex = (newAtom > 0 ? newAtom : 0);
+			keyTouched.bondIndex = newTouched.bondIndex = (newAtom < 0 ? -newAtom : 0);
 		}
-		findMolAndAtomOrBondInDrawingArea(x, y, newTouchedMol);
+		
 		// Don't allow bond touching in Actions.ACTION_MOVE_AT
-		if (!newTouchedMol.equals(lastTouchedMol) && (newTouchedMol.isTouched() || lastTouchedMol.isTouched())) {
-
-			// necekuje, ci sa nedotyka 2 molekul naraz, ale to by bolo asi zbytocne
-
-			JMEmol tm = lastTouchedMol.mol;
-
-			if (tm != null) {
-				tm.touchedAtom = 0;
-				tm.touchedBond = 0;
-			}
-
-			tm = newTouchedMol.mol;
-			if (tm != null) {
-				tm.touchedAtom = newTouchedMol.atomIndex;
-				tm.touchedBond = newTouchedMol.bondIndex;
-				// touched mol becomes the mol for edition
-				activeMol = tm;
-			}
-
-			repaintFlag = true;
-			// June 2018: fire the leave event first
-			if (newTouchedMol.atomIndex == 0) {
-				notifyAtomHighLightJSfunction(newTouchedMol.atomIndex);
-				notifyBondHighLightJSfunction(newTouchedMol.bondIndex);
-			} else if (newTouchedMol.bondIndex == 0) {
-				notifyBondHighLightJSfunction(newTouchedMol.bondIndex);
-				notifyAtomHighLightJSfunction(newTouchedMol.atomIndex);
-			} else {
-				// should never happen
-				notifyBondHighLightJSfunction(newTouchedMol.bondIndex);
-				notifyAtomHighLightJSfunction(newTouchedMol.atomIndex);
-
-			}
-
-			lastTouchedMol.initMyselfWith(newTouchedMol);
-			assert lastTouchedMol.equals(newTouchedMol);
-
+		if (!newTouched.equals(lastTouched) && (newTouched.isTouched() || lastTouched.isTouched())) {
+			repaintFlag = processTouch();
 		}
 		if (repaintFlag) {
 			setMustRedrawMolecularArea(true);
 			repaint();
-
 		}
 		return repaintFlag;
+	}
+
+	private boolean processTouch() {
+		// necekuje, ci sa nedotyka 2 molekul naraz, ale to by bolo asi zbytocne
+
+		JMEmol tm = lastTouched.mol;
+
+		if (tm != null) {
+			tm.touchedAtom = 0;
+			tm.touchedBond = 0;
+		}
+
+		tm = newTouched.mol;
+		if (tm != null) {
+			tm.touchedAtom = newTouched.atomIndex;
+			tm.touchedBond = newTouched.bondIndex;
+			// touched mol becomes the mol for edition
+			activeMol = tm;
+		}
+
+		if (newTouched.atomIndex == 0) {
+			notifyAtomHighLightJSfunction(newTouched.atomIndex);
+			notifyBondHighLightJSfunction(newTouched.bondIndex);
+		} else if (newTouched.bondIndex == 0) {
+			notifyBondHighLightJSfunction(newTouched.bondIndex);
+			notifyAtomHighLightJSfunction(newTouched.atomIndex);
+		} else {
+			// should never happen
+			notifyBondHighLightJSfunction(newTouched.bondIndex);
+			notifyAtomHighLightJSfunction(newTouched.atomIndex);
+		}
+
+		lastTouched.initMyselfWith(newTouched);
+		assert lastTouched.equals(newTouched);
+		
+		return true;
 	}
 
 	public boolean keyDown(KeyEvent e, int key) {
@@ -4781,11 +4793,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		gui.mustReDrawInfo = false;
 		// this.log("Key code: " + key);
 
+		char ch = e.getKeyChar();
 		// handling numeric keypad
 		if (key >= 96 && key <= 105) { // number
 			key = key - 96 + 48;
+		} else if (!Character.isAlphabetic(key) && ch != KeyEvent.CHAR_UNDEFINED) {
+			key = 0 + ch;
 		}
-
 		// public void keyPressed(KeyEvent e) {
 		if (isDepict() && !options.depictActionEnabled)
 			return false;
@@ -4802,7 +4816,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			return (pressed != 0 && menuAction(pressed));
 		}
 
-		pressed = checkKeySpecial(key);
+		pressed = checkKeySpecial(key, shift);
 		if (pressed == 0) {
 			pressed = checkKeyPressRGroup(key);
 		}
@@ -4823,6 +4837,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return (pressed != 0 && menuAction(pressed));
 	}
 
+	/**
+	 * CTRL-x
+	 * 
+	 * @param key
+	 * @return
+	 */
 	private int checkKeyPressMeta(int key) {
 		switch (key) {
 		case 'C':
@@ -4847,8 +4867,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 
-	private int checkKeySpecial(int key) {
+	private int checkKeySpecial(int key, boolean shift) {
 		switch (key) {
+		case KeyEvent.VK_UP:
+		case KeyEvent.VK_DOWN:
+		case KeyEvent.VK_RIGHT:
+		case KeyEvent.VK_LEFT:
+			navigate(key);
+			break;
 		case KeyEvent.VK_MULTIPLY:
 		case '*':
 		case 'G':
@@ -4887,6 +4913,46 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			return Actions.ACTION_UNDO;
 		}
 		return 0;
+	}
+
+	/***
+	 * 
+	 * Navigate with arrow keys around the molecule, alternating between atoms and
+	 * bonds.
+	 * 
+	 * 
+	 * @param key
+	 * @param shift
+	 * 
+	 * @author hansonr
+	 */
+	private void navigate(int key) {
+		int dir = 0;
+		switch (key) {
+		case KeyEvent.VK_UP:
+			dir = JMEmol.NAV_UP;
+			break;
+		case KeyEvent.VK_DOWN:
+			dir = JMEmol.NAV_DOWN;
+			break;
+		case KeyEvent.VK_RIGHT:
+			dir = JMEmol.NAV_RIGHT;
+			break;
+		case KeyEvent.VK_LEFT:
+			dir = JMEmol.NAV_LEFT;
+			break;
+		default:
+			return;
+		}		
+		int aorb = (activeMol.touchedAtom > 0 ? activeMol.touchedAtom : -activeMol.touchedBond);
+		boolean isMove = (aorb != 0);
+		if (!isMove) {
+			aorb = (keyTouched.mol != activeMol ? 0 : keyTouched.atomIndex > 0 ? keyTouched.atomIndex: -keyTouched.bondIndex);
+		}		
+		int a = (!isMove ? aorb : aorb == 0 ? 0 : activeMol.navigateBonds(aorb, dir));
+		if (a != 0) {
+			moveTo(0, 0, a);
+		}
 	}
 
 	/**
@@ -4981,7 +5047,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	private int checkKeyPressBuild(int key, boolean shift, boolean alt) {
 		switch (key) {
 		case 'P':
-			if (!shift) { 
+			if (!shift) {
 				break;
 			}
 			return Actions.ACTION_RING_PH;
@@ -5012,10 +5078,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		case 'Q':
 			info("-C#N");
 			return Actions.ACTION_GROUP_CYANO;
-		case '#':
-			return Actions.ACTION_BOND_TRIPLE;
 		case '0':
-			if (alt) {
+			if (alt || shift) {
 				info("-3-Furyl");
 				return Actions.ACTION_RING_3FURYL;
 			}
@@ -5032,7 +5096,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			}
 			return Actions.ACTION_BOND_DOUBLE;
 		case '3':
-			return Actions.ACTION_RING_3;
+			// BH CHANGED 2023.01.30
+			if (shift)
+				return Actions.ACTION_RING_3;
+			// $FALL THROUGH$
+		case '#':
+			return Actions.ACTION_BOND_TRIPLE;
 		case '4':
 			return Actions.ACTION_RING_4;
 		case '5':
@@ -5081,8 +5150,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
-	protected double scaleScreenToDrawing(int pos) {
-		return (double) pos / molecularAreaScalePixelsPerCoord;
+	protected double scaleScreenToDrawing(double pos) {
+		return pos / molecularAreaScalePixelsPerCoord;
 	}
 
 	protected int scaleDrawingToScreen(double coord) {
@@ -5096,10 +5165,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return
 	 */
 	// TODO: drawing should not revert the Y axis
-	protected double screenToDrawingX(int appletPixelPositionX) {
-		int x = appletPixelPositionX - leftMenuWidth();// leftMenuWidth() returns 0 in depict mode
-
-		return scaleScreenToDrawing(x);
+	protected double screenToDrawingX(double appletPixelPositionX) {
+		// leftMenuWidth() returns 0 in depict mode
+		return scaleScreenToDrawing(appletPixelPositionX - leftMenuWidth());
 	}
 
 	/**
@@ -5108,10 +5176,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param pixelPosition
 	 * @return
 	 */
-	protected double screenToDrawingY(int appletPixelPositionY) {
-		int y = appletPixelPositionY - topMenuHeight(); // topMenuHeight() returns 0 in depict mode
-
-		return scaleScreenToDrawing(y);
+	protected double screenToDrawingY(double appletPixelPositionY) {
+		// topMenuHeight() returns 0 in depict mode
+		return scaleScreenToDrawing(appletPixelPositionY - topMenuHeight());
 	}
 
 	/**
@@ -5149,11 +5216,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param y
 	 * @return
 	 */
-	protected boolean isOutsideDrawingArea(int x, int y) {
+	protected boolean isOutsideDrawingArea(double x, double y) {
 		x -= leftMenuWidth();
 		y -= topMenuHeight();
-		return (x < 0 || y < 0 || y > this.molecularAreaPixelHeight || x > this.molecularAreaPixelWidth);
-
+		return (x < 0 || y < 0 || y > molecularAreaPixelHeight || x > molecularAreaPixelWidth);
 	}
 
 	/**
@@ -5214,7 +5280,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param y
 	 * @param result
 	 */
-	void findMolAndAtomOrBondInDrawingArea(int x, int y, Touched result) {
+	void findMolAndAtomOrBondInDrawingArea(double x, double y, Touched result) {
 
 		if (this.isOutsideDrawingArea(x, y)) {
 			result.reset();
@@ -5231,7 +5297,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param y
 	 * @param result
 	 */
-	synchronized void findMolAndAtomOrBondWithinRadius(int x, int y, int radius, Touched result) {
+	synchronized void findMolAndAtomOrBondWithinRadius(double x, double y, int radius, Touched result) {
 		result.reset();
 		double xCoord = screenToDrawingX(x);
 		double yCoord = screenToDrawingY(y);

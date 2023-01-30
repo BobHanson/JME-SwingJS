@@ -1774,6 +1774,58 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			haveDoubleBonds = true;
 	}
 
+	final public static int NAV_UP = 1;
+	final public static int NAV_DOWN = 2;
+	final public static int NAV_LEFT = 3;
+	final public static int NAV_RIGHT = 4;
+	
+	/**
+	 * Navigate smoothly using the keypad arrows from atom to bond to atom. 
+	 * 
+	 * @param from
+	 * @param dir
+	 * @return
+	 */
+	public int navigateBonds(int from, int dir) {
+		if (from == 0 || from > natoms || -from > nbonds)
+			return 0;
+		double dirx = 0, diry = 0;
+		switch (dir) {
+		case NAV_UP:
+			diry = -1;
+			break;
+		case NAV_DOWN:
+			diry = 1;
+			break;
+		case NAV_LEFT:
+			dirx = -1;
+			break;
+		case NAV_RIGHT:
+			dirx = 1;
+			break;
+		}
+		if (from < 0) {
+			// from a bond
+			Bond b = bonds[-from];
+			setCosSin(b.va, b.vb);
+			double dotprod = dirx * temp[0] + diry * temp[1];
+			return (dotprod < 0 ? b.va : b.vb);
+		}
+		// from an atom
+		Atom a = atoms[from];
+		double max = -1;
+		int maxi = 0;
+		for (int i = 1; i <= a.nv; i++) {
+			setCosSin(from, a.v[i]);
+			double dotprod = dirx * temp[0] + diry * temp[1];
+			if (dotprod > max) {
+				max = dotprod;
+				maxi = a.v[i];
+			}
+		}
+		return -getBondIndex(from, maxi);
+	}
+
 
 
 }
