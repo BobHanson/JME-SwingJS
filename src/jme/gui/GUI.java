@@ -1283,6 +1283,7 @@ public class GUI {
 			
 			for (int i = 1; i <= mol.nbonds; i++) {
 				Bond b = mol.bonds[i];
+<<<<<<< HEAD
 				int type = b.bondType;
 				if 	(bsRingBonds.get(i)) {
 					b.smallRing = true;
@@ -1290,6 +1291,12 @@ public class GUI {
 						b.bondType = Bond.SINGLE; // hate to do this here...
 				}
 				if (type == Bond.DOUBLE) {
+=======
+				if (b.bondType == Bond.DOUBLE) {
+					if 	(bsRingBonds.get(i)) {
+						b.smallRing = true;
+					}
+>>>>>>> branch 'main' of https://github.com/BobHanson/JME-SwingJS.git
 
 					
 					if (!Double.isNaN(b.guideX)) {

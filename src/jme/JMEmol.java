@@ -1078,7 +1078,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				bonds[i].stereo = 0;
 				setBondCenter(bonds[i]);
 			} else {
+<<<<<<< HEAD
 				info("Maximum allowed bond order has been reached!");
+=======
+				info("Maximum allowed bond order is 3 !");
+>>>>>>> branch 'main' of https://github.com/BobHanson/JME-SwingJS.git
 			}
 			return;
 		} else if (nv(atom) == MAX_BONDS_ON_ATOM) {
@@ -1736,8 +1740,13 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	@Override
 	public void setBondCenter(Bond b) {
 		super.setBondCenter(b);
+<<<<<<< HEAD
 		if (b.bondType == Bond.DOUBLE || b.bondType == Bond.TRIPLE)
 			haveMultipleBonds = true;
+=======
+		if (b.bondType == Bond.DOUBLE)
+			haveDoubleBonds = true;
+>>>>>>> branch 'main' of https://github.com/BobHanson/JME-SwingJS.git
 		ringInfo = null;
 	}
 

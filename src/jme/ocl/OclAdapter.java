@@ -324,7 +324,6 @@ public class OclAdapter implements Parser {
 			System.out.println(e);
 		}
 
-//		System.out.println("OclAdapter getRingInfo");
 	}
 
 }
