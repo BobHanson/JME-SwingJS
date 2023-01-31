@@ -4343,7 +4343,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			activeMol.setBondCenters();
 		}
 		if (actionOld != 0)
-			action = actionOld;
+			this.action = actionOld;
 		repaint();
 		return null;
 	}
