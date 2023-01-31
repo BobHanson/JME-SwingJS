@@ -604,6 +604,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
+	public void start() {
+		start(new String[0]);
+	}
+	
 	public void start(String[] args) {
 		int pt = 0;
 		if (args.length > 0 && !args[0].startsWith("-"))
@@ -2123,9 +2127,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	/**
 	 * input can be a MOL, RXN, smiles or SMIRKS or OCL
 	 * 
+	 * @j2sAlias HRI
 	 * @param s
 	 */
 
+	
 	public void handleReadGenericInput(String s, RunAsyncCallback sucessAndFailureHandler, boolean repaint,
 			boolean recordEvent) {
 
@@ -2186,6 +2192,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
 					@Override
+					/**
+					 * @j2sAlias onXXXX
+					 */
 					public void onSuccess() {
 						oclSuccess(cfd, sucessAndFailureHandler, recordEvent, repaint);
 					}

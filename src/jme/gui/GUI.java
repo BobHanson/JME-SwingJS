@@ -1288,6 +1288,8 @@ public class GUI {
 					b.smallRing = true;
 					if (type == Bond.TRIPLE)
 						b.bondType = Bond.SINGLE;
+				} else {
+					b.smallRing = false;
 				}
 				if (type == Bond.DOUBLE) {
 
