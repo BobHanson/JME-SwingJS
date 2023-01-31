@@ -33,8 +33,8 @@ public class JMEBuilder {
 
 			double r = Math.sqrt(dx * dx + dy * dy); // eucldean dist between new atom and source (anchor)
 
-			this.sin = dy / r;
-			this.cos = dx / r;
+			sin = dy / r;
+			cos = dx / r;
 
 		}
 
@@ -492,8 +492,15 @@ public class JMEBuilder {
 		return a;
 	}
 
-	// ----------------------------------------------------------------------------
-	void checkRing(int nmembered) {
+	private void createAtom(double x, double y) {
+		createAtom();
+		mol.nbonds = 0;
+		mol.XY(1, x, y);
+		touchedAtom = mol.touchedAtom = 1;
+		mol.touched_org = 1; // needed for checkNewBond();
+	}
+
+	private void checkRing(int nmembered) {
 		// checks if newly created ring doesn't touch with some atoms +compute the v and
 		// bondCenter
 
@@ -926,6 +933,7 @@ public class JMEBuilder {
 	}
 
 	public String setTemplate(String t) throws Exception {
+		// from JavaScript call, originally
 		templateString = t;
 		Parameters pars = new Parameters();
 		pars.mark = true; // needed otherwise the atom map will be ignored
@@ -947,18 +955,23 @@ public class JMEBuilder {
 		String event = null;
 		boolean cleanPolar = false;
 		Bond b = mol.bonds[mol.touchedBond];
-		if (action == Actions.ACTION_DELETE) {
+		switch (action) {
+		case Actions.ACTION_DELETE:
 			deleteAtomOrBond();
 			jme.updatePartsList(); // record the event as well
-		} else if (action == Actions.ACTION_DELGROUP) {
+			break;
+		case Actions.ACTION_DELGROUP:
 			mol.deleteAtomGroup();
 			cleanPolar = true;
 			mol.touchedBond = 0;
 			event = JME.DEL_BOND_GROUP;
-		} else if (action == Actions.ACTION_STEREO) {
+			break;
+		case Actions.ACTION_STEREO:
 			mol.toggleBondStereo(mol.touchedBond);
 			event = JME.SET_BOND_STEREO;
-		} else if (action == Actions.ACTION_BOND_SINGLE || action == Actions.ACTION_CHAIN) { // Actions.ACTION_CHAIN should be removed?
+			break;
+		case Actions.ACTION_BOND_SINGLE:
+		case Actions.ACTION_CHAIN: // ) { // Actions.ACTION_CHAIN should be removed?
 			if (b.bondType == Bond.SINGLE && b.stereo == 0) {
 				b.bondType = Bond.DOUBLE;
 				event = JME.SET_BOND_DOUBLE;
@@ -968,7 +981,8 @@ public class JMEBuilder {
 				event = JME.SET_BOND_SINGLE;
 			}
 			b.stereo = 0; // zrusi stereo
-		} else if (action == Actions.ACTION_BOND_DOUBLE) {
+			break;
+		case Actions.ACTION_BOND_DOUBLE:
 			boolean differentBondOrder = b.bondType != Bond.DOUBLE;
 			b.bondType = Bond.DOUBLE;
 			if (!differentBondOrder) {
@@ -978,20 +992,27 @@ public class JMEBuilder {
 			}
 			cleanPolar = true;
 			event = JME.SET_BOND_DOUBLE;
-		} else if (action == Actions.ACTION_BOND_TRIPLE && !b.smallRing) {
-			b.bondType = Bond.TRIPLE;
-			b.stereo = 0; // zrusi stereo
-			cleanPolar = true;
-			event = JME.SET_BOND_TRIPLE;
-		} else if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
-			// fusing ring to bond
-			jme.lastAction = JME.LA_RING; // in addRing may be set to 0
-			addRing();
-			cleanPolar = true;
-			event = JME.ADD_RING_BOND;
+			break;
+		case Actions.ACTION_BOND_TRIPLE:
+			if (!b.smallRing) {
+				b.bondType = Bond.TRIPLE;
+				b.stereo = 0; // zrusi stereo
+				cleanPolar = true;
+				event = JME.SET_BOND_TRIPLE;
+			}
+			break;
+		default:
+			if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
+				// fusing ring to bond
+				jme.lastAction = JME.LA_RING; // in addRing may be set to 0
+				addRing();
+				cleanPolar = true;
+				event = JME.ADD_RING_BOND;
+			}
+			break;
 		}
 		if (cleanPolar)
-			mol.cleanAfterChanged(jme.options.polarnitro); // FIXME: add to addRing			
+			mol.cleanAfterChanged(jme.options.polarnitro); 
 		return event;
 	}
 
@@ -1001,7 +1022,7 @@ public class JMEBuilder {
 			deleteAtomOrBond();
 			jme.updatePartsList();
 		} else if (action == Actions.ACTION_DELGROUP) {
-			return "TRUE"; // do nothing
+			return "RETURN_TRUE"; // do nothing
 		} else if (action == Actions.ACTION_CHARGE) {
 			if (mol.changeCharge(mol.touchedAtom, 0))
 				event = JME.CHARGE_ATOM0;
@@ -1041,16 +1062,9 @@ public class JMEBuilder {
 				mol.Q(mol.touchedAtom, 0); // resetne naboj
 				mol.atoms[mol.touchedAtom].iso = 0; // BB: reset isotop
 				mol.atoms[mol.touchedAtom].nh = 0;
-
-				// special processing pre AN_X, osetrene, ze moze byt aj
-				// ""
 				if (jme.active_an == Atom.AN_X) {
 					mol.setAtom(mol.touchedAtom, jme.getAtomSymbolForX());
 				}
-				// jme.recordAtomEvent(SET_ATOM + active_an); 
-				// active_an is an arbitrary
-				// number, should be
-				// changed to the string of the atom type
 				event = JME.SET_ATOM;
 			}
 		}
@@ -1089,6 +1103,57 @@ public class JMEBuilder {
 		}
 		mol.cleanAfterChanged(jme.options.polarnitro); // to add Hs
 		return true;
+	}
+
+	public void newMolecule(double x, double y) {
+		if (action >= Actions.ACTION_BOND_SINGLE && action <= Actions.ACTION_BOND_TRIPLE
+				|| action == Actions.ACTION_CHAIN) {
+			createAtom(x, y);
+			jme.lastAction = JME.LA_BOND;
+			addBond();
+			// orienting chain
+			if (action == Actions.ACTION_CHAIN) {
+				mol.XY(2, x + JMECore.RBOND * .866, y - JMECore.RBOND * .5);
+				mol.chain[0] = 1;
+				mol.chain[1] = 2;
+				mol.nchain = 1;
+				jme.recordBondEvent(JME.ADD_CHAIN);
+			} else {
+				jme.recordBondEvent(JME.ADD_BOND);
+			}
+			return;
+		}
+		if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
+			mol.xorg = x;
+			mol.yorg = y;
+			jme.lastAction = JME.LA_RING;
+			addRing();
+			jme.recordAfterStructureChangedEvent(JME.ADD_RING);
+			return;
+		}
+		if (action >= Actions.ACTION_AN_C) { // adding 1st atom
+			createAtom(x, y);
+			if (jme.active_an == Atom.AN_X) {
+				mol.setAtom(1, jme.getAtomSymbolForX());
+			} else {
+				mol.AN(1, jme.active_an);				
+			}
+			jme.recordAtomEvent(JME.ADD_ATOM);
+			return;
+		}
+		if (action == Actions.ACTION_TEMPLATE) {
+			//mol.addTemplate(templateString);
+			jme.recordAfterStructureChangedEvent(JME.ADD_TEMPLATE);
+			return;
+		}
+		if (action >= Actions.ACTION_GROUP_MIN && action < Actions.ACTION_GROUP_MAX) {
+			// adding first atom (to which group will be connected)
+			createAtom(x, y);
+			addGroup(true);
+			jme.recordAfterStructureChangedEvent(JME.ADD_GROUP);
+			return;
+		}
+		System.err.println("error -report fall through bug Builder.newMolecule! " + action);
 	}
 
 }

@@ -823,18 +823,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// -----------------------------------------------------------------------------
 	// Shortcuts for molecule
 
-	/**
-	 * 
-	 * Change atom coordinate
-	 * 
-	 * @param mol
-	 * @param atomIndex
-	 * @param x
-	 * @param y
-	 */
-	protected void XY(JMEmol mol, int atomIndex, int x, int y) {
-		mol.XY(atomIndex, screenToDrawingX(x), screenToDrawingY(y));
-	}
 
 	// NOT USED!!!!
 	/**
@@ -1599,6 +1587,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public void showError(String errorMessage) {
 		this.showInfo("ERROR - " + errorMessage);
 
+	}
+
+	private JMEBuilder getBuilder(JMEmol mol) {
+		if (builder == null)
+			builder = new JMEBuilder(this);
+		return builder.set(mol, action, mouseShift);
 	}
 
 	// ----------------------------------------------------------------------------
@@ -2734,7 +2728,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			pressed = Actions.ACTION_GROUP_CC;
 
 		if (pressed > 0) {
-			menuAction(pressed);
+			processAction(pressed);
 		} else
 			s = "Not known group!";
 		info(s);
@@ -3288,422 +3282,26 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	// ----------------------------------------------------------------------------
-	boolean menuAction(int pressed) {
-		// calling actions after pressing menu button or menu keys
-		// called from mousePressed() or keyTyped()
+	boolean processAction(int thisAction) {
+		// calling actions after pressing menu button or actions initiated
+		// from mousePressed() or keyPressed()
 
 		// idea: this.atomTypeChangeAction = true; //atom type selected or FG or query
 		// box
 		// mouseover would only highlight the atoms
 
-		if (pressed == 0)
+		if (thisAction == 0)
 			return false; // moze to byt ? ano, napr z keyTyped
 
 		// BB
 		this.mustRedrawNothing();
-		boolean status = true;
-		boolean structureChangePerformed = false;
 
 		int actionOld = action;
-		action = pressed;
-		if (pressed <= 300) { // top menu
-			// BB
-			gui.mustReDrawTopMenu = true;
-			gui.mustReDrawLeftMenu = true; // deselection possible on the left menu
-			clearInfo(); // clear any messages
-
-			switch (pressed) {
-			case Actions.ACTION_CLEAR:
-				clear();
-				// idea: double click would do a complete cleaning of the undo and redo stack
-				// this.molChangeManager.clear(); //delete all undo's
-				// this.sdfStack.clear(); //delete all entries from the SDF stack
-				// this.recordAfterStructureChangedEvent(CLEAR); //already performed by
-				// clear()n
-
-				// reset the red highlight correctly
-				this.handleMouseLeaveActionMenu(Actions.ACTION_CLEAR);
-				this.handleMouseEnterActionMenu(Actions.ACTION_CLEAR);
-
-				structureChangePerformed = true; // sept 2016
-				break;
-			case Actions.ACTION_UNDO:
-				// zostavaju rovnake settings ako predtym
-
-				// BB
-				setMustRedrawMolecularArea(true); // needed for e.g. undo
-
-				action = actionOld;
-				// multiple undo handling
-				if (!this.molChangeManager.canUndo()) {
-					info("No more undo");
-
-					// actualMoleculePartIndex = numberofMoleculeParts; // mohlo sa medzitym zmenit
-					// clear();
-				} else if (afterClear) {
-					// saved = ++numberofMoleculeParts;
-					// actualMoleculePartIndex = numberofMoleculeParts;
-					activeMol = moleculePartsList.last();
-					afterClear = false;
-				}
-				if (!this.molChangeManager.canUndo())
-					break; // no molecule in undo stack
-
-				this.restoreState(this.molChangeManager.undo());
-				this.recordAfterStructureChangedEvent(UNDO);
-				this.willPostSave(false);
-
-				setMustRedrawMolecularArea(true);
-				// System.out.println("*********** undo " + mol.natoms);
-
-				break;
-
-			case Actions.ACTION_REDO:
-
-				if (!this.canMultipleUndo) {
-					action = actionOld;
-					this.alert("The redo feature is not implemented yet");
-
-				} else {
-					action = actionOld;
-					// BB this code is copied from the undo part and adapted
-					if (!this.molChangeManager.canRedo()) {
-						// actualMoleculePartIndex = numberofMoleculeParts; // mohlo sa medzitym zmenit
-						// clear();
-						info("No more redo");
-						break;
-					} else if (afterClear) {
-						// saved = ++numberofMoleculeParts;
-						// actualMoleculePartIndex = numberofMoleculeParts;
-						activeMol = moleculePartsList.last();
-
-						afterClear = false;
-					}
-					// undo po standard change (aj po delete s upravenym saved)
-					if (!this.molChangeManager.canRedo())
-						break; // no molecule in undo stack
-					this.restoreState(this.molChangeManager.redo());
-					this.recordAfterStructureChangedEvent(REDO);
-					this.willPostSave(false);
-
-					setMustRedrawMolecularArea(true);
-
-				}
-
-				break;
-
-			case Actions.ACTION_IO: /* open popup menu with IO */
-				this.handleCopyPasteJPopupMenu(null, gui.fixedCopyPasteJPopupMenuPosition.x,
-						gui.fixedCopyPasteJPopupMenuPosition.y);
-				action = actionOld;
-				break;
-
-			case Actions.ACTION_PGUP:
-			case Actions.ACTION_PGDN:
-			case Actions.ACTION_END:
-			case Actions.ACTION_HOME:
-				String sdf = null;
-				action = actionOld;
-
-				switch (pressed) {
-				case Actions.ACTION_PGDN:
-					sdf = this.sdfStack.previous();
-					break;
-				case Actions.ACTION_PGUP:
-					sdf = this.sdfStack.next();
-					break;
-				case Actions.ACTION_END:
-					sdf = this.sdfStack.last();
-					break;
-				case Actions.ACTION_HOME:
-					sdf = this.sdfStack.first();
-					break;
-				default:
-					assert (false);
-
-				}
-
-				if (sdf == null)
-					info("No more molecules in SDF buffer");
-				else {
-					// sdf = sdf.replace("\n", "|");
-					this.clearMyMolecularContent(); // to avoid any merging with the current molecule
-					pasteFromSDFstack = true;
-					// Does not work with V3000!!!!
-					// this.readMolFile(sdf, false);//do not copy in undo
-					this.handleReadGenericInput(sdf, null, false, false); // do not repaint and record event here
-
-					pasteFromSDFstack = false;
-
-					if (this.infoText.equals("")) { // no error mesage from readMolFile
-						info("MOL n. " + this.sdfStack.getCurrentDisplayIndex() + " of " + this.sdfStack.size());
-						structureChangePerformed = true;
-						this.recordAfterStructureChangedEvent(SD_FSTACK);
-						this.willPostSave(false);
-					}
-
-				}
-
-				break;
-
-			case Actions.ACTION_SMI:
-
-				this.handleSmilesBox();
-
-				action = actionOld;
-				break;
-			case Actions.ACTION_QRY:
-				this.handleQueryBox();
-
-				// stay commented
-				// action = Actions.ACTION_old;
-				break;
-			case Actions.ACTION_JME:
-				this.handleAboutBox();
-				action = actionOld;
-				break;
-			case Actions.ACTION_NEW:
-				// BB
-				// setMustRedrawMolecular(true);
-				newMolecule = true;
-				action = actionOld; // ak nie je bond alebo ring, malo by
-
-				// there is no structure change!!!! this is just a menu click
-				// this.recordAfterStructureChangedEvent(CLEAR);
-
-				// resetnut
-				break;
-
-			case Actions.ACTION_MARK:
-				if (options.markerMenu) {
-					action = actionOld;
-					this.showJPopupMenuRealtiveToScaledMainMenu(gui.createFBackgroundColorPopumemu(),
-							gui.markerJPopupMenuPosition.x, gui.markerJPopupMenuPosition.y);
-
-					break;
-				}
-				// BB
-				// setMustRedrawMolecular(true);
-				if (options.autonumber) {
-					// autonumber added in 2009.09
-					if (mouseShift) { // automark all atoms, zrusi stare mark
-						mouseShift = false; // aby pridavalo cisla
-						activeMol.numberAtomsSequentially();
-
-						// added Oct 2015 - not tested
-						setMustRedrawMolecularArea(true);
-						this.recordAfterStructureChangedEvent(AUTO_NUMBER);
-						structureChangePerformed = true;
-
-						action = actionOld;
-					}
-				}
-				// set na Actions.ACTION_mark
-				keyboradInputMark = 1; // starts from 1 ????????????????/
-				// there is no structure change , only menu selection 123?
-				// this.recordAfterStructureChangedEvent(MARK);
-
-				break;
-
-//BB: END button was removed
-//			case Actions.ACTION_SPIRO:
-//				if (isStandAloneApplication) {
-//					System.exit(0);
-//				}
-			// copy a reaction component to the other side of the reaction
-			case Actions.ACTION_REACP:
-				// save ???
-				action = actionOld;
-				this.updateReactionRoles();
-				if (activeMol.getReactionRole() == JMEmol.ReactionRole.AGENT) {
-					info("Copying the agent not possible !");
-					break;
-				}
-
-				// compute the bounding box of the source molecule
-				Box cad = activeMol.computeBoundingBoxWithAtomLabels(null);
-				if (cad == null)
-					break;
-
-				setMustRedrawMolecularArea(true);
-				activeMol = new JMEmol(activeMol);
-				// mol = mol.createClone(); // ???
-				// posunie ju na spravne miesto
-				// int dx = (int) ((dimension.width - menuCellSize) / 2 - cad.getCenterX());
-				// //center[0]);
-				Rectangle.Double molArea = this.getMolecularAreaBoundingBoxCoordinate00();
-				double dx = molArea.getCenterX() - cad.getCenterX(); // dx can be negative or positive
-//				for (int i = 1; i <= mol.natoms; i++)
-//					mol.x[i] += dx * 2;
-//					//mol.atoms[i].x += dx * 2;
-//					moveXY(mol, i, dx * 2, 0);
-				activeMol.moveXY(dx * 2, 0); // move the new created molecule to the other side
-
-				// mol.complete();
-				// moleculeParts[++numberofMoleculeParts] = activeMol;
-				// actualMoleculePartIndex = numberofMoleculeParts;
-				moleculePartsList.add(activeMol);
-				this.recordAfterStructureChangedEvent(REACTION_COPY);
-
-				structureChangePerformed = true;
-				// added Jan 2016
-				// this.postSave();
-
-				// reset the blue highlight correctly
-				this.handleMouseLeaveActionMenu(Actions.ACTION_REACP);
-				this.handleMouseEnterActionMenu(Actions.ACTION_REACP);
-
-				break;
-
-			case Actions.ACTION_DELETE:
-				// FIXME - DUPLICATED CODED with delete using the mouse!!!!!!!!!!!!!!!!!!!!
-				// 2011.01 if touchedAtom or bond, deletes it
-				// happens with keyboard shortcut not mouse action
-				if (getBuilder(activeMol).deleteAtomOrBond()) {
-					structureChangePerformed = true;
-					updatePartsList();
-				}
-				break;
-
-			case Actions.ACTION_FG:
-				action = actionOld;
-				this.showJPopupMenuRealtiveToScaledMainMenu(gui.getFunctionalGroupPopumemu(),
-						gui.functionalGroupJPopupMenuPosition.x, gui.functionalGroupJPopupMenuPosition.y);
-				// this.getFunctionalGroupPopumemu().show(this,
-				// (int)(this.functionalGroupJPopupMenuPosition.x * this.menuScale),
-				// (int)(functionalGroupJPopupMenuPosition.y * this.menuScale));
-
-				break;
-
-			case Actions.ACTION_CHARGE:
-				// BB
-				if (activeMol.touchedAtom > 0 && activeMol.changeCharge(activeMol.touchedAtom, 0)) {
-					this.recordAtomEvent(CHARGE_ATOM0); // same code as in mouseDown event
-					structureChangePerformed = true;
-				}
-				break;
-
-			default: // vsetky co nerobia okamzitu akcion (DEL, templates, +/-,
-				// ...)
-				break;
-			}
-		} else { // pressed > 300 (left menu - atoms)
-			// BB
-			gui.mustReDrawLeftMenu = true;
-			gui.mustReDrawTopMenu = true;
-			// deselection of an item in the top menu
-			// if the action is coming from a keyboard structure change, then there is no
-			// need to redraw the the menu
-			active_an = mapActionToAtomNumberXorR(pressed);
-
-			clearInfo(); // clear any messages
-			if (active_an == Atom.AN_X) {
-				this.handleAtomXbox();
-			}
-			// BB : handling R group
-			if (pressed >= Actions.ACTION_AN_R && pressed <= Actions.ACTION_AN_R_LAST) {
-				active_an = Atom.AN_R + (pressed - Actions.ACTION_AN_R);
-			}
-
-			// 2009.09 if touchedAtom, changes it
-			if (structureChangePerformed == false && activeMol.touchedAtom > 0) {
-				// BB
-				if (active_an != activeMol.an(activeMol.touchedAtom) && active_an != Atom.AN_X) {
-					activeMol.AN(activeMol.touchedAtom, active_an);
-					activeMol.Q(activeMol.touchedAtom, 0); // resetne naboj
-					// mol.iso[mol.touchedAtom] = 0; //BB: reset isotop
-					activeMol.atoms[activeMol.touchedAtom].iso = 0; // BB: reset isotop
-					// mol.nh[mol.touchedAtom] = 0;
-					activeMol.atoms[activeMol.touchedAtom].nh = 0;
-
-					// this.postSave();
-					// this.recordAtomEvent(SET_ATOM + active_an); // active_an is an arbitrary
-					// number, should be
-					// changed to the string of the atom type
-					this.recordAtomEvent(SET_ATOM); // useless since the JSME_Event has the atom number
-
-					// BB Sept 2015: changed the touched atom but do not change the menu
-					// action = actionOld;
-					structureChangePerformed = true;
-				} else if (active_an == Atom.AN_X) {
-					// MultiBox not atomxBox (this is static and always
-					// available,
-					// needed for key press)
-					// FIXME: this code is never reached
-					// code reached when the X keyboard shortcut is used
-					// assert false;
-					String xx = atomicSymbol.getText();
-					activeMol.setAtom(activeMol.touchedAtom, xx);
-					// this.postSave();
-					// this.recordAtomEvent(SET_ATOM + active_an);// useless since the
-					// JSME_Event has the atom number
-					this.recordAtomEvent(SET_ATOM);
-					structureChangePerformed = true;
-				}
-			}
-		}
-
-		// BB Sept 2015: add ring addition
-		// extend with other actions:
-		// phenyl ring (shortcut is "1"
-		// 2 for double bond?, see the help for the shortcucts
-		//
-		// atoms C, N, O, P, S, F, L (for Cl), B (for Br), I, H, R bonds - for single
-		// bond, = for double bond rings 3..8 for 3 to 8 membered rings, 1 for phenyl
-		// and 0 for furyl groups a - COOH, y - NO2, z - SO3H, t - tert. butyl, ft - CF3
-		//
+		action = thisAction;
+		boolean structureChangePerformed = (thisAction < Actions.ACTION_AN_C ? topMenuAction(actionOld) : leftMenuAction());
 		if (!structureChangePerformed && (activeMol.touchedAtom > 0 || activeMol.touchedBond > 0)) {
-			// the addRing function can handle both bond and atom
-			// duplicated code
-			// this works as well for addition of phenyl (KB shortcut is "1")
-			if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
-
-				// fusing ring to bond
-				lastAction = LA_RING; // in addRing may be set to 0
-				getBuilder(activeMol).addRing();
-				structureChangePerformed = true;
-				this.recordBondEvent(ADD_RING_BOND);
-			} else if (action == Actions.ACTION_BOND_SINGLE 
-					|| action == Actions.ACTION_BOND_DOUBLE
-					|| action == Actions.ACTION_BOND_TRIPLE) {
-				// BB Oct 2015: add bond & change bond without switch to double bond bond tool
-
-				if (activeMol.touchedAtom > 0) {
-					lastAction = 0;
-					// correction - otherwise, mouse drag will move the end of
-					// the new added bond instead of moving the molecule
-					getBuilder(activeMol).addBond();
-					this.recordBondEvent(ADD_BOND);
-					structureChangePerformed = true;
-				} else { // mol.touchedBond > 0
-					// code cpoied from mouseDown DUPLiCATED !!!! TODO
-					int bondType = Bond.SINGLE;
-					String eventType = SET_BOND_SINGLE;
-					boolean changed; // BB
-					switch (action) {
-					case Actions.ACTION_BOND_DOUBLE:
-						bondType = Bond.DOUBLE;
-						eventType = SET_BOND_DOUBLE;
-						break;
-					case Actions.ACTION_BOND_TRIPLE:
-						bondType = Bond.TRIPLE;
-						eventType = SET_BOND_TRIPLE;
-					}
-					changed = bondType != activeMol.bonds[activeMol.touchedBond].bondType;
-					if (changed) {
-						activeMol.setBondType(activeMol.touchedBond, bondType);
-						this.recordBondEvent(eventType);
-						structureChangePerformed = true;
-						activeMol.bonds[activeMol.touchedBond].stereo = 0; // zrusi stereo
-					} else if (bondType == Bond.DOUBLE) {
-						// no change but clicked a second time on a double bond with the double bond
-						// tool
-						// change normal double bond into crossed bond or vice versa
-						activeMol.toggleDoubleBondStereo(activeMol.bonds[activeMol.touchedBond]);
-						structureChangePerformed = true;
-					}
-				}
-			}
+			// from mouse down in drawing area and atom or bond touched
+			structureChangePerformed = bondRingAction();
 		}
 		if (structureChangePerformed) {
 			setMustRedrawMolecularArea(true);
@@ -3716,13 +3314,336 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			this.drawMolecularAreaRightNow();
 		}
 		repaint();
-		return status;
+		return true;
 	}
 
-	private JMEBuilder getBuilder(JMEmol mol) {
-		if (builder == null)
-			builder = new JMEBuilder(this);
-		return builder.set(mol, action, mouseShift);
+	private boolean topMenuAction(int actionOld) {
+		// also includes _FG and _IO from the second row
+		gui.mustReDrawTopMenu = true;
+		gui.mustReDrawLeftMenu = true; // deselection possible on the left menu
+		clearInfo(); // clear any messages
+
+		switch (action) {
+		case Actions.ACTION_CLEAR:
+			clear();
+			// idea: double click would do a complete cleaning of the undo and redo stack
+			// this.molChangeManager.clear(); //delete all undo's
+			// this.sdfStack.clear(); //delete all entries from the SDF stack
+			// this.recordAfterStructureChangedEvent(CLEAR); //already performed by
+			// clear()n
+
+			// reset the red highlight correctly
+			this.handleMouseLeaveActionMenu(Actions.ACTION_CLEAR);
+			this.handleMouseEnterActionMenu(Actions.ACTION_CLEAR);
+			return true;
+		case Actions.ACTION_UNDO:
+			// zostavaju rovnake settings ako predtym
+
+			// BB
+			setMustRedrawMolecularArea(true); // needed for e.g. undo
+
+			action = actionOld;
+			// multiple undo handling
+			if (!this.molChangeManager.canUndo()) {
+				info("No more undo");
+
+				// actualMoleculePartIndex = numberofMoleculeParts; // mohlo sa medzitym zmenit
+				// clear();
+			} else if (afterClear) {
+				// saved = ++numberofMoleculeParts;
+				// actualMoleculePartIndex = numberofMoleculeParts;
+				activeMol = moleculePartsList.last();
+				afterClear = false;
+			}
+			if (!this.molChangeManager.canUndo())
+				return false; // no molecule in undo stack
+
+			this.restoreState(this.molChangeManager.undo());
+			this.recordAfterStructureChangedEvent(UNDO);
+			this.willPostSave(false);
+
+			setMustRedrawMolecularArea(true);
+			// System.out.println("*********** undo " + mol.natoms);
+			return false; // BH??
+		case Actions.ACTION_REDO:
+
+			if (!this.canMultipleUndo) {
+				action = actionOld;
+				this.alert("The redo feature is not implemented yet");
+				return false;
+			}
+			action = actionOld;
+			// BB this code is copied from the undo part and adapted
+			if (!this.molChangeManager.canRedo()) {
+				// actualMoleculePartIndex = numberofMoleculeParts; // mohlo sa medzitym zmenit
+				// clear();
+				info("No more redo");
+				return false;
+			}
+			if (afterClear) {
+				// saved = ++numberofMoleculeParts;
+				// actualMoleculePartIndex = numberofMoleculeParts;
+				activeMol = moleculePartsList.last();
+				afterClear = false;
+			}
+			// undo po standard change (aj po delete s upravenym saved)
+			if (!this.molChangeManager.canRedo())
+				return false; // no molecule in undo stack
+			this.restoreState(this.molChangeManager.redo());
+			this.recordAfterStructureChangedEvent(REDO);
+			this.willPostSave(false);
+			setMustRedrawMolecularArea(true);
+			return false;
+		case Actions.ACTION_PGUP:
+		case Actions.ACTION_PGDN:
+		case Actions.ACTION_END:
+		case Actions.ACTION_HOME:
+			String sdf = null;
+			switch (action) {
+			case Actions.ACTION_PGDN:
+				sdf = this.sdfStack.previous();
+				break;
+			case Actions.ACTION_PGUP:
+				sdf = this.sdfStack.next();
+				break;
+			case Actions.ACTION_END:
+				sdf = this.sdfStack.last();
+				break;
+			case Actions.ACTION_HOME:
+				sdf = this.sdfStack.first();
+				break;
+			default:
+				assert (false);
+			}
+			action = actionOld;
+			if (sdf == null) {
+				info("No more molecules in SDF buffer");
+				return false;
+			}
+			// sdf = sdf.replace("\n", "|");
+			this.clearMyMolecularContent();
+			// to avoid any merging with the current molecule
+			pasteFromSDFstack = true;
+			// Does not work with V3000!!!!
+			// this.readMolFile(sdf, false);//do not copy in undo
+			this.handleReadGenericInput(sdf, null, false, false);
+			// do not repaint and record event here
+			pasteFromSDFstack = false;
+
+			if (this.infoText.equals("")) { // no error mesage from readMolFile
+				info("MOL n. " + this.sdfStack.getCurrentDisplayIndex() + " of " + this.sdfStack.size());
+				this.recordAfterStructureChangedEvent(SD_FSTACK);
+				this.willPostSave(false);
+				return true;
+			}
+			return false;
+		case Actions.ACTION_SMI:
+			this.handleSmilesBox();
+			action = actionOld;
+			return false;
+		case Actions.ACTION_QRY:
+			this.handleQueryBox();
+			// stay commented
+			// action = Actions.ACTION_old;
+			return false;
+		case Actions.ACTION_JME:
+			this.handleAboutBox();
+			action = actionOld;
+			return false;
+		case Actions.ACTION_NEW:
+			newMolecule = true;
+			action = actionOld; // ak nie je bond alebo ring, malo by
+			return false;
+		case Actions.ACTION_MARK:
+			if (options.markerMenu) {
+				action = actionOld;
+				this.showJPopupMenuRealtiveToScaledMainMenu(gui.createFBackgroundColorPopumemu(),
+						gui.markerJPopupMenuPosition.x, gui.markerJPopupMenuPosition.y);
+				return false;
+			}
+			// BB
+			// setMustRedrawMolecular(true);
+			if (options.autonumber && mouseShift) {
+				// automark all atoms, zrusi stare mark
+				// autonumber added in 2009.09
+				mouseShift = false; // aby pridavalo cisla
+				activeMol.numberAtomsSequentially();
+				// added Oct 2015 - not tested
+				setMustRedrawMolecularArea(true);
+				this.recordAfterStructureChangedEvent(AUTO_NUMBER);
+				action = actionOld;
+				return true;
+			}
+			// set na Actions.ACTION_mark
+			keyboradInputMark = 1; // starts from 1 ????????????????/
+			return false;
+		case Actions.ACTION_REACP:
+			// save ???
+			action = actionOld;
+			this.updateReactionRoles();
+			if (activeMol.getReactionRole() == JMEmol.ReactionRole.AGENT) {
+				info("Copying the agent not possible !");
+				return false;
+			}
+			// compute the bounding box of the source molecule
+			Box cad = activeMol.computeBoundingBoxWithAtomLabels(null);
+			if (cad == null)
+				return false;
+			setMustRedrawMolecularArea(true);
+			activeMol = new JMEmol(activeMol);
+			Rectangle.Double molArea = this.getMolecularAreaBoundingBoxCoordinate00();
+			double dx = molArea.getCenterX() - cad.getCenterX(); // dx can be negative or positive
+			activeMol.moveXY(dx * 2, 0); // move the new created molecule to the other side
+			moleculePartsList.add(activeMol);
+			this.recordAfterStructureChangedEvent(REACTION_COPY);
+			// reset the blue highlight correctly
+			this.handleMouseLeaveActionMenu(Actions.ACTION_REACP);
+			this.handleMouseEnterActionMenu(Actions.ACTION_REACP);
+			return true;
+		case Actions.ACTION_DELETE:
+			if (!getBuilder(activeMol).deleteAtomOrBond())
+				return false;
+			updatePartsList();
+			return true;
+		case Actions.ACTION_CHARGE:
+			if (activeMol.touchedAtom == 0 || !activeMol.changeCharge(activeMol.touchedAtom, 0))
+				return false;
+			this.recordAtomEvent(CHARGE_ATOM0); // same code as in mouseDown event
+			return true;
+		case Actions.ACTION_SPIRO:
+			getBuilder(null).spiroAdding = true;
+			info("Next ring will be added as spiro");
+			repaint();
+			return true; // don't highlight this button; revert to previous (ring, for example)
+		case Actions.ACTION_MOVE_AT:
+			if (options.showAtomMoveJButton) {
+				info("Move one atom");
+				repaint();
+			}
+			return false;
+		case Actions.ACTION_DELGROUP:
+			// just a message; just setting the action does this
+			return false;
+		case Actions.ACTION_FG:
+			action = actionOld;
+			this.showJPopupMenuRealtiveToScaledMainMenu(gui.getFunctionalGroupPopumemu(),
+					gui.functionalGroupJPopupMenuPosition.x, gui.functionalGroupJPopupMenuPosition.y);
+			return false;
+		case Actions.ACTION_IO: /* open popup menu with IO */
+			this.handleCopyPasteJPopupMenu(null, gui.fixedCopyPasteJPopupMenuPosition.x,
+					gui.fixedCopyPasteJPopupMenuPosition.y);
+			action = actionOld;
+			return false;
+		}
+		return false;
+	}
+
+	private boolean bondRingAction() {
+		// only executed while mouse is in the drawing area and an atom or bond is selected.
+		switch (action) {
+		case Actions.ACTION_BOND_SINGLE:
+		case Actions.ACTION_BOND_DOUBLE:
+		case Actions.ACTION_BOND_TRIPLE:
+			// BB Oct 2015: add bond & change bond without switch to double bond bond tool
+
+			if (activeMol.touchedAtom > 0) {
+				lastAction = 0;
+				// correction - otherwise, mouse drag will move the end of
+				// the new added bond instead of moving the molecule
+				getBuilder(activeMol).addBond();
+				this.recordBondEvent(ADD_BOND);
+				return true;
+			}
+			Bond bond = activeMol.bonds[activeMol.touchedBond];
+			int bondType = Bond.SINGLE;
+			String eventType = SET_BOND_SINGLE;
+			boolean changed; // BB
+			switch (action) {
+			case Actions.ACTION_BOND_DOUBLE:
+				bondType = Bond.DOUBLE;
+				eventType = SET_BOND_DOUBLE;
+				break;
+			case Actions.ACTION_BOND_TRIPLE:
+				bondType = Bond.TRIPLE;
+				eventType = SET_BOND_TRIPLE;
+				break;
+			}
+			changed = (bondType != bond.bondType);
+			if (changed) {
+				activeMol.setBondType(activeMol.touchedBond, bondType);
+				recordBondEvent(eventType);
+				bond.stereo = 0; // zrusi stereo
+				return true;
+			}
+			if (bondType == Bond.DOUBLE) {
+				// no change but clicked a second time on a double bond with the double bond
+				// tool
+				// change normal double bond into crossed bond or vice versa
+				activeMol.toggleDoubleBondStereo(bond);
+				return true;
+			}
+			return false;
+		default:
+			if (action < Actions.ACTION_RING_3 || action > Actions.ACTION_RING_9)
+				return false;
+			// the addRing function can handle both bond and atom
+
+			// BB Sept 2015: add ring addition
+			// extend with other actions:
+			// phenyl ring (shortcut is "1"
+			// 2 for double bond?, see the help for the shortcucts
+			//
+			// atoms C, N, O, P, S, F, L (for Cl), B (for Br), I, H, R bonds - for single
+			// bond, = for double bond rings 3..8 for 3 to 8 membered rings, 1 for phenyl
+			// and 0 for furyl groups a - COOH, y - NO2, z - SO3H, t - tert. butyl, ft - CF3
+			//
+			// fusing ring to bond
+			lastAction = LA_RING; // in addRing may be set to 0
+			getBuilder(activeMol).addRing();
+			recordBondEvent(ADD_RING_BOND);
+			return true;
+		}
+
+	}
+
+	private boolean leftMenuAction() {
+		// actions 300+
+		gui.mustReDrawLeftMenu = true;
+		gui.mustReDrawTopMenu = true;
+		// deselection of an item in the top menu
+		// if the action is coming from a keyboard structure change, then there is no
+		// need to redraw the the menu
+		active_an = mapActionToAtomNumberXorR(action);
+		clearInfo(); // clear any messages
+		if (active_an == Atom.AN_X) {
+			this.handleAtomXbox();
+		}
+		// BB : handling R group
+		if (action >= Actions.ACTION_AN_R && action <= Actions.ACTION_AN_R_LAST) {
+			active_an = Atom.AN_R + (action - Actions.ACTION_AN_R);
+		}
+
+		// 2009.09 if touchedAtom, changes it
+		if (activeMol.touchedAtom == 0)
+			return false;
+		// BB
+		if (active_an != activeMol.an(activeMol.touchedAtom) && active_an != Atom.AN_X) {
+			activeMol.AN(activeMol.touchedAtom, active_an);
+			activeMol.Q(activeMol.touchedAtom, 0); // resetne naboj
+			// mol.iso[mol.touchedAtom] = 0; //BB: reset isotop
+			activeMol.atoms[activeMol.touchedAtom].iso = 0; // BB: reset isotop
+			// mol.nh[mol.touchedAtom] = 0;
+			activeMol.atoms[activeMol.touchedAtom].nh = 0;
+			this.recordAtomEvent(SET_ATOM); // useless since the JSME_Event has the atom number
+			return true;
+		}
+		if (active_an == Atom.AN_X) {
+			String xx = atomicSymbol.getText();
+			activeMol.setAtom(activeMol.touchedAtom, xx);
+			this.recordAtomEvent(SET_ATOM);
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -4185,57 +4106,27 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// set to true if the event was consumed and does not need to be propagated
 		boolean eventNotUsed = false;
 
-		// experiment: to ease switching to the applet for copy paste with the system
-		// clipboard
-		boolean eventUsed = true;
-		// boolean eventUsed = !isSystemClipBoardSupportedByBrowser();
-		boolean returnStatus = eventUsed; // 2206
-
-		// BB
-		// this.isContextMenu = this.isEventContextMenu(e); //will be used in the
-		// addRing() method to decide if a spiro ring should be added
+		clearInfo();
 
 		mouseX = x;// used later in mouseDrag
-		// yold = y - (2 * (int)gui.menuCellSize + menuCellBorder());
 		mouseY = y; // used later in mouseDrag
-
-		// log("mouseDown(): xold=" + xold + " yold=" + yold);
-
-		clearInfo();
-		// int x = e.getX(); int y = e.getY();
 		mouseShift = e.isShiftDown(); // because of numbering
 
 		movePossible = false;
 
-		if (!isDepict() && (x < leftMenuWidth() || y < topMenuHeight())) { // --- menu pressed
+		if (!isDepict() && (y > dimension.height - infoAreaHeight())) {
+			// --- info area clicked
+			return eventNotUsed;
+		}
+		if (!isDepict() && (x < leftMenuWidth() || y < topMenuHeight())) {
+			// --- menu pressed
 			int action = this.determineMenuAction(x, y, true);
-
-			// Code written by PE
-			// Should this be moved to menuAction(action)?
-			// empty buttons not considered
-			if (action == Actions.ACTION_SPIRO) {
-				getBuilder(null).spiroAdding = true;
-				info("Next ring will be added as spiro");
-				repaint();
-				this.mouseDownWasUsed = true;
-				return eventUsed;
-			}
-
-			// Code written by BB
-			// Should this be moved to menuAction(action)?
-			if (action == Actions.ACTION_MOVE_AT) {
-				if (options.showAtomMoveJButton) {
-					info("Move one atom");
-					repaint();
-				} else {
-					this.mouseDownWasUsed = true;
-					return eventUsed;
-				}
-
-			}
-
 			boolean ok = true;
 			switch (action) {
+			case Actions.ACTION_SPIRO:
+			case Actions.ACTION_MOVE_AT:
+			case Actions.ACTION_DELGROUP:
+				break;
 			case Actions.ACTION_AN_X:
 				ok = options.xButton;
 				break;
@@ -4255,259 +4146,206 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				ok = options.reaction;
 				break;
 			}
-			if (ok) {
-				returnStatus = menuAction(action);
-			} else {
-				return eventNotUsed;
-			}
-		} else if (!isDepict() && (y > dimension.height - infoAreaHeight())) { // --- info area clicked
-			return eventNotUsed;
-		} else { // --- mouse click in the drawing area
-					// ---------------------------
-			activeGraphicalObject = findClosestGraphicalObject(mouseX, mouseY);
-			activeMol = findClosestMol(mouseX, mouseY);
-			activeMol.clearRotation();
+			return (ok ? (mouseDownWasUsed = processAction(action)) : eventNotUsed);
+		}
 
-			if (activeGraphicalObject == reactionArrow) {
-				activeMol.touchedAtom = 0; // probably not needed
-				activeMol.touchedBond = 0;
-			}
-			if (this.canHandleAtomClickedCallBack()) {
-				if (activeMol.touchedAtom > 0) { // touchedAtom means mouse over?
+		// --- mouse click in the drawing area
+		// ---------------------------
+		activeGraphicalObject = findClosestGraphicalObject(mouseX, mouseY);
+		activeMol = findClosestMol(mouseX, mouseY);
+		activeMol.clearRotation();
 
-					this.handleAtomClickedCallBack(activeMolIndex(), activeMol.touchedAtom);
-					// not sure that
-					// actualMoleculePartIndex
-					// is set correctly in
-					// case of a multi
-					// structure
-					if (isDepict() && !options.depictActionEnabled) {
-						return true;
-					}
-				}
-
-				if (activeMol.touchedBond > 0) {
-					this.handleBondClickedCallBack(activeMolIndex(), activeMol.touchedBond);
-					// not sure that
-					// actualMoleculePartIndex
-					// is set correctly in
-					// case of a multi
-					// structure
-					if (isDepict() && !options.depictActionEnabled) {
-						return true;
-					}
-
+		if (activeGraphicalObject == reactionArrow) {
+			activeMol.touchedAtom = 0; // probably not needed
+			activeMol.touchedBond = 0;
+		}
+		if (this.canHandleAtomClickedCallBack()) {
+			if (activeMol.touchedAtom > 0) { // touchedAtom means mouse over?
+				this.handleAtomClickedCallBack(activeMolIndex(), activeMol.touchedAtom);
+				// not sure that
+				// actualMoleculePartIndex
+				// is set correctly in
+				// case of a multi
+				// structure
+				if (isDepict() && !options.depictActionEnabled) {
+					return true;
 				}
 			}
-
-			movePossible = true;
-
-			// atom clicked
-
-			if (activeMol.touchedAtom > 0 && canDoAtomOrBondAction(action)) {
-				lastTouched.mol = activeMol;
-				if (action == Actions.ACTION_QRY) { // setting atom as query atom
-					if (queryBox.isBondQuery())
-						return true;
-					activeMol.setAtom(activeMol.touchedAtom, queryBox.getSmarts());
-					activeMol.isQuery = true; // 2013.09
-
-					this.recordAtomEvent(ADD_ATOM_QUERY);
-
-				} else if (action == Actions.ACTION_MARK) { // either color marking or atom map
-
-					boolean marked;
-
-					if (!options.pseudoMark && !options.starNothing) {
-
-						int newMap = -1;
-						if (markFromKeyboardInput) {
-							newMap = keyboradInputMark;
-							resetExtendAtomMark = true;
-							markFromKeyboardInput = false;
-							clearInfo(); // reset the info message generated by updateMark()
-
-							if (this.params.mark) {
-								this.activateMarkerColor(newMap);
-							}
-						}
-
-						if (params.mark) {
-
-							marked = activeMol.markAtom(newMap > 0 ? newMap : activeMarkerColorIndex
-							// set the color
-							// index from a
-							// keyboard
-							// shortcut
-							);
-						} else {
-							if (newMap == -1) {
-								if (options.reaction) {
-									int reactionRole = activeMol.getReactionRole();
-									newMap = findMaxAtomMapOfMoleculeParts(moleculePartsList, reactionRole);
-								} else {
-									newMap = activeMol.getMaxAtomMap();
-								}
-								// allow same atom map for several atoms of the group is shift is pressed
-								if (!this.mouseShift || newMap == 0) // BB june 2020: if shift is on and new mapping:
-																		// must be 1
-									newMap++;
-							}
-
-							marked = activeMol.markAtom(newMap);
-
-						}
-
-					} else {
-						marked = true; // equivalent to an atom click event but can be tracked using MARK_ATOM
-					}
-					if (marked)
-						this.recordAtomEvent(MARK_ATOM);
-					else
-						// happens if newMap == -1
-						this.recordAtomEvent(UN_MARK_ATOM);
-
-					if (options.pseudoMark) {
-						this.willPostSave(false); // do not put on the undo stack
-					}
-				} else if (action == Actions.ACTION_MOVE_AT) {
-				} else {
-					int thisAtom = activeMol.touchedAtom;
-					String event = getBuilder(activeMol).checkAtomAction();
-					if (event == null) {
-						returnStatus = eventNotUsed;
-					} else if (event == "TRUE") {
-						// DELGROUP returned "true" meaning used, so return is not eventNotUsed
-						return true;
-					} else if (event != "") {
-						recordAtomEvent(event, thisAtom);
-					}
+			if (activeMol.touchedBond > 0) {
+				this.handleBondClickedCallBack(activeMolIndex(), activeMol.touchedBond);
+				// not sure that
+				// actualMoleculePartIndex
+				// is set correctly in
+				// case of a multi
+				// structure
+				if (isDepict() && !options.depictActionEnabled) {
+					return true;
 				}
-			} else if (activeMol.touchedBond > 0 && canDoAtomOrBondAction(action)) {
-				// bond clicked
-				lastTouched.mol = activeMol;
-				if (action == Actions.ACTION_QRY) {
-					if (!queryBox.isBondQuery())
-						return true;
-					String bondQuery = queryBox.getSmarts();
-					activeMol.bonds[activeMol.touchedBond].bondType = Bond.QUERY;
-					activeMol.bonds[activeMol.touchedBond].btag = bondQuery;
-					recordBondEvent(SET_QUERY_BOND);
-
-				} else if (action == Actions.ACTION_MARK) {
-					boolean marked;
-
-					// some duplicated code logic with marking of atom
-					if (!options.pseudoMark) {
-						marked = activeMol.markBond(activeMarkerColorIndex);
-					} else {
-						marked = true;
-					}
-					// some duplicated code logic with marking of atom
-					if (marked)
-						recordBondEvent(MARK_BOND);
-					else
-						recordBondEvent(UN_MARK_BOND);
-
-					if (options.pseudoMark) {
-						willPostSave(false); // do not put on the undo stack
-					}
-				} else {
-					int thisBond = activeMol.touchedBond;
-					String event = getBuilder(activeMol).checkBondAction();
-					if (event == null) {
-						returnStatus = false;
-					} else if (event == "TRUE") {
-						return true;
-					} else if (event != "") {
-						recordBondEvent(event, thisBond);
-						activeMol.setBondCenters();
-					}
-				}
-			} else if ((moleculePartsList.isReallyEmpty() || newMolecule == true) && !isDepict()) {
-				// free space clicked - new molecule
-				// creating new molecule only on start or when Actions.ACTION_NEW is on
-				if (action <= Actions.ACTION_STEREO)
-					return eventNotUsed;
-
-				moleculePartsList.removeEmptyMolecules(); // Jan 2019
-				activeMol = new JMEmol(this, this.params);
-				moleculePartsList.add(activeMol);
-				lastTouched.mol = activeMol;
-				smol = null; // kvoli undo
-
-				// BB: TODO : lot of duplicated code
-				if (action >= Actions.ACTION_BOND_SINGLE && action <= Actions.ACTION_BOND_TRIPLE
-						|| action == Actions.ACTION_CHAIN) {
-					activeMol.createAtom();
-					activeMol.nbonds = 0;
-					XY(activeMol, 1, x, y);
-					activeMol.touchedAtom = 1;
-					activeMol.touched_org = 1; // needed for checkNewBond();
-					lastAction = LA_BOND;
-					getBuilder(activeMol).addBond();
-					// orienting chain
-					if (action == Actions.ACTION_CHAIN) {
-						activeMol.XY(2, // TODO : JMEMol sould handle this
-								screenToDrawingX(x) + JMECore.RBOND * .866, screenToDrawingY(y) - JMECore.RBOND * .5);
-
-						activeMol.chain[0] = 1;
-						activeMol.chain[1] = 2;
-						activeMol.nchain = 1;
-						this.recordBondEvent(ADD_CHAIN);
-
-					} else {
-						this.recordBondEvent(ADD_BOND);
-
-					}
-				} else if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
-					activeMol.xorg = screenToDrawingX(x);
-					activeMol.yorg = screenToDrawingY(y);
-					lastAction = LA_RING;
-					getBuilder(activeMol).addRing();
-					this.recordAfterStructureChangedEvent(ADD_RING);
-				} else if (action > 300) { // adding 1st atom
-					activeMol.createAtom();
-					activeMol.AN(1, active_an);
-					activeMol.nbonds = 0;
-					XY(activeMol, 1, x, y);
-					activeMol.touchedAtom = 1;
-					if (active_an == Atom.AN_X) {
-						activeMol.setAtom(1, getAtomSymbolForX());
-					}
-					this.recordAtomEvent(ADD_ATOM);
-
-				} else if (action == Actions.ACTION_TEMPLATE) {
-					readMolecule(getBuilder(null).getTemplateString());
-					this.recordAfterStructureChangedEvent(ADD_TEMPLATE);
-
-				} else if (action >= Actions.ACTION_GROUP_MIN && action < Actions.ACTION_GROUP_MAX) {
-					// adding first atom (to which group will be connected)
-					activeMol.createAtom();
-					activeMol.nbonds = 0;
-					XY(activeMol, 1, x, y);
-
-					activeMol.touchedAtom = 1;
-					// adding group
-					getBuilder(activeMol).addGroup(true);
-					this.recordAfterStructureChangedEvent(ADD_GROUP);
-				} else {
-					System.err.println("error -report fall through bug !");
-				}
-			} else {
-				returnStatus = false;
-			}
-
-			if (returnStatus != eventNotUsed) {// BB: if nothing has changed - there is no need to repaint
-
-				this.setMustRedrawMolecularArea(true);
-				this.repaint();
 			}
 		}
 
-		this.mouseDownWasUsed = returnStatus;
+		movePossible = true;
+		boolean returnStatus;
+		if (activeMol.touchedAtom > 0 && canDoAtomOrBondAction(action)) {
+			Boolean ret = processAtomPicked();
+			if (ret == Boolean.TRUE)
+				return true;
+			returnStatus = (ret == null);
+		} else if (activeMol.touchedBond > 0 && canDoAtomOrBondAction(action)) {
+			Boolean ret = processBondPicked(0);
+			if (ret == Boolean.TRUE)
+				return true;
+			returnStatus = (ret == null);
+		} else if ((moleculePartsList.isReallyEmpty() || newMolecule == true) && !isDepict()) {
+			if (action <= Actions.ACTION_STEREO)
+				return eventNotUsed;
+			// free space clicked - new molecule
+			// creating new molecule only on start or when Actions.ACTION_NEW is on
 
-		return returnStatus;
+			moleculePartsList.removeEmptyMolecules(); // Jan 2019
+			activeMol = new JMEmol(this, this.params);
+			moleculePartsList.add(activeMol);
+			lastTouched.mol = activeMol;
+			smol = null; // kvoli undo			
+			getBuilder(activeMol).newMolecule(screenToDrawingX(x), screenToDrawingY(y));
+			activeMol.setBondCenters();
+			returnStatus = true;
+		} else {
+			returnStatus = false;
+		}
+		if (returnStatus != eventNotUsed) {// BB: if nothing has changed - there is no need to repaint
+
+			this.setMustRedrawMolecularArea(true);
+			this.repaint();
+		}
+
+		return (mouseDownWasUsed = returnStatus);
+	}
+
+	private Boolean processAtomPicked() {
+		// atom clicked
+		lastTouched.mol = activeMol;
+		if (action == Actions.ACTION_QRY) { // setting atom as query atom
+			if (queryBox.isBondQuery())
+				return Boolean.TRUE;
+			activeMol.setAtom(activeMol.touchedAtom, queryBox.getSmarts());
+			activeMol.isQuery = true; // 2013.09
+
+			this.recordAtomEvent(ADD_ATOM_QUERY);
+		} else if (action == Actions.ACTION_MARK) { // either color marking or atom map
+			boolean marked;
+			if (!options.pseudoMark && !options.starNothing) {
+				int newMap = -1;
+				if (markFromKeyboardInput) {
+					newMap = keyboradInputMark;
+					resetExtendAtomMark = true;
+					markFromKeyboardInput = false;
+					clearInfo(); // reset the info message generated by updateMark()
+					if (this.params.mark) {
+						this.activateMarkerColor(newMap);
+					}
+				}
+				if (params.mark) {
+					marked = activeMol.markAtom(newMap > 0 ? newMap : activeMarkerColorIndex
+					// set the color
+					// index from a
+					// keyboard
+					// shortcut
+					);
+				} else {
+					if (newMap == -1) {
+						if (options.reaction) {
+							int reactionRole = activeMol.getReactionRole();
+							newMap = findMaxAtomMapOfMoleculeParts(moleculePartsList, reactionRole);
+						} else {
+							newMap = activeMol.getMaxAtomMap();
+						}
+						// allow same atom map for several atoms of the group is shift is pressed
+						if (!this.mouseShift || newMap == 0) // BB june 2020: if shift is on and new mapping:
+																// must be 1
+							newMap++;
+					}
+					marked = activeMol.markAtom(newMap);
+				}
+
+			} else {
+				marked = true; // equivalent to an atom click event but can be tracked using MARK_ATOM
+			}
+			recordAtomEvent(marked ? MARK_ATOM : UN_MARK_ATOM);
+			if (options.pseudoMark) {
+				this.willPostSave(false); // do not put on the undo stack
+			}
+		} else if (action == Actions.ACTION_MOVE_AT) {
+			// nothing to do except set the action
+		} else {
+			int thisAtom = activeMol.touchedAtom;
+			String event = getBuilder(activeMol).checkAtomAction();
+			if (event == null) {
+				return Boolean.FALSE;
+			}
+			if (event == "RETURN_TRUE") {
+				// DELGROUP returned "true" meaning used, so return is not eventNotUsed
+				return Boolean.TRUE;
+			}
+			if (event != "") {
+				recordAtomEvent(event, thisAtom);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 
+	 * @return TRUE to exit caller true, FALSE to set returnstatus false, null to leave true
+	 */
+	private Boolean processBondPicked(int action) {
+		int actionOld = 0;
+		if (action == 0) {
+			action = this.action;
+		} else {
+			actionOld = this.action;
+			this.action = action;
+		}
+		// bond clicked
+		lastTouched.mol = activeMol;
+		if (action == Actions.ACTION_QRY) {
+			if (!queryBox.isBondQuery())
+				return Boolean.TRUE;
+			String bondQuery = queryBox.getSmarts();
+			activeMol.bonds[activeMol.touchedBond].bondType = Bond.QUERY;
+			activeMol.bonds[activeMol.touchedBond].btag = bondQuery;
+			recordBondEvent(SET_QUERY_BOND);
+		} else if (action == Actions.ACTION_MARK) {
+			boolean marked;
+
+			// some duplicated code logic with marking of atom
+			if (!options.pseudoMark) {
+				marked = activeMol.markBond(activeMarkerColorIndex);
+			} else {
+				marked = true;
+			}
+			// some duplicated code logic with marking of atom
+			if (marked)
+				recordBondEvent(MARK_BOND);
+			else
+				recordBondEvent(UN_MARK_BOND);
+
+			if (options.pseudoMark) {
+				willPostSave(false); // do not put on the undo stack
+			}
+		} else {
+			int thisBond = activeMol.touchedBond;
+			String event = getBuilder(activeMol).checkBondAction();
+			if (event == null) {
+				return Boolean.FALSE;
+			}
+			recordBondEvent(event, thisBond);
+			activeMol.setBondCenters();
+		}
+		if (actionOld != 0)
+			action = actionOld;
+		repaint();
+		return null;
 	}
 
 	public String getAtomSymbolForX() {
@@ -4539,7 +4377,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				activeMol.checkChain();
 				this.recordBondEvent(ADD_CHAIN);
 				this.willPostSave(true);
-
 			} else {
 
 				// find out if the last touched mol is the same
@@ -4704,7 +4541,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// Do not move the molecule if the dragging start is not within the drawing area
 			if (!isOutsideDrawingArea(x, y)) {
 				Rectangle2D.Double boundingBox = this.getMolecularAreaBoundingBoxCoordinate00();
-				// activeMol.move(drawingAreaMoveX, drawingAreaMoveY, boundingBox);
 				Graphical2DObject.move(activeGraphicalObject, drawingAreaMoveX, drawingAreaMoveY, boundingBox);
 				lastAction = LA_MOVE;
 			}
@@ -4815,7 +4651,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		int pressed = 0;
 		if (meta) {
 			pressed = checkKeyPressMeta(key);
-			return (pressed != 0 && menuAction(pressed));
+			return (pressed != 0 && processAction(pressed));
 		}
 
 		pressed = checkKeySpecial(key, shift);
@@ -4836,7 +4672,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (pressed == 0) {
 			pressed = checkKeyPressBuild(key, shift, alt);
 		}
-		return (pressed != 0 && menuAction(pressed));
+		return (pressed != 0 && processAction(pressed));
 	}
 
 	/**
@@ -4892,9 +4728,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			break;
 		case '+':
 		case KeyEvent.VK_ADD:// 107:
-			// toggle charge - same as clicking on the +/- icon
-			// note that there is already a shortcut for '-'
-			return Actions.ACTION_CHARGE;
+			if (activeMol.touchedBond == 0) {
+				// toggle charge - same as clicking on the +/- icon
+				// note that there is already a shortcut for '-'
+				return Actions.ACTION_CHARGE;
+			}
+			// BH new 2023 '+' to toggle bond stereo
+			processBondPicked(Actions.ACTION_STEREO);
+			break;
 		case 'D':
 		case KeyEvent.VK_BACK_SPACE:
 		case KeyEvent.VK_DELETE: // 127
@@ -5024,6 +4865,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			info("-R");
 			return Actions.ACTION_AN_R;
 		case '-':
+			if (activeMol.touchedBond > 0) {
+				processBondPicked(Actions.ACTION_BOND_SINGLE);
+				return 0;
+			}
 			switch (action) {
 			case Actions.ACTION_AN_F:
 				info("-F");
@@ -5092,6 +4937,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			info("-Furyl");
 			return Actions.ACTION_RING_FURANE;
 		case '1':
+			if (activeMol.touchedBond > 0) {
+				processBondPicked(Actions.ACTION_BOND_SINGLE);
+				return 0;
+			}
 //			return Actions.ACTION_RING_PH;
 			return Actions.ACTION_BOND_SINGLE;
 		case '2':
@@ -5171,7 +5020,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return
 	 */
 	// TODO: drawing should not revert the Y axis
-	protected double screenToDrawingX(double appletPixelPositionX) {
+	public double screenToDrawingX(double appletPixelPositionX) {
 		// leftMenuWidth() returns 0 in depict mode
 		return scaleScreenToDrawing(appletPixelPositionX - leftMenuWidth());
 	}
@@ -5182,7 +5031,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param pixelPosition
 	 * @return
 	 */
-	protected double screenToDrawingY(double appletPixelPositionY) {
+	public double screenToDrawingY(double appletPixelPositionY) {
 		// topMenuHeight() returns 0 in depict mode
 		return scaleScreenToDrawing(appletPixelPositionY - topMenuHeight());
 	}
@@ -7278,7 +7127,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		recordAfterStructureChangedEvent(action, activeMolIndex(), 0, bond);
 	}
 
-	protected void recordAfterStructureChangedEvent(String action) {
+	public void recordAfterStructureChangedEvent(String action) {
 		recordAfterStructureChangedEvent(action, 0, 0, 0);
 	}
 

@@ -1662,53 +1662,58 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 */
 	public void toggleBondStereo(int bondIndex) {
 		Bond bond = this.bonds[bondIndex];
-		if (bond.isSingle() || bond.isCoordination()) { // accept coordination bond with stereo
-			// Bond.UP a Bond.DOWN daju hrot na va[], Bond.XUP, Bond.XDOWN na vb[]
-			int atom1 = bonds[bondIndex].va;
-			int atom2 = bonds[bondIndex].vb;
-			if (nv(atom1) < 2 && nv(atom2) < 2) { // <=2 nemoze byt kvoli allenu
-				bond.stereo = 0;
-				info("Stereomarking meaningless on this bond !");
-				return;
-			}
-			switch (bond.stereo) {
-			case 0: // aby bol hrot spravne (nie na nerozvetvenom)
-				// Bond.UP dava normalne hrot na va[]
-				if (nv(atom2) <= nv(atom1))
-					bond.stereo = Bond.STEREO_UP;
-				else
-					bond.stereo = Bond.STEREO_XUP;
-				break;
-			case Bond.STEREO_UP:
-				bond.stereo = Bond.STEREO_DOWN;
-				break;
-			case Bond.STEREO_DOWN:
-				bond.stereo = Bond.STEREO_EITHER;
-				break;
-			case Bond.STEREO_EITHER:
-				if (nv(atom2) > 2)
-					bond.stereo = Bond.STEREO_XUP;
-				else
-					bond.stereo = Bond.STEREO_UP;
-				break;
-			case Bond.STEREO_XUP:
-				bond.stereo = Bond.STEREO_XDOWN;
-				break;
-			case Bond.STEREO_XDOWN:
-				bond.stereo = Bond.STEREO_XEITHER;
-				break;
-			case Bond.STEREO_XEITHER:
-				if (nv(atom1) > 2)
-					bond.stereo = Bond.STEREO_UP;
-				else
-					bond.stereo = Bond.STEREO_XUP;
-				break;
-
-			}
-		} else if (bond.bondType == Bond.DOUBLE) {
+		if (bond.bondType == Bond.DOUBLE) {
 			toggleDoubleBondStereo(bond);
-		} else {
+			return;
+		}
+		if (!bond.isSingle() && !bond.isCoordination()) {
 			info("Stereomarking allowed only on single and double bonds!");
+			return;
+		}
+
+		// accept coordination bond with stereo
+		// Bond.UP a Bond.DOWN daju hrot na va[], Bond.XUP, Bond.XDOWN na vb[]
+		int atom1 = bonds[bondIndex].va;
+		int atom2 = bonds[bondIndex].vb;
+		if (nv(atom1) < 2 && nv(atom2) < 2) { // <=2 nemoze byt kvoli allenu
+			bond.stereo = 0;
+			info("Stereomarking meaningless on this bond !");
+			return;
+		}
+		
+		switch (bond.stereo) {
+		case 0: // aby bol hrot spravne (nie na nerozvetvenom)
+			// Bond.UP dava normalne hrot na va[]
+			if (nv(atom2) <= nv(atom1))
+				bond.stereo = Bond.STEREO_UP;
+			else
+				bond.stereo = Bond.STEREO_XUP;
+			break;
+		case Bond.STEREO_UP:
+			bond.stereo = Bond.STEREO_DOWN;
+			break;
+		case Bond.STEREO_DOWN:
+			bond.stereo = Bond.STEREO_EITHER;
+			break;
+		case Bond.STEREO_EITHER:
+			if (nv(atom2) > 2)
+				bond.stereo = Bond.STEREO_XUP;
+			else
+				bond.stereo = Bond.STEREO_UP;
+			break;
+		case Bond.STEREO_XUP:
+			bond.stereo = Bond.STEREO_XDOWN;
+			break;
+		case Bond.STEREO_XDOWN:
+			bond.stereo = Bond.STEREO_XEITHER;
+			break;
+		case Bond.STEREO_XEITHER:
+			if (nv(atom1) > 2)
+				bond.stereo = Bond.STEREO_UP;
+			else
+				bond.stereo = Bond.STEREO_XUP;
+			break;
+
 		}
 	}
 
