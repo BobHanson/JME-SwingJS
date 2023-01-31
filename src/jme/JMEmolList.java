@@ -57,6 +57,8 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			}
 			if (this.mol != null) {
 				this.atom = this.mol.getAtom(this.atomIndex);
+				if (this.atom == null)
+					System.out.println("DETLETED >>>");
 			}
 		}		
 	}

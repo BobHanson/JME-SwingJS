@@ -1784,7 +1784,7 @@ public class JMECore {
 	 * @param delbond
 	 * @param deleteLonelyAtoms
 	 */
-	public void deleteBond(int delbond, boolean deleteLonelyAtoms) {
+	public int deleteBond(int delbond, boolean deleteLonelyAtoms) {
 		// deletes bond between atoms delat1 and delat2
 		int a1 = bonds[delbond].va;
 		Atom atom1 = atoms[a1];
@@ -1809,19 +1809,28 @@ public class JMECore {
 			if (atom2.v[i] != a1)
 				atom2.v[++k] = atom2.v[i];
 		atom2.nv = k;
-		
-		if (deleteLonelyAtoms) {
-			// deleting lonely atom(s)
-			if (a1 < a2) {
-				k = a1;
-				a1 = a2;
-				a2 = k;
-			}
-			if (atoms[a1].nv == 0)
-				deleteAtom(a1);
-			if (atoms[a2].nv == 0)
-				deleteAtom(a2);
+
+		int deletedAtoms = 0;
+		// deleting lonely atom(s)
+		// or at least reporting deleted atoms
+		if (deleteLonelyAtoms && a1 < a2) {
+			k = a1;
+			a1 = a2;
+			a2 = k;
 		}
+		if (atoms[a1].nv == 0) {
+			if (deleteLonelyAtoms) {
+				deleteAtom(a1);
+			}
+			deletedAtoms += 1;
+		}
+		if (atoms[a2].nv == 0) {
+			if (deleteLonelyAtoms) {
+				deleteAtom(a2);
+			}
+			deletedAtoms += 2;
+		}
+		return deletedAtoms;
 	}
 
 	/**

@@ -1064,8 +1064,26 @@ public class JMEBuilder {
 			jme.recordAtomEvent(JME.DEL_ATOM);
 			mol.touchedAtom = 0;
 		} else {
-			mol.deleteBond(mol.touchedBond, true);
-			jme.recordBondEvent(JME.DEL_BOND); // BH was recordAtomEvent
+			// problem is here issue #18
+			Bond b = mol.bonds[mol.touchedBond];
+			int deletableAtoms = mol.deleteBond(mol.touchedBond, false);
+			jme.recordBondEvent(JME.DEL_BOND); 
+			// BH was recordAtomEvent
+			switch (deletableAtoms) {
+			case 0:
+				break;
+			case 3:
+			case 1:
+				mol.deleteAtom(b.va);
+				jme.recordAtomEvent(JME.DEL_ATOM);
+				if (deletableAtoms == 1)
+					break;
+				// $FALL_THROUGH$
+			case 2:
+				mol.deleteAtom(b.vb);
+				jme.recordAtomEvent(JME.DEL_ATOM);
+				break;
+			}
 			mol.touchedBond = 0;
 		}
 		mol.cleanAfterChanged(jme.options.polarnitro); // to add Hs
