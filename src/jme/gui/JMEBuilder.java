@@ -971,7 +971,7 @@ public class JMEBuilder {
 			boolean differentBondOrder = mol.bonds[mol.touchedBond].bondType != Bond.DOUBLE;
 			mol.bonds[mol.touchedBond].bondType = Bond.DOUBLE;
 			if (!differentBondOrder) {
-				mol.bonds[mol.touchedBond].toggleNormalCrossedDoubleBond();
+				mol.toggleDoubleBondStereo(mol.bonds[mol.touchedBond]);
 			} else {
 				mol.bonds[mol.touchedBond].stereo = 0; // zrusi stereo
 			}

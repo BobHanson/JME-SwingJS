@@ -1075,12 +1075,12 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			if (bonds[i].bondType < Bond.TRIPLE) {
 				bonds[i].bondType++;
 				bonds[i].stereo = 0;
-			} // stereo zrusi
-			else
+				setBondCenter(bonds[i]);
+			} else {
 				info("Maximum allowed bond order is 3 !");
+			}
 			return;
-		}
-		if (nv(atom) == MAX_BONDS_ON_ATOM) {
+		} else if (nv(atom) == MAX_BONDS_ON_ATOM) {
 			nbonds--; // delete the just created new bond
 			incrNV(this.touched_org, -1);
 			info("Not possible connection !");
@@ -1615,6 +1615,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	public void cleanAfterChanged(boolean polarNitro) {
 		setValenceState();
 		cleanPolarBonds(polarNitro); // TODO: need parameter polarnitro
+		ringInfo = null;
 	}
 
 
@@ -1659,11 +1660,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param bondIndex
 	 */
 	public void toggleBondStereo(int bondIndex) {
-		// alebo vola z drawingArea.mouseDown s (touchBond) a bondType je rozna,
-		// alebo z completeBond, vtedy je bondType vzdy 1
-		// robi to inteligente, presmykuje medzi 4, len kde je to mozne
-		// v stereob je uschovane aj querytype ked ide o Bond.QUERY bond
-
 		Bond bond = this.bonds[bondIndex];
 		if (bond.isSingle() || bond.isCoordination()) { // accept coordination bond with stereo
 			// Bond.UP a Bond.DOWN daju hrot na va[], Bond.XUP, Bond.XDOWN na vb[]
@@ -1674,36 +1670,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 				info("Stereomarking meaningless on this bond !");
 				return;
 			}
-			// atom1 - stary, atom2 - novy atom
-//			if (JME.webme) {
-//				// handling webme (up / down templates)
-//				// just switching up/xup and down/xdown
-//				if (!jme.revertStereo) {
-//					if (bond.stereo == Bond.STEREO_UP)
-//						bond.stereo = Bond.STEREO_XUP;
-//					else if (bond.stereo == Bond.STEREO_XUP)
-//						bond.stereo = Bond.STEREO_UP;
-//					else {
-//						if (nv(atom2) <= nv(atom1))
-//							bond.stereo = Bond.STEREO_UP;
-//						else
-//							bond.stereo = Bond.STEREO_XUP;
-//					}
-//				} else {
-//					if (bond.stereo == Bond.STEREO_DOWN)
-//						bond.stereo = Bond.STEREO_XDOWN;
-//					else if (bond.stereo == Bond.STEREO_XDOWN)
-//						bond.stereo = Bond.STEREO_DOWN;
-//					else {
-//						if (nv(atom2) <= nv(atom1))
-//							bond.stereo = Bond.STEREO_DOWN;
-//						else
-//							bond.stereo = Bond.STEREO_XDOWN;
-//					}
-//				}
-//			}
-//
-			// standard editor stuff
 			switch (bond.stereo) {
 			case 0: // aby bol hrot spravne (nie na nerozvetvenom)
 				// Bond.UP dava normalne hrot na va[]
@@ -1739,8 +1705,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 			}
 		} else if (bond.bondType == Bond.DOUBLE) {
-			bond.toggleNormalCrossedDoubleBond();
-			// if (bond.stereo == Bond.EZ) bond.stereo = 0; else bond.stereo = Bond.EZ;
+			toggleDoubleBondStereo(bond);
 		} else {
 			info("Stereomarking allowed only on single and double bonds!");
 		}
@@ -1772,6 +1737,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		super.setBondCenter(b);
 		if (b.bondType == Bond.DOUBLE)
 			haveDoubleBonds = true;
+		ringInfo = null;
 	}
 
 	final public static int NAV_UP = 1;
@@ -1824,6 +1790,16 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			}
 		}
 		return -getBondIndex(from, maxi);
+	}
+
+	public void toggleDoubleBondStereo(Bond bond) {
+		ringInfo = null;
+		bond.toggleNormalCrossedDoubleBond();
+	}
+
+	public void setBondType(int b, int type) {
+		bonds[b].bondType = type;
+		setBondCenter(bonds[b]);
 	}
 
 

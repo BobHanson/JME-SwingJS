@@ -655,9 +655,7 @@ public class JMECore {
 
 		if (atom.nh < 0)
 			atom.nh = 0; // to be sure
-
-		// 2006.09 removes tag if not stereo atom
-
+		
 // 2023.01 BH relativeStereo is not implemented; always false
 //		if (jme != null && jme.relativeStereo && atag(i) != null && atag(i).length() > 0) {
 //			boolean ok = false;
@@ -1347,6 +1345,61 @@ public class JMECore {
 		return newBond;
 	}
 
+	/**
+	 * 
+	 * @param delbond
+	 * @param deleteLonelyAtoms
+	 */
+	public int deleteBond(int delbond, boolean deleteLonelyAtoms) {
+		// deletes bond between atoms delat1 and delat2
+		int a1 = bonds[delbond].va;
+		Atom atom1 = atoms[a1];
+		int a2 = bonds[delbond].vb;
+		Atom atom2 = atoms[a2];
+
+		for (int i = delbond; i < nbonds; i++) {
+			this.bonds[i] = this.bonds[i + 1];
+		}
+		nbonds--;
+
+		// updating nv[] and v[][]
+		int k = 0;
+		int ni = atom1.nv;
+		for (int i = 1; i <= ni; i++)
+			if (atom1.v[i] != a2)
+				atom1.v[++k] = atom1.v[i];
+		atom1.nv = k;
+		k = 0;
+		ni = atom2.nv;
+		for (int i = 1; i <= ni; i++)
+			if (atom2.v[i] != a1)
+				atom2.v[++k] = atom2.v[i];
+		atom2.nv = k;
+
+		int deletedAtoms = 0;
+		// deleting lonely atom(s)
+		// or at least reporting deleted atoms
+		if (deleteLonelyAtoms && a1 < a2) {
+			k = a1;
+			a1 = a2;
+			a2 = k;
+		}
+		if (atoms[a1].nv == 0) {
+			if (deleteLonelyAtoms) {
+				deleteAtom(a1);
+			}
+			deletedAtoms += 1;
+		}
+		if (atoms[a2].nv == 0) {
+			if (deleteLonelyAtoms) {
+				deleteAtom(a2);
+			}
+			deletedAtoms += 2;
+		}
+		setBondCenters();
+		return deletedAtoms;
+	}
+
 
 	/**
 	 * 
@@ -1777,60 +1830,6 @@ public class JMECore {
 		}
 
 		return map;
-	}
-
-	/**
-	 * 
-	 * @param delbond
-	 * @param deleteLonelyAtoms
-	 */
-	public int deleteBond(int delbond, boolean deleteLonelyAtoms) {
-		// deletes bond between atoms delat1 and delat2
-		int a1 = bonds[delbond].va;
-		Atom atom1 = atoms[a1];
-		int a2 = bonds[delbond].vb;
-		Atom atom2 = atoms[a2];
-
-		for (int i = delbond; i < nbonds; i++) {
-			this.bonds[i] = this.bonds[i + 1];
-		}
-		nbonds--;
-
-		// updating nv[] and v[][]
-		int k = 0;
-		int ni = atom1.nv;
-		for (int i = 1; i <= ni; i++)
-			if (atom1.v[i] != a2)
-				atom1.v[++k] = atom1.v[i];
-		atom1.nv = k;
-		k = 0;
-		ni = atom2.nv;
-		for (int i = 1; i <= ni; i++)
-			if (atom2.v[i] != a1)
-				atom2.v[++k] = atom2.v[i];
-		atom2.nv = k;
-
-		int deletedAtoms = 0;
-		// deleting lonely atom(s)
-		// or at least reporting deleted atoms
-		if (deleteLonelyAtoms && a1 < a2) {
-			k = a1;
-			a1 = a2;
-			a2 = k;
-		}
-		if (atoms[a1].nv == 0) {
-			if (deleteLonelyAtoms) {
-				deleteAtom(a1);
-			}
-			deletedAtoms += 1;
-		}
-		if (atoms[a2].nv == 0) {
-			if (deleteLonelyAtoms) {
-				deleteAtom(a2);
-			}
-			deletedAtoms += 2;
-		}
-		return deletedAtoms;
 	}
 
 	/**
