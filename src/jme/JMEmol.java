@@ -1754,8 +1754,10 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @return
 	 */
 	public int navigateBonds(int from, int dir) {
-		if (from == 0 || from > natoms || -from > nbonds)
+		if (natoms == 0 || nbonds == 0)
 			return 0;
+		if (from == 0 || from > natoms || -from > nbonds)
+			from = -1;
 		double dirx = 0, diry = 0;
 		switch (dir) {
 		case NAV_UP:

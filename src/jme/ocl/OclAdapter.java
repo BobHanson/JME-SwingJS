@@ -272,7 +272,7 @@ public class OclAdapter implements Parser {
 				an = 1;
 				break;
 			}
-			m.addOrChangeAtom(a.x, a.y, an, 0, 0, 0, null);
+			m.setAtomicNo(m.addAtom(a.x, a.y), an);
 		}
 		for (int i = 1; i <= mol.nbonds; i++) {
 			Bond b = mol.bonds[i];
@@ -289,7 +289,7 @@ public class OclAdapter implements Parser {
 				type = 1;
 				break;
 			}
-			m.addOrChangeBond(b.va - 1, b.vb - 1, type);
+			m.setBondType(m.addBond(b.va - 1, b.vb - 1), type);
 		}
 
 		try {

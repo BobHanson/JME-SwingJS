@@ -1301,6 +1301,9 @@ public class GUI {
 					if (a1.nv == 3 && a2.nv == 3) {
 						continue; // just set by direction
 					}
+					if (a1.an != Atom.AN_C || a2.an != Atom.AN_C) {
+						continue; // just set by direction
+					}
 					// check for 1,1 or 2,2
 					if (a1.nv == 3 && a2.nv == 1 || a1.nv == 1 && a2.nv == 3) {
 						b.guideY = Double.NaN;

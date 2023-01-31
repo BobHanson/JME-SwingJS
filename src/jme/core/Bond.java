@@ -241,4 +241,8 @@ public class Bond implements AtomBondCommon {
 		}
 	}
 
+	@Override
+	public String toString() {
+		return "[Bond " + va + " " + vb + " " + bondType + "]";
+	}
 }

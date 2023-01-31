@@ -4950,8 +4950,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		boolean isMove = (aorb != 0);
 		if (!isMove) {
 			aorb = (keyTouched.mol != activeMol ? 0 : keyTouched.atomIndex > 0 ? keyTouched.atomIndex: -keyTouched.bondIndex);
-		}		
-		int a = (!isMove ? aorb : aorb == 0 ? 0 : activeMol.navigateBonds(aorb, dir));
+		}
+		if (aorb == 0) {
+			isMove = true;
+			aorb = -1;
+		}
+		int a = (!isMove ? aorb : activeMol.navigateBonds(aorb, dir));
 		if (a != 0) {
 			moveTo(0, 0, a);
 		}
