@@ -3663,7 +3663,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				getBuilder(activeMol).addRing();
 				structureChangePerformed = true;
 				this.recordBondEvent(ADD_RING_BOND);
-			} else if (action == Actions.ACTION_BOND_SINGLE || action == Actions.ACTION_BOND_DOUBLE
+			} else if (action == Actions.ACTION_BOND_SINGLE 
+					|| action == Actions.ACTION_BOND_DOUBLE
 					|| action == Actions.ACTION_BOND_TRIPLE) {
 				// BB Oct 2015: add bond & change bond without switch to double bond bond tool
 
@@ -3690,7 +3691,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					}
 					changed = bondType != activeMol.bonds[activeMol.touchedBond].bondType;
 					if (changed) {
-						activeMol.bonds[activeMol.touchedBond].bondType = bondType;
+						activeMol.setBondType(activeMol.touchedBond, bondType);
 						this.recordBondEvent(eventType);
 						structureChangePerformed = true;
 						activeMol.bonds[activeMol.touchedBond].stereo = 0; // zrusi stereo
@@ -3698,7 +3699,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						// no change but clicked a second time on a double bond with the double bond
 						// tool
 						// change normal double bond into crossed bond or vice versa
-						activeMol.bonds[activeMol.touchedBond].toggleNormalCrossedDoubleBond();
+						activeMol.toggleDoubleBondStereo(activeMol.bonds[activeMol.touchedBond]);
 						structureChangePerformed = true;
 					}
 				}
@@ -4420,6 +4421,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 						return true;
 					} else if (event != "") {
 						recordBondEvent(event, thisBond);
+						activeMol.setBondCenters();
 					}
 				}
 			} else if ((moleculePartsList.isReallyEmpty() || newMolecule == true) && !isDepict()) {

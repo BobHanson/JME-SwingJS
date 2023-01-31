@@ -39,6 +39,18 @@ public class Bond implements AtomBondCommon {
 
 	int mark = NOT_MAPPED_OR_MARKED;
 
+	public void setBondType(int type) {
+		bondType = type;
+	}
+	
+	public int getBondType() {
+		return bondType;
+	}
+	/**
+	 * from OCL ring analysis -- see GUI.RingInfo
+	 */
+	public boolean smallRing;
+
 
 	public Bond() {
 		resetBackgroundColors();
@@ -55,6 +67,7 @@ public class Bond implements AtomBondCommon {
 		b.va = this.va;
 		b.vb = this.vb;
 		b.bondType = this.bondType;
+		b.smallRing = this.smallRing;
 		b.stereo = this.stereo;
 		b.btag = this.btag; // should we deep copy the string?
 		b.centerX = this.centerX;
@@ -136,7 +149,7 @@ public class Bond implements AtomBondCommon {
 
 	public void toggleNormalCrossedDoubleBond() {
 		if (isDouble()) {
-			stereo = STEREO_EZ - stereo;
+			stereo = (smallRing ? STEREO_NONE : STEREO_EZ - stereo);
 		}
 //		assert (stereo == 0 || stereo == STEREO_EZ);
 	}
@@ -217,6 +230,15 @@ public class Bond implements AtomBondCommon {
 	@Override
 	public boolean isMarked() {
 		return mark > 0;
+	}
+
+	public void checkSmallRing() {
+		if (smallRing) {
+			if (bondType == TRIPLE)
+				bondType = SINGLE;
+			else if (bondType == DOUBLE && stereo == STEREO_EZ)
+				stereo = STEREO_NONE;
+		}
 	}
 
 }

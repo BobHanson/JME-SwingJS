@@ -946,6 +946,7 @@ public class JMEBuilder {
 	public String checkBondAction() {
 		String event = null;
 		boolean cleanPolar = false;
+		Bond b = mol.bonds[mol.touchedBond];
 		if (action == Actions.ACTION_DELETE) {
 			deleteAtomOrBond();
 			jme.updatePartsList(); // record the event as well
@@ -958,28 +959,28 @@ public class JMEBuilder {
 			mol.toggleBondStereo(mol.touchedBond);
 			event = JME.SET_BOND_STEREO;
 		} else if (action == Actions.ACTION_BOND_SINGLE || action == Actions.ACTION_CHAIN) { // Actions.ACTION_CHAIN should be removed?
-			if (mol.bonds[mol.touchedBond].bondType == Bond.SINGLE && mol.bonds[mol.touchedBond].stereo == 0) {
-				mol.bonds[mol.touchedBond].bondType = Bond.DOUBLE;
+			if (b.bondType == Bond.SINGLE && b.stereo == 0) {
+				b.bondType = Bond.DOUBLE;
 				event = JME.SET_BOND_DOUBLE;
 			} else {
-				mol.bonds[mol.touchedBond].bondType = Bond.SINGLE;
-				mol.bonds[mol.touchedBond].stereo = 0;
+				b.bondType = Bond.SINGLE;
+				b.stereo = 0;
 				event = JME.SET_BOND_SINGLE;
 			}
-			mol.bonds[mol.touchedBond].stereo = 0; // zrusi stereo
+			b.stereo = 0; // zrusi stereo
 		} else if (action == Actions.ACTION_BOND_DOUBLE) {
-			boolean differentBondOrder = mol.bonds[mol.touchedBond].bondType != Bond.DOUBLE;
-			mol.bonds[mol.touchedBond].bondType = Bond.DOUBLE;
+			boolean differentBondOrder = b.bondType != Bond.DOUBLE;
+			b.bondType = Bond.DOUBLE;
 			if (!differentBondOrder) {
-				mol.bonds[mol.touchedBond].toggleNormalCrossedDoubleBond();
+				mol.toggleDoubleBondStereo(b);
 			} else {
-				mol.bonds[mol.touchedBond].stereo = 0; // zrusi stereo
+				b.stereo = 0; // zrusi stereo
 			}
 			cleanPolar = true;
 			event = JME.SET_BOND_DOUBLE;
-		} else if (action == Actions.ACTION_BOND_TRIPLE) {
-			mol.bonds[mol.touchedBond].bondType = Bond.TRIPLE;
-			mol.bonds[mol.touchedBond].stereo = 0; // zrusi stereo
+		} else if (action == Actions.ACTION_BOND_TRIPLE && !b.smallRing) {
+			b.bondType = Bond.TRIPLE;
+			b.stereo = 0; // zrusi stereo
 			cleanPolar = true;
 			event = JME.SET_BOND_TRIPLE;
 		} else if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {

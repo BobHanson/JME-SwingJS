@@ -1205,6 +1205,7 @@ public class GUI {
 	}
 
 	public static class RingInfo {
+		// all bitsets are 1-based, as in JME
 		final public BitSet bsAromaticRings = new BitSet();
 		final public BitSet bsAromaticBonds = new BitSet();
 		final public List<Ring> rings = new ArrayList<>();
@@ -1271,11 +1272,26 @@ public class GUI {
 					}
 				}
 			}
+			
+			// a nice improvement on this would be to check for conjugation, 
+			// weighting the assignment based on that. This only affects
+			// fused ring systems with enone enes for the fusion.
+			
 			// set non-ring bond guides if we can,
 			// based on substituent directions
+			// also remove EZ stereochemistry from small-ring double bonds
+			
 			for (int i = 1; i <= mol.nbonds; i++) {
 				Bond b = mol.bonds[i];
-				if (b.bondType == Bond.DOUBLE) {
+				int type = b.bondType;
+				if 	(bsRingBonds.get(i)) {
+					b.smallRing = true;
+					if (type == Bond.TRIPLE)
+						b.bondType = Bond.SINGLE; // hate to do this here...
+				}
+				if (type == Bond.DOUBLE) {
+
+					
 					if (!Double.isNaN(b.guideX)) {
 						continue; // already done
 					}
