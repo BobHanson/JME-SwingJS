@@ -1,7 +1,6 @@
 package jme.core;
 
 import java.awt.geom.Rectangle2D;
-import java.awt.geom.Rectangle2D.Double;
 
 /**
  *

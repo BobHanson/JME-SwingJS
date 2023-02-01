@@ -76,7 +76,6 @@ import jme.core.Atom;
 import jme.core.AtomBondCommon;
 import jme.core.Bond;
 import jme.core.Box;
-import jme.core.Box.Axis;
 import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
 import jme.core.JMECore.Parameters.HydrogenParams;
