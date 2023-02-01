@@ -1651,7 +1651,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		double margin = JMECore.RBOND;
 
-		Rectangle2D.Double cdbb = getChemicalDrawingBoundingBox(graphicalObjecList); // is empty if no molecules
+		Rectangle2D.Double cdbb = getChemicalDrawingPixelBoundingBox(graphicalObjecList); // is empty if no molecules
 		Dimension mabb = getMolecularAreaPixelDimensions();
 
 		if (cdbb.isEmpty() || mabb == null || mabb.getWidth() == 0 || mabb.getHeight() == 0) {
@@ -1876,10 +1876,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * 
 	 * @return
 	 */
-	public static Rectangle2D.Double getChemicalDrawingBoundingBox(Graphical2DObjectGroup<?> graphicalObjecList) {
+	public static Rectangle2D.Double getChemicalDrawingPixelBoundingBox(Graphical2DObjectGroup<?> graphicalObjecList) {
 
 		// leave a margin around the molecule
-		double margin = (double) JMECore.RBOND / 2;
+		double margin = JMECore.RBOND / 2;
 		Rectangle2D.Double boundingBox = Graphical2DObject.newBoundingBox(graphicalObjecList);
 		if (boundingBox != null && !boundingBox.isEmpty()) {
 			boundingBox.x -= margin;
@@ -1920,7 +1920,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * return -1 if there is nothing to display
 	 */
 	public double maximumScaleDisplayArea() {
-		Rectangle2D.Double boundingBox = getChemicalDrawingBoundingBox(this.graphicalObjectList());
+		Rectangle2D.Double boundingBox = getChemicalDrawingPixelBoundingBox(this.graphicalObjectList());
 
 		if (boundingBox == null)
 			return -1;
@@ -2552,100 +2552,106 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// Feb 2020
 		newMolecules.scaleInternalBondMolList();
 		if (newMolecules.isReaction()) {
-			options.reaction = true;
-			options.multipart = true;
-
-			double spacing = JMECore.RBOND;
-			Graphical2DObjectGroup<Graphical2DObjectGroup<Graphical2DObject>> groups = new Graphical2DObjectGroup<Graphical2DObjectGroup<Graphical2DObject>>();
-
-			Graphical2DObjectGroup<Graphical2DObject> agentGroup = null;
-
-			for (int role : JMEmol.ReactionRole.all) {
-				JMEmolList mols = newMolecules.reactionParts(role);
-
-				Graphical2DObjectGroup<Graphical2DObject> group = new Graphical2DObjectGroup<Graphical2DObject>();
-				group.addAll(mols.asGroup());
-
-				if (role != JMEmol.ReactionRole.AGENT) {
-					group.distributePositions(Box.Axis.X, spacing, true);
-					group.alignCenter(Box.Axis.Y);
-
-				} else {
-
-					// reaction agents on top and below the arrow
-					int pos = (int) ((0.5 * group.size()) + 0.5);
-					group.add(pos, reactionArrow);
-					group.distributePositions(Box.Axis.Y, spacing, false);
-					group.alignCenter(Box.Axis.X);// this is centering along Y axis
-
-					agentGroup = group;
-
-				}
-
-				groups.add(group);
-
-			}
-
-			groups.distributePositions(Box.Axis.X, spacing, false);
-			groups.alignCenter(Box.Axis.Y); // this is centering along x axis
-
-			// move the agent group such that it is aligned with the center of the two other
-			// groups
-			assert (agentGroup != null && agentGroup.size() >= 1); // the agent group contains the arrow
-			Graphical2DObject.move(agentGroup, Box.Axis.Y, agentGroup.centerY() - reactionArrow.centerY());
-
-			// new June 2017: split the reaction components if needed after the alignment is
-			// done
-			// such that each molecule can be moved individually
-			// the coordinates are not changed
-			newMolecules.splitFragments(true);
-
-			// addedToExistingMultipartOrReaction is not implemented
-			// would be much more complex
-			moleculePartsList.removeAll();
-			moleculePartsList.addAll(newMolecules);
-
-			// For reaction, it is better to scale down if this a big reaction
-			molecularAreaScalePixelsPerCoord = this.scaleAndCenterForDepictMode(graphicalObjectList(moleculePartsList));
-
+			processIncomingReaction(newMolecules);
 		} else {
-
-			if (isDepict() || pasteFromSDFstack) { // BB let the incoming structure determine the editor mode when in
-													// depict mode
-				options.reaction = false;
-				// multipart = false;
-			}
-			boolean addedToExistingMultipartOrReaction = canBeAddedToExistingMultipartOrReaction();
-
-			if (!addedToExistingMultipartOrReaction) {
-				moleculePartsList.removeAll(); // the new parts will not be appended to the moleculeParts[]
-				resetMolecularAreaScale(); // could be an option
-			}
-
-			double scale = isDepict() ? 1.0 : molecularAreaScalePixelsPerCoord; // in depict mode, the scale will be
-																				// recomputed
-			// afterwards
-			centerAllMoleculesAsAgroup(graphicalObjectList(newMolecules), scale);
-
-			if (!isDepict()) { // solve the cross fragment issue with atom highlighting based on atom indices
-								// (CT3 chemotyper-like display)
-				newMolecules.splitFragments(true);
-			}
-
-			moleculePartsList.addAll(newMolecules); // newMolecules must be internal scaled and centered as a group
-													// before addition
-
-			if (isDepict()) {
-				// if the molecules are too big to fit => recompute the scale
-				molecularAreaScalePixelsPerCoord = scaleAndCenterForDepictMode(graphicalObjectList(moleculePartsList));
-			}
-
+			processIncomingMoleculeGroup(newMolecules);
 		}
 
 		// coloring tu, inak pri multiupart problemy
 		moleculePartsList.setAtomBackGroundColors(atomBgColors);
 		assert (moleculePartsList.size() > 0);
 		return newMolecules.first();
+	}
+
+	private void processIncomingMoleculeGroup(JMEmolList newMolecules) {
+		if (isDepict() || pasteFromSDFstack) { // BB let the incoming structure determine the editor mode when in
+			// depict mode
+			options.reaction = false;
+			// multipart = false;
+		}
+		boolean addedToExistingMultipartOrReaction = canBeAddedToExistingMultipartOrReaction();
+
+		if (!addedToExistingMultipartOrReaction) {
+			moleculePartsList.removeAll(); 
+			// the new parts will not be appended to the moleculeParts[]
+			resetMolecularAreaScale(); 
+			// could be an option
+		}
+
+		double scale = isDepict() ? 1.0 : molecularAreaScalePixelsPerCoord; // in depict mode, the scale will be
+		// recomputed afterwards
+		centerAllMoleculesAsAgroup(graphicalObjectList(newMolecules), scale);
+
+		if (!isDepict()) { 
+			// solve the cross fragment issue with atom highlighting based on atom indices
+			// (CT3 chemotyper-like display)
+			newMolecules.splitFragments(true);
+		}
+		moleculePartsList.addAll(newMolecules); 
+		// newMolecules must be internal scaled and centered as a group
+		// before addition
+		if (isDepict()) {
+			// if the molecules are too big to fit => recompute the scale
+			molecularAreaScalePixelsPerCoord = scaleAndCenterForDepictMode(graphicalObjectList(moleculePartsList));
+		}
+	}
+
+	private void processIncomingReaction(JMEmolList newMolecules) {
+		options.reaction = true;
+		options.multipart = true;
+		double spacing = JMECore.RBOND;
+		Graphical2DObjectGroup<Graphical2DObjectGroup<Graphical2DObject>> groups = new Graphical2DObjectGroup<Graphical2DObjectGroup<Graphical2DObject>>();
+
+		Graphical2DObjectGroup<Graphical2DObject> agentGroup = null;
+
+		for (int role : JMEmol.ReactionRole.all) {
+			JMEmolList mols = newMolecules.reactionParts(role);
+
+			Graphical2DObjectGroup<Graphical2DObject> group = new Graphical2DObjectGroup<Graphical2DObject>();
+			group.addAll(mols.asGroup());
+
+			if (role != JMEmol.ReactionRole.AGENT) {
+				group.distributePositions(Box.Axis.X, spacing, true);
+				group.alignCenter(Box.Axis.Y);
+
+			} else {
+
+				// reaction agents on top and below the arrow
+				int pos = (int) ((0.5 * group.size()) + 0.5);
+				group.add(pos, reactionArrow);
+				group.distributePositions(Box.Axis.Y, spacing, false);
+				group.alignCenter(Box.Axis.X);// this is centering along Y axis
+
+				agentGroup = group;
+
+			}
+
+			groups.add(group);
+
+		}
+
+		groups.distributePositions(Box.Axis.X, spacing, false);
+		groups.alignCenter(Box.Axis.Y); // this is centering along x axis
+
+		// move the agent group such that it is aligned with the center of the two other
+		// groups
+		assert (agentGroup != null && agentGroup.size() >= 1); // the agent group contains the arrow
+		Graphical2DObject.move(agentGroup, Box.Axis.Y, agentGroup.centerY() - reactionArrow.centerY());
+
+		// new June 2017: split the reaction components if needed after the alignment is
+		// done
+		// such that each molecule can be moved individually
+		// the coordinates are not changed
+		newMolecules.splitFragments(true);
+
+		// addedToExistingMultipartOrReaction is not implemented
+		// would be much more complex
+		moleculePartsList.removeAll();
+		moleculePartsList.addAll(newMolecules);
+
+		// For reaction, it is better to scale down if this a big reaction
+		molecularAreaScalePixelsPerCoord = this.scaleAndCenterForDepictMode(graphicalObjectList(moleculePartsList));
+
 	}
 
 	/**
@@ -2938,7 +2944,22 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			molecularAreaImage = createOrResizePreciseImage(molecularAreaImage, molecularArea.width,
 					molecularArea.height);
 
-			if (!isDepict()) {
+			if (isDepict()) {
+				// depict mode
+				double oldMolecularAreaScale = this.molecularAreaScalePixelsPerCoord;
+
+				// will recompute the molecular area scale
+				this.molecularAreaScalePixelsPerCoord = this.scaleAndCenterForDepictMode(this.graphicalObjectList());
+
+				log("update() in depict mode: oldMolecularAreaScale = " + oldMolecularAreaScale
+						+ " new   molecularAreaScale = " + molecularAreaScalePixelsPerCoord);
+
+				assert topMenuImage == null;
+				assert leftMenuImage == null;
+				assert infoAreaImage == null;
+				assert rightBorderImage == null;
+
+			} else {
 				// update the menu's and the info area
 
 				topMenuImage = createOrResizePreciseImage(topMenuImage, dimension.width, topMenuHeight());
@@ -2953,32 +2974,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 				rightBorderImage = createOrResizePreciseImage(rightBorderImage, rightBorder(),
 						this.molecularArea.height);
-
-				// New october 2019
-				// JMEmol.centerMolList(this, this.moleculeParts, this.numberofMoleculeParts);
-
-			} else {
-				// depict mode
-				double oldMolecularAreaScale = this.molecularAreaScalePixelsPerCoord;
-
-				// will recompute the molecular area scale
-				this.molecularAreaScalePixelsPerCoord = this.scaleAndCenterForDepictMode(this.graphicalObjectList());
-
-				// October 2019: No molecule alignment : wee keep the layout of the original
-				// molecules
-				// TODO: for reactions
-				// alignMolecules(1, numberofMoleculeParts, 0, isDepict()); //code copied from
-				// the depict option initialisation
-				// moleculePartsList.scaleInternalBondMolList(); // THIS IS NOT NEEDED!!!!
-				// JMEmol.centerMolList(this, this.moleculeParts, this.numberofMoleculeParts);
-
-				log("update() in depict mode: oldMolecularAreaScale = " + oldMolecularAreaScale
-						+ " new   molecularAreaScale = " + molecularAreaScalePixelsPerCoord);
-
-				assert topMenuImage == null;
-				assert leftMenuImage == null;
-				assert infoAreaImage == null;
-				assert rightBorderImage == null;
 			}
 		}
 
@@ -3210,7 +3205,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //			return; // not implemented yet
 		// this.appletHasBeenResized = false;
 
-		Rectangle2D.Double chemicalDrawingBoundingBox = getChemicalDrawingBoundingBox(graphicalObjecList);
+		Rectangle2D.Double chemicalDrawingBoundingBox = getChemicalDrawingPixelBoundingBox(graphicalObjecList);
 		if (chemicalDrawingBoundingBox == null)
 			return;
 		// molecule coordinate
