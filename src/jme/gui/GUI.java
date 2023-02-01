@@ -920,10 +920,10 @@ public class GUI {
 								 */
 			// TODO: the java implemenrtation does not support drag and drop
 			drawDragAndDropIcon(og, 1.0);
-			if (jme.options.fullScreenIconOption && JME.isFullScreenSupported())
-				drawFullScreenIcon(og, 1.0, dragAndDropIcon);
-			else
-				fullScreenIcon = null;
+//			if (jme.options.fullScreenIconOption && JME.isFullScreenSupported())
+//				drawFullScreenIcon(og, 1.0, dragAndDropIcon);
+//			else
+//				fullScreenIcon = null;
 		}
 
 		if (imgWidth > 100 && jme.doDrawChiralText()) {

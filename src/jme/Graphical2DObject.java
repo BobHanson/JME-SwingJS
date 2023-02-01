@@ -6,6 +6,7 @@ package jme;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.geom.Rectangle2D.Double;
 
 import jme.core.Box;
 
@@ -60,7 +61,8 @@ public interface Graphical2DObject {
 	 * @return an empty box if empty
 	 */
 	public static Rectangle2D.Double newBoundingBox(Graphical2DObject o) {
-		return o.computeBoundingBoxWithAtomLabels(null);
+		Rectangle2D.Double box = o.computeBoundingBoxWithAtomLabels(null);
+		return (box == null ? new Rectangle2D.Double() : box);
 	}
 
 	/**

@@ -1016,6 +1016,11 @@ public class JMEBuilder {
 		return event;
 	}
 
+	public String checkAtomOrBondAction() {
+		return (touchedAtom > 0 ? checkAtomAction() 
+				: touchedBond > 0 ? checkBondAction() : null);
+	}
+	
 	public String checkAtomAction() {
 		String event = null;
 		if (action == Actions.ACTION_DELETE) {
@@ -1071,14 +1076,12 @@ public class JMEBuilder {
 		return event;
 	}
 
-	public boolean deleteAtomOrBond() {
-		if (mol.touchedAtom == 0 && mol.touchedBond == 0)
-			return false;
+	public void deleteAtomOrBond() {
 		if (mol.touchedAtom > 0) {
 			mol.deleteAtom(mol.touchedAtom);
 			jme.recordAtomEvent(JME.DEL_ATOM);
 			mol.touchedAtom = 0;
-		} else {
+		} else if (mol.touchedBond > 0) {
 			// problem is here issue #18
 			Bond b = mol.bonds[mol.touchedBond];
 			int deletableAtoms = mol.deleteBond(mol.touchedBond, false);
@@ -1100,9 +1103,10 @@ public class JMEBuilder {
 				break;
 			}
 			mol.touchedBond = 0;
+		} else {
+			// should never be here
 		}
 		mol.cleanAfterChanged(jme.options.polarnitro); // to add Hs
-		return true;
 	}
 
 	public void newMolecule(double x, double y) {

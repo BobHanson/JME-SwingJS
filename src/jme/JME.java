@@ -2679,7 +2679,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// called from JavaScript menu, sets Rgroup
 	public void setSubstituent(String s) {
 		// substituent menu
-		int pressed = -1;
+		int pressed = 0;
 		if (s.equals("Select substituent")) {
 			pressed = Actions.ACTION_BOND_SINGLE;
 			s = "";
@@ -3477,14 +3477,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			handleMouseEnterActionMenu(Actions.ACTION_REACP);
 			return true;
 		case Actions.ACTION_DELETE:
-			if (!getBuilder(activeMol).deleteAtomOrBond())
+			if (activeMol.touchedAtom == 0 && activeMol.touchedBond == 0)
 				return false;
-			updatePartsList();
+			doDeleteAtomOrBond();
 			return true;
 		case Actions.ACTION_CHARGE:
-			if (activeMol.touchedAtom == 0 || !activeMol.changeCharge(activeMol.touchedAtom, 0))
+			if (activeMol.touchedAtom == 0)
 				return false;
-			this.recordAtomEvent(CHARGE_ATOM0); // same code as in mouseDown event
+			if (!doChangeCharge())
+				return false;
 			return true;
 		case Actions.ACTION_SPIRO:
 			getBuilder(null).spiroAdding = true;
@@ -3512,6 +3513,19 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			return false;
 		}
 		return false;
+	}
+
+	private boolean doChangeCharge() {
+		getBuilder(activeMol).checkAtomOrBondAction();
+		if (activeMol.changeCharge(activeMol.touchedAtom, 0)) {
+			this.recordAtomEvent(CHARGE_ATOM0);
+			return true;
+		}
+		return false;
+	}
+
+	private void doDeleteAtomOrBond() {
+		getBuilder(activeMol).checkAtomOrBondAction();
 	}
 
 	private boolean handleMouseLeaveActionMenu(int action) {
@@ -4049,8 +4063,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (!isInMolecularArea(x, y)) {
 			// --- menu pressed
 			int action = gui.determineMenuAction(x, y, true);
-			return (action == 0 || isMouseDownActionAllowed(action) ? (mouseDownWasUsed = processAction(action))
-					: eventNotUsed);
+			return (action == 0 || isMouseDownActionAllowed(action) 
+					&& (mouseDownWasUsed = processAction(action)));
 		}
 
 		// --- mouse click in the drawing area
@@ -4091,18 +4105,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		movePossible = true;
 		boolean returnStatus;
 		if (activeMol.touchedAtom > 0 && canDoAtomOrBondAction(action)) {
-			Boolean ret = processAtomPicked();
-			if (ret == Boolean.TRUE)
-				return true;
-			returnStatus = (ret == null);
+			processAtomPicked();
+			returnStatus = true;
 		} else if (activeMol.touchedBond > 0 && canDoAtomOrBondAction(action)) {
-			Boolean ret = processBondPicked(0);
-			if (ret == Boolean.TRUE)
-				return true;
-			returnStatus = (ret == null);
+			processBondPicked(0);
+			returnStatus = true;
 		} else if ((moleculePartsList.isReallyEmpty() || newMolecule == true) && !isDepict()) {
 			if (action <= Actions.ACTION_STEREO)
-				return eventNotUsed;
+				return true;
 			// free space clicked - new molecule
 			// creating new molecule only on start or when Actions.ACTION_NEW is on
 
@@ -4117,21 +4127,23 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		} else {
 			returnStatus = false;
 		}
-		if (returnStatus != eventNotUsed) {// BB: if nothing has changed - there is no need to repaint
-
+		if (returnStatus) {
+			// BB: if nothing has changed - there is no need to repaint
 			this.setMustRedrawMolecularArea(true);
 			this.repaint();
 		}
 
-		return (mouseDownWasUsed = returnStatus);
+		// set a flag to all depict toggling
+		mouseDownWasUsed = returnStatus;
+		return returnStatus;
 	}
 
-	private Boolean processAtomPicked() {
+	private boolean processAtomPicked() {
 		// atom clicked
 		lastTouched.mol = activeMol;
 		if (action == Actions.ACTION_QRY) { // setting atom as query atom
 			if (queryBox.isBondQuery())
-				return Boolean.TRUE;
+				return true;
 			activeMol.setAtom(activeMol.touchedAtom, queryBox.getSmarts());
 			activeMol.isQuery = true; // 2013.09
 
@@ -4185,7 +4197,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			int thisAtom = activeMol.touchedAtom;
 			String event = getBuilder(activeMol).checkAtomAction();
 			if (event == null) {
-				return Boolean.FALSE;
+				return false;
 			}
 			if (event == "RETURN_TRUE") {
 				// DELGROUP returned "true" meaning used, so return is not eventNotUsed
@@ -4195,7 +4207,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				recordAtomEvent(event, thisAtom);
 			}
 		}
-		return null;
+		return true;
 	}
 
 	/**
@@ -4350,15 +4362,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 
 		// mouse click on the full screen icon
-		if (eventUsed == false && !this.mouseDownWasUsed && gui.fullScreenIcon != null) {
-			if (gui.fullScreenIcon.contains(x, y)) {
+		if (!eventUsed && gui.fullScreenIcon != null && gui.fullScreenIcon.contains(x, y)) {
 				eventUsed = true;
 				toggleFullScreen();
-			}
-		}
-
-		// handle toggle depict/edit
-		if (options.toggleDepictEdit && !this.mouseDownWasUsed && !eventUsed) {
+		} else if (!eventUsed && !mouseDownWasUsed && options.toggleDepictEdit) {
+			// handle toggle depict/edit
 			if (this.isDepict()) {
 				this.options("nodepict"); // menu is ready and paintedafter this call
 				// new Feb 2020
@@ -7068,7 +7076,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		/* final */ public boolean starBondOnly = false;
 		/* final */ public boolean starNothing = false;
 		/* final */ public boolean stereo = true;
-		/* final */ public boolean toggleDepictEdit = false;
+		/* final */ public boolean toggleDepictEdit = true;//false;
 		// BB
 		/* final */ public boolean useOclIdCode = false;
 		// OpenChemLib option: useOclIDCode
@@ -7222,8 +7230,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		 * @return null if option not found
 		 */
 		private Boolean parseOption(String option, String negativePrefix) {
-			boolean pos = (options.indexOf(" " + option + " ") >= 0);
-			boolean neg = (options.indexOf(" " + negativePrefix + option) >= 0);
+			boolean pos = (options.indexOf(";" + option + ";") >= 0);
+			boolean neg = (options.indexOf(";" + negativePrefix + option) >= 0);
 			if (pos && neg) {
 				log("check option " + option);
 				return null;

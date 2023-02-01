@@ -34,8 +34,10 @@ class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2D
 		}
 	}
 
+	/**
+	 *@return null if nothing here
+	 */
 	@Override
-	// duplicated code with JMEmolList
 	public Rectangle2D.Double computeBoundingBoxWithAtomLabels(Rectangle2D.Double union) {
 		for (T go : group) {
 			union = go.computeBoundingBoxWithAtomLabels(union);
