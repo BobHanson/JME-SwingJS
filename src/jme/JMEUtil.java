@@ -7,7 +7,6 @@ import jme.js.RunAsyncCallback;
 
 public interface JMEUtil {
 
-	
 	enum Axis {X, Y}
 
 	public static boolean isSwingJS = /** @j2sNative true || */false;
