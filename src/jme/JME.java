@@ -325,7 +325,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	public double menuScale = 1.0; // BB scaling the menu
 	protected final double minMenuScale = 0.7;
-	protected final double maxMenuScale = 4;
+	protected final double maxMenuScale = 2;
 
 	public final static boolean scalingIsPerformedByGraphicsEngine = true; // BB, gives nicer looking depiction
 
@@ -383,7 +383,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public static final int LA_SCALE = 8; // BB used for scaling on touch event
 	public static final int LA_FAILED = 9; // failed to create bond or ring
 
-	final static protected Dimension nonFullScreenSize = new Dimension();
+	final protected Dimension nonFullScreenSize = new Dimension();
 
 	final static protected double fullScreenScale = 3;
 
@@ -1647,7 +1647,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// internally scaled
 		// such that its average bond length is equal the RBOND
 
-		double scaleToFit = this.molecularAreaScalePixelsPerCoord;
+		double scaleToFit = molecularAreaScalePixelsPerCoord;
 
 		double margin = JMECore.RBOND;
 
@@ -1670,7 +1670,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			scaleToFit = Math.min(ratioWidth, ratioHeight);
 			// shrink
 		} else {
-			scaleToFit = 1.0; // no need to increase the size because of internal bond scaling
+			scaleToFit = molecularAreaScalePixelsPerCoord;
+			//BH?? 1.0 does not work when full screen -- or does it??
+			// no need to increase the size because of internal bond scaling
 		}
 
 		centerAllMoleculesAsAgroup(graphicalObjecList, scaleToFit);
@@ -2729,6 +2731,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected String menuXShortcuts = null;
 
 	private JMEBuilder builder;
+	private Dimension nonFullFrameSize;
+	private double nonFullScreenMenuScale;
+	private Point nonFullFrameLocation;
+	private double nonFullFrameMolecularAreaScalePixelsPerCoord;
 
 	/**
 	 * Specify custom keyboard shortcuts letters for the X menu box. These new
@@ -3233,27 +3239,43 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * Java applet only. FIXME: recompute bond center?
 	 */
 	protected void toggleFullScreen() {
-		System.out.println("drawFullScreen " + this.isFullScreen);
 		this.mustRedrawEverything();
 		Dimension newDim;
-		if (!isFullScreen) {
+		Dimension frameSize = (myFrame == null ? null : myFrame.getSize());
+		if (!isFullScreen && myFrame != null && myFrame.getExtendedState() == JFrame.MAXIMIZED_BOTH)
+			return;
+		if (isFullScreen) {
+			molecularAreaScalePixelsPerCoord = nonFullFrameMolecularAreaScalePixelsPerCoord;
+			menuScale = nonFullScreenMenuScale;
+			newDim = nonFullScreenSize;
+			if (myFrame != null) {
+				myFrame.setResizable(true);
+				myFrame.setVisible(false);
+				myFrame.setSize(nonFullFrameSize);
+				myFrame.setLocation(nonFullFrameLocation);
+				myFrame.setVisible(true);
+			}
+		} else {
 			// save current dimension
+			nonFullScreenMenuScale = menuScale;
 			nonFullScreenSize.setSize(this.dimension.width, this.dimension.height);
-			newDim = Toolkit.getDefaultToolkit().getScreenSize();
+			nonFullFrameMolecularAreaScalePixelsPerCoord = molecularAreaScalePixelsPerCoord;
+			if (myFrame != null) {
+				nonFullFrameSize = frameSize;
+				nonFullFrameLocation = myFrame.getLocation();
+				myFrame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+				myFrame.setResizable(false);
+				newDim = myFrame.getContentPane().getSize();
+			} else {
+				newDim = Toolkit.getDefaultToolkit().getScreenSize();
+			}
 			molecularAreaScalePixelsPerCoord = Math.min(molecularAreaScalePixelsPerCoord * fullScreenScale,
 					maxMolecularAreaScale);
 			menuScale = Math.min(menuScale * fullScreenScale, maxMenuScale);
-
-		} else {
-			molecularAreaScalePixelsPerCoord = Math.max(molecularAreaScalePixelsPerCoord / fullScreenScale,
-					minmolecularAreaScale);
-			menuScale = Math.max(menuScale / fullScreenScale, minMenuScale);
-			newDim = nonFullScreenSize;
-
 		}
 		isFullScreen = !isFullScreen;
 		this.setSize(newDim);
-
+	
 	}
 
 	// ----------------------------------------------------------------------------
@@ -4367,20 +4389,23 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				toggleFullScreen();
 		} else if (!eventUsed && !mouseDownWasUsed && options.toggleDepictEdit) {
 			// handle toggle depict/edit
-			if (this.isDepict()) {
-				this.options("nodepict"); // menu is ready and paintedafter this call
-				// new Feb 2020
-				this.centerAllMoleculesAsAgroup(this.graphicalObjectList(), molecularAreaScalePixelsPerCoord);
-				this.redrawMolecularAreaOnly();
-
-			} else {
-				this.options("depict");
-			}
-			this.handleAfterAfterDepictEditToggleEvent();
+			toggleDepict();
 			eventUsed = true;
 		}
 		mouseShift = false; // BH added ? right?
 		return eventUsed;
+	}
+
+	private void toggleDepict() {
+		if (this.isDepict()) {
+			this.options("nodepict"); // menu is ready and paintedafter this call
+			this.centerAllMoleculesAsAgroup(this.graphicalObjectList(), molecularAreaScalePixelsPerCoord);
+			this.redrawMolecularAreaOnly();
+
+		} else {
+			this.options("depict");
+		}
+		this.handleAfterAfterDepictEditToggleEvent();
 	}
 
 	public boolean mouseDrag(MouseEvent e, int x, int y) {
@@ -7076,7 +7101,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		/* final */ public boolean starBondOnly = false;
 		/* final */ public boolean starNothing = false;
 		/* final */ public boolean stereo = true;
-		/* final */ public boolean toggleDepictEdit = true;//false;
+		/* final */ public boolean toggleDepictEdit = false;
 		// BB
 		/* final */ public boolean useOclIdCode = false;
 		// OpenChemLib option: useOclIDCode
@@ -7595,10 +7620,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					// normal font (ak bola mensia molekula) sa nastavi v
 					// drawMolecularArea
 					gui.menuCellSize = GUI.standardMenuCellSize;
-					if (activeMol != null) {
-						// mol.needRecentering = true; // october 2019 bug
-					}
-
 					paste = true; // BB March 2014 :
 					// paste option will be set below
 					resetAllGraphics();
