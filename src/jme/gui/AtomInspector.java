@@ -2,6 +2,7 @@ package jme.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Container;
+import java.awt.Dimension;
 import java.awt.Event;
 import java.awt.FlowLayout;
 import java.awt.Point;
@@ -133,6 +134,7 @@ public class AtomInspector {
 			modalDialog.setTitle(title);
 			atomicMapField.setText("" + change.getAtomValue());
 			// recompute the layount
+			modalDialog.setMinimumSize(new Dimension(250, 100));
 			modalDialog.pack();
 			Point loc = event.jme.getLocationOnScreen();
 			modalDialog.setLocation(loc.x + event.x + 30, loc.y + event.y);
