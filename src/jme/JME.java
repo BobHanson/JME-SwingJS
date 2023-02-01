@@ -974,21 +974,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * 
 	 * @return
 	 */
-	protected JPopupMenu createMolJPopupMenu(JMEmol mol, int eventX, int eventY) {
+	protected JPopupMenu createMolJPopupMenu(int eventX, int eventY) {
+		JMEmol mol = activeMol;
 		JPopupMenu popup = new JPopupMenu();
-
-		boolean showAtomMappingToolsInMenu = this.params.number || options.autonumber || options.reaction;
-		JMenuItem setUnsetChiralFlagJMenuItem;
-		if (mol.getChiralFlag()) {
-			setUnsetChiralFlagJMenuItem = new JMenuItem(unSetChiralFlagAction);
-		} else {
-			setUnsetChiralFlagJMenuItem = new JMenuItem(setChiralFlagAction);
-		}
-
-		setUnsetChiralFlagJMenuItem.setEnabled(mol.canBeChiral());
-
-		popup.add(setUnsetChiralFlagJMenuItem);
-		setUnsetChiralFlagJMenuItem.addActionListener(this);
+		JMenuItem item = new JMenuItem(mol.getChiralFlag() ? unSetChiralFlagAction : setChiralFlagAction);
+		item.setEnabled(mol.canBeChiral());
+		popup.add(item);
+		item.addActionListener(this);
 
 		if (mol.touchedAtom > 0) {
 			this.inspectorEvent.reset();
@@ -999,50 +991,49 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			this.inspectorEvent.molIndex = this.activeMolIndex();
 
 		}
+		boolean showAtomMappingToolsInMenu = this.params.number || options.autonumber || options.reaction;
 		if (showAtomMappingToolsInMenu && mol.touchedAtom > 0) {
-			JMenuItem atomInspectoJMenuItem = new JMenuItem(
+			item = new JMenuItem(
 					this.params.mark ? changeAtomMarkAction : changeAtomMapAction);
-			atomInspectoJMenuItem.addActionListener(this.inspectorEvent);
-
-			popup.add(atomInspectoJMenuItem);
+			item.addActionListener(this.inspectorEvent);
+			popup.add(item);
 		}
 
 		// charge handling
 		if (mol.touchedAtom > 0) {
 			// BB July 2022: renable the charge change
-			JMenuItem atomInspectoJMenuItem = new JMenuItem(changeAtomChargeAction);
-			atomInspectoJMenuItem.addActionListener(this.inspectorEvent);
-			popup.add(atomInspectoJMenuItem);
+			item = new JMenuItem(changeAtomChargeAction);
+			item.addActionListener(this.inspectorEvent);
+			popup.add(item);
 		}
 
 		// add a 2D computation only if Openchemlib is enabled
-		if (options.useOpenChemLib) {
-			JMenuItem compute2DJMenuItem = new JMenuItem(compute2DcoordinatesMoleculeAction);
-			popup.add(compute2DJMenuItem);
-			compute2DJMenuItem.addActionListener(this);
+		if (options.useOpenChemLib && !mol.has2Dcoordinates()) {
+			// BH 2023 added check for has2Dcoordinates because
+			// computation will return null anyway in this case
+			item = new JMenuItem(compute2DcoordinatesMoleculeAction);
+			popup.add(item);
+			item.addActionListener(this);
 		}
 
-		JMenuItem deleteHydrogensJMenuItem = new JMenuItem(deleteHydrogensMoleculeAction);
-		deleteHydrogensJMenuItem.setEnabled(mol.hasHydrogen());
+		item = new JMenuItem(deleteHydrogensMoleculeAction);
+		item.setEnabled(mol.hasHydrogen());
 
-		popup.add(deleteHydrogensJMenuItem);
-		deleteHydrogensJMenuItem.addActionListener(this);
-
+		popup.add(item);
+		item.addActionListener(this);
 		if (showAtomMappingToolsInMenu) {
-			JMenuItem mapJMenuItem = new JMenuItem(autoAtomMapMoleculeAction);
-			mapJMenuItem.addActionListener(this);
-			popup.add(mapJMenuItem);
-
-			mapJMenuItem = new JMenuItem(deleteAtomMapMoleculeAction);
-			mapJMenuItem.addActionListener(this);
-			popup.add(mapJMenuItem);
-			mapJMenuItem.setEnabled(mol.getMaxAtomMap() > 0);
+			item = new JMenuItem(autoAtomMapMoleculeAction);
+			item.addActionListener(this);
+			popup.add(item);
+			item = new JMenuItem(deleteAtomMapMoleculeAction);
+			item.addActionListener(this);
+			popup.add(item);
+			item.setEnabled(mol.getMaxAtomMap() > 0);
 
 		}
-
-		JMenuItem bondInspectoJMenuItem = new JMenuItem();
+		item = new JMenuItem();
 		String label = bondSetCoordinationAction;
-		bondInspectoJMenuItem.setEnabled(false);
+		item.setEnabled(false);
 		if (mol.touchedBond > 0) {
 			Bond bond = mol.bonds[mol.touchedBond];
 			if (bond.isSingle() || bond.isCoordination()) {
@@ -1054,17 +1045,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				this.inspectorEvent.x = eventX;
 				this.inspectorEvent.y = eventY;
 				this.inspectorEvent.molIndex = this.activeMolIndex();
-
-				bondInspectoJMenuItem.setEnabled(true);
-				bondInspectoJMenuItem.addActionListener(this);
-
+				item.setEnabled(true);
+				item.addActionListener(this);
 			}
 		}
-		bondInspectoJMenuItem.setText(label);
-		popup.add(bondInspectoJMenuItem);
-
+		item.setText(label);
+		popup.add(item);
 		return popup;
-
 	}
 
 	// BB - this method can be used only by input events methods
@@ -6265,7 +6252,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					this.remove(this.touchedMolPopuMenu);
 
 				}
-				touchedMolPopuMenu = this.createMolJPopupMenu(activeMol, x, y);
+				touchedMolPopuMenu = createMolJPopupMenu(x, y);
 				this.add(touchedMolPopuMenu); // set the parent the popup
 				touchedMolPopuMenu.show(this, x, y);
 			} else {
