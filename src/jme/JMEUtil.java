@@ -1,5 +1,6 @@
 package jme;
 
+import java.awt.geom.Rectangle2D;
 import java.util.StringTokenizer;
 
 import jme.js.RunAsyncCallback;
@@ -7,6 +8,8 @@ import jme.js.RunAsyncCallback;
 public interface JMEUtil {
 
 	
+	enum Axis {X, Y}
+
 	public static boolean isSwingJS = /** @j2sNative true || */false;
 
 	/**
@@ -118,6 +121,26 @@ public interface JMEUtil {
 
 	public static void log(String s) {
 		//System.out.println(s);	
+	}
+
+	static double get(Rectangle2D.Double box, Axis xOrY) {
+		return (xOrY == Axis.X? box.getX(): box.getY());
+	}
+
+	static double getDim(Rectangle2D.Double box, Axis xOrY) {
+		return xOrY == Axis.X ? box.getWidth(): box.getHeight();
+	}
+
+	static Rectangle2D.Double createUnion(Rectangle2D.Double box, Rectangle2D.Double r, Rectangle2D.Double union) {
+		if (union == null) {
+			union = new Rectangle2D.Double();
+			union.setFrame(box);
+		} else {
+			Rectangle2D.union(union, box, union);
+		}
+		if (r != null && r != union)
+			Rectangle2D.union(union, r, union);
+		return union;
 	}
 
 }

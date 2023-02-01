@@ -9,7 +9,6 @@ import java.util.StringTokenizer;
 import jme.core.Atom;
 import jme.core.AtomBondCommon;
 import jme.core.Bond;
-import jme.core.Box;
 import jme.core.JMECore;
 import jme.core.JMESmiles;
 import jme.gui.Actions;
@@ -853,7 +852,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 			return union;
 		computeAtomLabels();
 		for (int i = 1; i <= natoms; i++)
-			union = Box.createUnion(atomLabels[i].drawBox, union, union);
+			union = JMEUtil.createUnion(atomLabels[i].drawBox, union, union);
 		return union;
 	}
 

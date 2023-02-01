@@ -7,8 +7,6 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
-import jme.core.Box;
-
 /**
  * @author bruno
  *
@@ -27,15 +25,15 @@ public interface Graphical2DObject {
 
 	public double centerY();
 
-	public static void move(Graphical2DObject o, Box.Axis xOrY, double d) {
-		if (xOrY == Box.Axis.X)
+	public static void move(Graphical2DObject o, JMEUtil.Axis xOrY, double d) {
+		if (xOrY == JMEUtil.Axis.X)
 			o.moveXY(d, 0);
 		else
 			o.moveXY(0, d);
 	}
 
-	public static double center(Graphical2DObject o, Box.Axis xOrY) {
-		return (xOrY == Box.Axis.X ? o.centerX() : o.centerY());
+	public static double center(Graphical2DObject o, JMEUtil.Axis xOrY) {
+		return (xOrY == JMEUtil.Axis.X ? o.centerX() : o.centerY());
 	}
 
 	public static void move(Graphical2DObject o, double movex, double movey, Rectangle2D.Double boundingBoxLimits) {

@@ -10,7 +10,6 @@ import java.util.StringTokenizer;
 import jme.JME.SupportedFileFormat;
 import jme.core.Atom;
 import jme.core.Bond;
-import jme.core.Box;
 import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
 import jme.io.JMEWriter;
@@ -567,7 +566,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			//create a new instance each time this method is called
 			Rectangle2D.Double moleculeBox = mol.computeCoordinate2DboundingBox(); 
 			if(moleculeBox != null) //if no atoms
-				boundingBox = (boundingBox == null ? moleculeBox : Box.createUnion(boundingBox, moleculeBox, boundingBox));
+				boundingBox = (boundingBox == null ? moleculeBox : JMEUtil.createUnion(boundingBox, moleculeBox, boundingBox));
 		}
 		return boundingBox;
 	}
@@ -606,12 +605,12 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	 * 
 	 */
 	public void distributeAndCenterPositionsHorizontally(double margin) {
-		distributePositions(Box.Axis.X, margin);
-		alignCenter(Box.Axis.Y);
+		distributePositions(JMEUtil.Axis.X, margin);
+		alignCenter(JMEUtil.Axis.Y);
 	}
 	public void distributeAndCenterPositionsVertically(double margin) {
-		distributePositions(Box.Axis.Y, margin);
-		alignCenter(Box.Axis.X);
+		distributePositions(JMEUtil.Axis.Y, margin);
+		alignCenter(JMEUtil.Axis.X);
 	}
 	
 	/**
@@ -620,7 +619,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	 * @param xOrY
 	 * @param margin
 	 */
-	public void distributePositions(final Box.Axis xOrY, double margin) {
+	public void distributePositions(final JMEUtil.Axis xOrY, double margin) {
 		
 		Graphical2DObjectGroup<JMEmol> distributer = new Graphical2DObjectGroup<JMEmol>();
 		distributer.addAll(this);
@@ -628,14 +627,14 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	}
 	
 	public void alignCenterY() {
-		alignCenter(Box.Axis.Y);
+		alignCenter(JMEUtil.Axis.Y);
 	}
 	
 	/**
 	 * Align all my molecules along the given axis
 	 * @param xOrY
 	 */
-	public void alignCenter(Box.Axis xOrY) {
+	public void alignCenter(JMEUtil.Axis xOrY) {
 		
 		Graphical2DObjectGroup<JMEmol> aligner = new Graphical2DObjectGroup<JMEmol>(this);
 		aligner.alignCenter(xOrY);
@@ -759,7 +758,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			mol.moveXY(dx, dy);
 		}
 	}
-	public void move(Box.Axis xOrY, double dist) {
+	public void move(JMEUtil.Axis xOrY, double dist) {
 		for(JMEmol mol: this) {
 			Graphical2DObject.move(mol, xOrY, dist);
 		}
