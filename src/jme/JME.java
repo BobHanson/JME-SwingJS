@@ -2127,11 +2127,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	/**
 	 * input can be a MOL, RXN, smiles or SMIRKS or OCL
 	 * 
-	 * @j2sAlias HRI
 	 * @param s
-	 */
-
-	
+	 */	
 	public void handleReadGenericInput(String s, RunAsyncCallback sucessAndFailureHandler, boolean repaint,
 			boolean recordEvent) {
 
@@ -2191,10 +2188,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				// code splitting used to run OpenChemlib code
 				JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
-					@Override
 					/**
-					 * @j2sAlias onXXXX
+					 * @j2sAlias onSuccess
 					 */
+					@Override
 					public void onSuccess() {
 						oclSuccess(cfd, sucessAndFailureHandler, recordEvent, repaint);
 					}
@@ -3678,6 +3675,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public void alert(final String message) {
 		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
+			/**
+			 * @j2sAlias onSuccess
+			 */
 			@Override
 			public void onSuccess() {
 
@@ -3694,6 +3694,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected void handleAboutBox() {
 		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
+			/**
+			 * @j2sAlias onSuccess
+			 */
 			@Override
 			public void onSuccess() {
 
@@ -3712,6 +3715,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected void handleQueryBox() {
 		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
+			/**
+			 * @j2sAlias onSuccess
+			 */
 			@Override
 			public void onSuccess() {
 
@@ -3747,6 +3753,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected void handleSmilesBox() {
 		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
+			/**
+			 * @j2sAlias onSuccess
+			 */
 			@Override
 			public void onSuccess() {
 				if (smilesBox != null) {
@@ -3764,6 +3773,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected void handleAtomXbox() {
 		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
+			/**
+			 * @j2sAlias onSuccess
+			 */
 			@Override
 			public void onSuccess() {
 
@@ -5413,6 +5425,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// compute2Dcoordinates needs openchemlib
 			JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
+				/**
+				 * @j2sAlias onSuccess
+				 */
 				@Override
 				public void onSuccess() {
 					compute2DSuccess();
@@ -5597,14 +5612,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			break;
 
 		case SVG:
-//			GWT.runAsync(new JSME_RunAsyncCallback() {
-//
-//				@Override
-//				public void onSuccess() {
-//					callBack.onSuccess(JME.this.getOclSVG());
-//				}
-//				
-//			});
+			JMEUtil.runAsync(new JSME_RunAsyncCallback() {
+
+				@Override
+				public void onSuccess() {
+					callBack.onSuccess(JME.this.getOclSVG());
+				}
+				
+			});
 			break;
 
 		case RAW_STRING_GRAPHIC:
@@ -5777,11 +5792,17 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 		pasteGenericInput(clipboardContent, true, new RunAsyncCallback() {
 
+			/**
+			 * @j2sAlias onFailure
+			 */
 			@Override
 			public void onFailure(Throwable reason) {
 				// read_MOL_SDF_RXN has already handled the error
 			}
 
+			/**
+			 * @j2sAlias onSuccess
+			 */
 			@Override
 			public void onSuccess() {
 				// callback to client
@@ -5829,6 +5850,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		RunAsyncCallback localSucessAndFailureHandle = new RunAsyncCallback() {
 
+			/**
+			 * @j2sAlias onFailure
+			 */
 			@Override
 			public void onFailure(Throwable reason) {
 				info("ERROR: " + reason.getMessage()); // the readMolFile() method has already generated a message
@@ -5838,6 +5862,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 			}
 
+			/**
+			 * @j2sAlias onSuccess
+			 */
 			@Override
 			public void onSuccess() {
 				info("Structure pasted. " + sdfPastedMessage.innnerString);

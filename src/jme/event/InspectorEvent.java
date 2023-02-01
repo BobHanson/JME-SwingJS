@@ -41,6 +41,9 @@ public class InspectorEvent implements ActionListener {
 
 		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
 
+			/**
+			 * @j2sAlias onSuccess
+			 */
 			@Override
 			public void onSuccess() {
 				ChangeAtomPropertyCallback change = null;
