@@ -25,7 +25,6 @@ import java.awt.Color;
 import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.Event;
 import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.Point;
@@ -4664,8 +4663,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			return false;
 		clearInfo();
 
-		boolean shift = e.getModifiers() == Event.SHIFT_MASK;
-		boolean alt = e.getModifiers() == Event.ALT_MASK;
+		boolean shift = e.getModifiers() == KeyEvent.SHIFT_MASK;
+		boolean alt = e.getModifiers() == KeyEvent.ALT_MASK;
 		// On Mac: meta is down for system copy
 		boolean meta = isMacintosh() ? e.isMetaDown() : e.isControlDown();
 
@@ -4762,14 +4761,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		case KeyEvent.VK_DELETE: // 127
 			return Actions.ACTION_DELETE;
 		case 'M': // BB
-		case Event.PGUP:
+		case KeyEvent.VK_PAGE_UP:
 			return Actions.ACTION_PGUP;
 		case 'W': // BB
-		case Event.PGDN:
+		case KeyEvent.VK_PAGE_DOWN:
 			return Actions.ACTION_PGDN;
-		case Event.HOME:
+		case KeyEvent.VK_HOME:
 			return Actions.ACTION_HOME;
-		case Event.END:
+		case KeyEvent.VK_END:
 			return Actions.ACTION_END;
 		case KeyEvent.VK_ESCAPE: // esc
 			return Actions.ACTION_BOND_SINGLE;

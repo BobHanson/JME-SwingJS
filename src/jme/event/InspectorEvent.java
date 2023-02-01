@@ -54,12 +54,12 @@ public class InspectorEvent implements ActionListener {
 						
 						@Override
 						public void setAtomValue(int newValue) {
-							InspectorEvent.this.changeAtomMap(newValue);
+							changeAtomMap(newValue);
 						}
 						
 						@Override
 						public int getAtomValue() {
-							return InspectorEvent.this.getAtomMap();
+							return getAtomMap();
 						}
 
 						@Override
@@ -69,13 +69,13 @@ public class InspectorEvent implements ActionListener {
 
 						@Override
 						public void reportError(String errorMessage) {
-							InspectorEvent.this.reportError(errorMessage);
+							showError(errorMessage);
 						}
 
 						@Override
 						public void finished() {
-							InspectorEvent.this.jme.setAtomToHighLight(molIndex, 0);
-							InspectorEvent.this.jme.requestFocusInWindow();
+							jme.setAtomToHighLight(molIndex, 0);
+							jme.requestFocusInWindow();
 						}
 						
 					};
@@ -105,13 +105,13 @@ public class InspectorEvent implements ActionListener {
 
 						@Override
 						public void reportError(String errorMessage) {
-							InspectorEvent.this.reportError(errorMessage);
+							showError(errorMessage);
 						}
 
 						@Override
 						public void finished() {
-							InspectorEvent.this.jme.setAtomToHighLight(molIndex, 0);
-							InspectorEvent.this.jme.requestFocusInWindow();
+							jme.setAtomToHighLight(molIndex, 0);
+							jme.requestFocusInWindow();
 							
 						}
 							
@@ -124,7 +124,7 @@ public class InspectorEvent implements ActionListener {
 				if (change != null) {
 					change.atomSymbol = mol.getAtomLabel(atomIndex);
 					AtomInspector atomInspector = new AtomInspector(change);
-					InspectorEvent.this.jme.setAtomToHighLight(molIndex, atomIndex);
+					jme.setAtomToHighLight(molIndex, atomIndex);
 					atomInspector.action(InspectorEvent.this);
 					
 				}
@@ -137,17 +137,17 @@ public class InspectorEvent implements ActionListener {
 
 	protected void changeAtomMap(int newMap) {
 		if (newMap >=0) {
-			this.jme.changeAtomMap(this.mol, this.atomIndex, newMap);
+			jme.changeAtomMap(this.mol, this.atomIndex, newMap);
 		} else {
-			this.reportError("Atom map or mark should be positive");
+			showError("Atom map or mark should be positive");
 		}
 	}
 
 	protected void changeAtomCharge(int newCharge) {
-		this.jme.changeAtomCharge(this.mol, this.atomIndex, newCharge);
+		jme.changeAtomCharge(this.mol, this.atomIndex, newCharge);
 	}
-	public void reportError(String message) {
-		this.jme.showError(message);
+	public void showError(String message) {
+		jme.showError(message);
 
 	}
 

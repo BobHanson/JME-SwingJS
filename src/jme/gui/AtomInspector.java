@@ -1,8 +1,11 @@
 package jme.gui;
 
 import java.awt.BorderLayout;
+import java.awt.Container;
 import java.awt.Event;
 import java.awt.FlowLayout;
+import java.awt.Point;
+import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -13,7 +16,9 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
+import jme.JME;
 import jme.event.ChangeAtomPropertyCallback;
 import jme.event.InspectorEvent;
 
@@ -29,9 +34,6 @@ public class AtomInspector {
 	ActionListener actionListener;
 	JTextField atomicMapField;
 	ChangeAtomPropertyCallback change;
-
-
-	
 	@SuppressWarnings("serial")
 	public AtomInspector(ChangeAtomPropertyCallback change) {
 		// Create an OK button
@@ -40,68 +42,66 @@ public class AtomInspector {
 		atomicMapField = new JTextField("0", 4);
 		this.change = change;
 
-//		actionListener = new  ActionListener()
-//		{
-//			public void actionPerformed( ActionEvent e )
-//			{
-//				// Hide dialog
-//				modalDialog.setVisible(false);
-//				if(e.getSource() == ok) {
-//					//make the changes
-//					//System.out.println("Here: " + atomicMapField.getText());
-//					try {
-//						int newMap = Integer.parseInt(atomicMapField.getText());
-//						inspectorEvent.changeAtomMap(newMap);
-//
-//					} catch (NumberFormatException exception) {
-//						inspectorEvent.reportError("invalid atom map");
-//					}
-//				}
-//			}
-//		};
-		// Create a modal dialog
-
-		// parent : should be the applet window
-		this.window = new JFrame();
-
-		modalDialog = new JDialog(this.window) {
+		actionListener = new ActionListener() {
 			@Override
-			public boolean action(Event e, Object arg) {
-				this.setVisible(false);
-				if (e.target == ok) {
+			public void actionPerformed(ActionEvent e) {
+				// Hide dialog
+				modalDialog.setVisible(false);
+				if (e.getSource() == ok) {
 					// make the changes
 					// System.out.println("Here: " + atomicMapField.getText());
 					String newInputValue = atomicMapField.getText().trim();
-					//int oldValue = AtomInspector.this.change.getAtomValue();
+					// int oldValue = AtomInspector.this.change.getAtomValue();
 					try {
 						int newValue = Integer.parseInt(newInputValue);
-						AtomInspector.this.change.setAtomValue(newValue);
+						change.setAtomValue(newValue);
 
 					} catch (NumberFormatException exception) {
-						 AtomInspector.this.change.reportError("invalid atom " + AtomInspector.this.change.actionType() + ": " +  newInputValue);
+						change.reportError(
+								"invalid atom " + AtomInspector.this.change.actionType() + ": " + newInputValue);
 					}
 				}
-				AtomInspector.this.change.finished();
-
-				return true;
 			}
 
 		};
-		
-		
+		// Create a modal dialog
+
+
+		modalDialog = new JDialog();
+//		{
+//			@Override
+//			public boolean action(Event e, Object arg) {
+//				this.setVisible(false);
+//				if (e.target == ok) {
+//					// make the changes
+//					// System.out.println("Here: " + atomicMapField.getText());
+//					String newInputValue = atomicMapField.getText().trim();
+//					//int oldValue = AtomInspector.this.change.getAtomValue();
+//					try {
+//						int newValue = Integer.parseInt(newInputValue);
+//						AtomInspector.this.change.setAtomValue(newValue);
+//
+//					} catch (NumberFormatException exception) {
+//						 AtomInspector.this.change.reportError("invalid atom " + AtomInspector.this.change.actionType() + ": " +  newInputValue);
+//					}
+//				}
+//				AtomInspector.this.change.finished();
+//
+//				return true;
+//			}
+//
+//		};
+
 		modalDialog.setModal(true);
 		// Use a flow layout
 		modalDialog.setLayout(new FlowLayout());
 
-		// action listener is not implemented in JSapplet
-//		ok.addActionListener( actionListener );
-//		
-//		cancel.addActionListener( actionListener );
+		ok.addActionListener(actionListener);
+		cancel.addActionListener(actionListener);
 		String label = "New atom " + change.actionType();
 		modalDialog.add(new JLabel(label));
 		modalDialog.add(ok);
 		modalDialog.add(cancel);
-
 		modalDialog.setLayout(new BorderLayout(2, 0)); // 2, 0 gaps
 
 		JPanel p = new JPanel();
@@ -129,24 +129,17 @@ public class AtomInspector {
 
 	public void action(InspectorEvent event) {
 		if (event.atomIndex > 0) {
-			String title = "Change " + change.actionType() +  " of atom  "  + change.atomSymbol + " #"  + event.atomIndex;
+			String title = "Change " + change.actionType() + " of atom  " + change.atomSymbol + " #" + event.atomIndex;
 			modalDialog.setTitle(title);
-			atomicMapField.setText( ""  + change.getAtomValue());
-
-
-
+			atomicMapField.setText("" + change.getAtomValue());
 			// recompute the layount
 			modalDialog.pack();
-			modalDialog.setLocation(event.x + 30, event.y);
+			Point loc = event.jme.getLocationOnScreen();
+			modalDialog.setLocation(loc.x + event.x + 30, loc.y + event.y);
 			// Show dialog
 			modalDialog.setVisible(true);
-			
-			//atomicMapField.focus();
-			// This will only work when the widget is attached to the document and not
-			//atomicMapField.selectAll(); // the dialog is not visible yet, thus there is no effect
-
-			//modalDialog.setVisible(true);
-
+			atomicMapField.requestFocusInWindow();
+			atomicMapField.select(0, 1000);
 		}
 
 	}
