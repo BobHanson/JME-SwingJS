@@ -4,7 +4,7 @@ import java.util.StringTokenizer;
 
 import jme.js.RunAsyncCallback;
 
-public abstract class JMEUtil {
+public interface JMEUtil {
 
 	
 	public static boolean isSwingJS = /** @j2sNative true || */false;
@@ -116,9 +116,8 @@ public abstract class JMEUtil {
 		return (len == 0 ? s : rightJustify("          ".substring(0, len), s));
 	}
 
-	public static void log(String string) {
-		// TODO Auto-generated method stub
-	
+	public static void log(String s) {
+		//System.out.println(s);	
 	}
 
 }
