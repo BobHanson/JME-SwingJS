@@ -2,12 +2,15 @@ package jme.core;
 
 import java.awt.geom.Rectangle2D;
 
-public class Box {
+/**
+ *
+ * @author hansonr
+ *
+ */
+public interface Box {
 	
 	public enum Axis {X, Y};
 
-	private Box() {}
-	 
 	public static double get(Rectangle2D.Double box, Axis xOrY) {
 		return (xOrY == Axis.X? box.getX(): box.getY());
 	}
