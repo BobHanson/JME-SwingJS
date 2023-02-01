@@ -71,11 +71,12 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 import jme.ColorManager.ColorInfo;
-import jme.JMEUtil.Axis;
 import jme.JMEmol.ReactionRole;
 import jme.core.Atom;
 import jme.core.AtomBondCommon;
 import jme.core.Bond;
+import jme.core.Box;
+import jme.core.Box.Axis;
 import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
 import jme.core.JMECore.Parameters.HydrogenParams;
@@ -2567,16 +2568,16 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				group.addAll(mols.asGroup());
 
 				if (role != JMEmol.ReactionRole.AGENT) {
-					group.distributePositions(JMEUtil.Axis.X, spacing, true);
-					group.alignCenter(JMEUtil.Axis.Y);
+					group.distributePositions(Box.Axis.X, spacing, true);
+					group.alignCenter(Box.Axis.Y);
 
 				} else {
 
 					// reaction agents on top and below the arrow
 					int pos = (int) ((0.5 * group.size()) + 0.5);
 					group.add(pos, reactionArrow);
-					group.distributePositions(JMEUtil.Axis.Y, spacing, false);
-					group.alignCenter(JMEUtil.Axis.X);// this is centering along Y axis
+					group.distributePositions(Box.Axis.Y, spacing, false);
+					group.alignCenter(Box.Axis.X);// this is centering along Y axis
 
 					agentGroup = group;
 
@@ -2586,13 +2587,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 			}
 
-			groups.distributePositions(JMEUtil.Axis.X, spacing, false);
-			groups.alignCenter(JMEUtil.Axis.Y); // this is centering along x axis
+			groups.distributePositions(Box.Axis.X, spacing, false);
+			groups.alignCenter(Box.Axis.Y); // this is centering along x axis
 
 			// move the agent group such that it is aligned with the center of the two other
 			// groups
 			assert (agentGroup != null && agentGroup.size() >= 1); // the agent group contains the arrow
-			Graphical2DObject.move(agentGroup, JMEUtil.Axis.Y, agentGroup.centerY() - reactionArrow.centerY());
+			Graphical2DObject.move(agentGroup, Box.Axis.Y, agentGroup.centerY() - reactionArrow.centerY());
 
 			// new June 2017: split the reaction components if needed after the alignment is
 			// done

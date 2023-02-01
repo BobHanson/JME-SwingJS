@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 
+import jme.core.Box;
+
 class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2DObject {
 
 	ArrayList<T> group;
@@ -80,7 +82,7 @@ class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2D
 	 * 
 	 * @param xOrY
 	 */
-	public void alignCenter(JMEUtil.Axis xOrY) {
+	public void alignCenter(Box.Axis xOrY) {
 		double groupCenter = Graphical2DObject.center(this, xOrY);
 
 		for (Graphical2DObject go : this.group) {
@@ -118,7 +120,7 @@ class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2D
 		return size() == 0;
 	}
 
-	public void distributePositions(final JMEUtil.Axis xOrY, double margin) {
+	public void distributePositions(final Box.Axis xOrY, double margin) {
 		distributePositions(xOrY, margin, true);
 	}
 
@@ -131,7 +133,7 @@ class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2D
 	 * @param margin
 	 * @param keepXorYorder
 	 */
-	public void distributePositions(final JMEUtil.Axis xOrY, double margin, boolean keepXorYorder) {
+	public void distributePositions(final Box.Axis xOrY, double margin, boolean keepXorYorder) {
 
 		if (this.size() <= 1) {
 			return;
@@ -149,8 +151,8 @@ class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2D
 				@Override
 				public int compare(T m1, T m2) {
 					// -1 - less than, 1 - greater than, 0 - equal, all inversed for descending
-					double x2 = JMEUtil.get(m1.computeBoundingBoxWithAtomLabels(null), xOrY);
-					double x1 = JMEUtil.get(m2.computeBoundingBoxWithAtomLabels(null), xOrY);
+					double x2 = Box.get(m1.computeBoundingBoxWithAtomLabels(null), xOrY);
+					double x1 = Box.get(m2.computeBoundingBoxWithAtomLabels(null), xOrY);
 					return x1 > x2 ? -1 : (x2 < x1) ? 1 : 0;
 				}
 			});
@@ -158,9 +160,9 @@ class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2D
 		double sumMove = 0;
 		for (T mol : sorted.group) {
 			Rectangle2D.Double moleculeBox = mol.computeBoundingBoxWithAtomLabels(null);
-			double move = sumMove - JMEUtil.get(moleculeBox, xOrY);
+			double move = sumMove - Box.get(moleculeBox, xOrY);
 			Graphical2DObject.move(mol, xOrY, move);
-			sumMove += JMEUtil.getDim(moleculeBox, xOrY) + margin;
+			sumMove += Box.getDim(moleculeBox, xOrY) + margin;
 		}
 
 		// the algorithm above move the objects.

@@ -4,6 +4,8 @@ import java.awt.Color;
 import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 
+import jme.core.Box;
+
 class ReactionArrow implements Graphical2DObject {
 
 	double arrowWidth = 24 * 2;
@@ -85,7 +87,7 @@ class ReactionArrow implements Graphical2DObject {
 	public Rectangle2D.Double computeBoundingBoxWithAtomLabels(Rectangle2D.Double union) {
 		updateBoundingBox();
 		if (union != null)
-			return JMEUtil.createUnion(boundingBox, union, union);
+			return Box.createUnion(boundingBox, union, union);
 		union = new Rectangle2D.Double();
 		union.setFrame(boundingBox);
 		return union;
