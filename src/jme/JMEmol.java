@@ -177,7 +177,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		}
 	}
 
-	public String createJMEString(Box boundingBox) {
+	public String createJMEString(Rectangle2D.Double boundingBox) {
 		return JMEWriter.createJMEString(this, false, boundingBox);
 	}
 
@@ -270,11 +270,11 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return color;
 	}
 
-	void forceUniColor(Color color) {
+	public void forceUniColor(Color color) {
 		this.uniColor = color;
 	}
 
-	void resetForceUniColor() {
+	public void resetForceUniColor() {
 		this.uniColor = null;
 	}
 
@@ -305,7 +305,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		if (natoms == 0)
 			return;
 
-		Rectangle2D.Double widthAndHeight = this.jme.getMolecularAreaBoundingBoxCoordinate00();
+		Rectangle2D.Double widthAndHeight = this.jme.getMolecularAreaCoordBoundingBox();
 		double xpix = widthAndHeight.width;
 		double ypix = widthAndHeight.height;
 
@@ -848,12 +848,12 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	}
 
 	@Override
-	public Box computeBoundingBoxWithAtomLabels(Box union) {
+	public Rectangle2D.Double computeBoundingBoxWithAtomLabels(Rectangle2D.Double union) {
 		if (natoms == 0)
 			return union;
 		computeAtomLabels();
 		for (int i = 1; i <= natoms; i++)
-			union = this.atomLabels[i].drawBox.createUnion(union, union);
+			union = Box.createUnion(atomLabels[i].drawBox, union, union);
 		return union;
 	}
 
@@ -1579,7 +1579,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 
 	public void rotate(double movex) {
 		if (Double.isNaN(centerx)) {
-			Box bbox = computeBoundingBoxWithAtomLabels(null);
+			Rectangle2D.Double bbox = computeBoundingBoxWithAtomLabels(null);
 			centerx = bbox.getCenterX();
 			centery = bbox.getCenterY();
 		}

@@ -6,13 +6,13 @@ package jme.gui;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
+import java.awt.geom.Rectangle2D;
 import java.util.BitSet;
 
 import jme.JMEmol;
 import jme.PreciseGraphicsAWT;
 import jme.core.Atom;
 import jme.core.Bond;
-import jme.core.Box;
 
 /**
  * @author bruno
@@ -24,7 +24,7 @@ public class AtomDisplayLabel {
 	public int alignment;
 	public boolean noLabelAtom;
 
-	public Box drawBox, fillSupBox, fillBox;
+	public Rectangle2D.Double drawBox, fillSupBox, fillBox;
 	public double labelX;
 	public double labelY;
 
@@ -169,14 +169,14 @@ public class AtomDisplayLabel {
 		// BH 2023.01.27 we need to fill more carefully, with 
 		// at least two boxes. otherwise charges get lost 
 		// whole bonds can disappear. See issue #11
-		fillBox = new Box(xstart - padding, ystart - padding, 
+		fillBox = new Rectangle2D.Double(xstart - padding, ystart - padding, 
 				fullWidth + 2 * padding - nsup * ssCharWidth * 0.6,
 				h + 2 * padding);
 		fillSupBox = (nsup == 0 ? null
-				: new Box(xstart - padding + fullWidth - nsup * ssCharWidth * 0.6, 
+				: new Rectangle2D.Double(xstart - padding + fullWidth - nsup * ssCharWidth * 0.6, 
 						ystart - padding,
 						nsup * ssCharWidth, h / 2));
-		Box box = this.drawBox = new Box(xstart - padding, ystart - padding - yAdj2 * h / 3, fullWidth + 2 * padding,
+		Rectangle2D.Double box = this.drawBox = new Rectangle2D.Double(xstart - padding, ystart - padding - yAdj2 * h / 3, fullWidth + 2 * padding,
 				h + 2 * padding + (yAdj1 + yAdj2) * h / 3);
 		this.mapString = null;
 		this.labelX = xstart + 1; // see
@@ -308,7 +308,7 @@ public class AtomDisplayLabel {
 			fillBox(og, fillSupBox);
 	}
 
-	private static void fillBox(PreciseGraphicsAWT og, Box r) {
+	private static void fillBox(PreciseGraphicsAWT og, Rectangle2D.Double r) {
 		double h = r.height;
 		og.fillRoundRect(r.x, r.y, r.width, h, h/2, h/2);
 	}

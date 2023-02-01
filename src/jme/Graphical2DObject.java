@@ -21,7 +21,7 @@ public interface Graphical2DObject {
 
 	public void moveXY(double movex, double movey);
 
-	public Box computeBoundingBoxWithAtomLabels(Box union);
+	public Rectangle2D.Double computeBoundingBoxWithAtomLabels(Rectangle2D.Double union);
 
 	public double centerX();
 
@@ -41,7 +41,7 @@ public interface Graphical2DObject {
 	public static void move(Graphical2DObject o, double movex, double movey, Rectangle2D.Double boundingBoxLimits) {
 		if (o.isEmpty())
 			return;
-		Box bbox = o.computeBoundingBoxWithAtomLabels(null);
+		Rectangle2D.Double bbox = o.computeBoundingBoxWithAtomLabels(null);
 		double centerx = bbox.getCenterX();
 		double centery = bbox.getCenterY();
 		if ((movex < 0 && centerx < boundingBoxLimits.x) || (movex > 0 && centerx > boundingBoxLimits.width)
@@ -59,7 +59,7 @@ public interface Graphical2DObject {
 	 * 
 	 * @return an empty box if empty
 	 */
-	public static Box newBoundingBox(Graphical2DObject o) {
+	public static Rectangle2D.Double newBoundingBox(Graphical2DObject o) {
 		return o.computeBoundingBoxWithAtomLabels(null);
 	}
 

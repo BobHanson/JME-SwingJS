@@ -1,5 +1,6 @@
 package jme.io;
 
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -11,7 +12,6 @@ import jme.JMEmol;
 import jme.core.Atom;
 import jme.core.AtomicElements;
 import jme.core.Bond;
-import jme.core.Box;
 import jme.core.JMECore;
 
 public class JMEWriter extends JMECore {
@@ -30,15 +30,15 @@ public class JMEWriter extends JMECore {
 		public boolean debugDoNotUpdateReactionRole = false;
 	}
 
-		public static String createJMEString(JMECore mol, boolean addHydrogens, Box box) {
+		public static String createJMEString(JMECore mol, boolean addHydrogens, Rectangle2D.Double box) {
 			return new JMEWriter(mol).createJME(addHydrogens, box);
 		}
 
-		public static String createMolFile(JMECore mol, String header, boolean stampDate, Box box) {
+		public static String createMolFile(JMECore mol, String header, boolean stampDate, Rectangle2D.Double box) {
 			return new JMEWriter(mol).createMolFile(header, stampDate, box);
 		}
 		
-		public static String createExtendedMolFile(JMEmol mol, String header, boolean stampDate, Box box) {
+		public static String createExtendedMolFile(JMEmol mol, String header, boolean stampDate, Rectangle2D.Double box) {
 			return new JMEWriter(mol).createExtendedMolFile(header, stampDate, box);
 		}
 
@@ -55,7 +55,7 @@ public class JMEWriter extends JMECore {
 		 * computed. Using this argument might be useful for a JMEmolList for which each
 		 * molecules are recentered globally, for the ensemble
 		 */
-		public void transformAtomCoordinatesForOutput(Box boundingBox) {
+		public void transformAtomCoordinatesForOutput(Rectangle2D.Double boundingBox) {
 
 			// atoms
 			double scale = 1.4 / JMECore.RBOND; // ??? co je standard scale ???
@@ -92,7 +92,7 @@ public class JMEWriter extends JMECore {
 		 * 
 		 * @return
 		 */
-		public String createJME(boolean addHydrogens, Box box) {
+		public String createJME(boolean addHydrogens, Rectangle2D.Double box) {
 			String s = "" + natoms + " " + nbonds;
 
 			this.transformAtomCoordinatesForOutput(box);
@@ -165,7 +165,7 @@ public class JMEWriter extends JMECore {
 		 * @param box 
 		 * @return
 		 */
-		public String createMolFile(String header, boolean stampDate, Box box) {
+		public String createMolFile(String header, boolean stampDate, Rectangle2D.Double box) {
 			// LP complained about this - v300 does not do it
 			// if (natoms == 0) return ""; // 2008.12
 
@@ -275,7 +275,7 @@ public class JMEWriter extends JMECore {
 
 		// ----------------------------------------------------------------------------
 		// Molfile V3000 - 2006.09
-		public String createExtendedMolFile(String header, boolean stampDate, Box box) {
+		public String createExtendedMolFile(String header, boolean stampDate, Rectangle2D.Double box) {
 
 			// int nradicals = 0;
 			// int[] radical = new int[natoms+1);

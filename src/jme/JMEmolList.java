@@ -3,6 +3,7 @@
  */
 package jme;
 
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
@@ -348,7 +349,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	 * @param showImplicitHydrogens : atom symbols like CH3
 	 * @return
 	 */
-	public String generateJMEstring(boolean showImplicitHydrogens, Box boundingBox) {
+	public String generateJMEstring(boolean showImplicitHydrogens, Rectangle2D.Double boundingBox) {
 		String result = "";
 		
 		if (isReaction) {
@@ -556,40 +557,42 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	 *
 	 * @return null if no atoms
 	 */
-	public Box computeCoordinate2DboundingBox() {
+	public Rectangle2D.Double computeCoordinate2DboundingBox() {
 		
-		Box boundingBox = null;
+		Rectangle2D.Double boundingBox = null;
 		
 		//loop through all molecules, extend the bounding box with each molecule
 		// correctedBoundingBox uses atom labels
 		for(JMEmol mol :this) {			
 			//create a new instance each time this method is called
-			Box moleculeBox = mol.computeCoordinate2DboundingBox(); 
+			Rectangle2D.Double moleculeBox = mol.computeCoordinate2DboundingBox(); 
 			if(moleculeBox != null) //if no atoms
-				boundingBox = (boundingBox == null ? moleculeBox : boundingBox.createUnion(moleculeBox, boundingBox));
+				boundingBox = (boundingBox == null ? moleculeBox : Box.createUnion(boundingBox, moleculeBox, boundingBox));
 		}
 		return boundingBox;
 	}
-		/**
-		 * uses atom labels
-		 * @return null if no atoms
-		 */
-	public Box computeBoundingBoxWithAtomLabels() {			
-			Box boundingBox = null;
-			for(JMEmol mol : this) {
-				boundingBox = mol.computeBoundingBoxWithAtomLabels(boundingBox);
-			}
-			return boundingBox;
+
+	/**
+	 * uses atom labels
+	 * 
+	 * @return null if no atoms
+	 */
+	public Rectangle2D.Double computeBoundingBoxWithAtomLabels() {
+		Rectangle2D.Double boundingBox = null;
+		for (JMEmol mol : this) {
+			boundingBox = mol.computeBoundingBoxWithAtomLabels(boundingBox);
+		}
+		return boundingBox;
 	}
 	/**
 	 * 
 	 * @return an empty box if no atoms
 	 */
-	public Box safeComputeBoundingBoxWithAtomLabels(double minWidth, double minHeight) {
+	public Rectangle2D.Double safeComputeBoundingBoxWithAtomLabels(double minWidth, double minHeight) {
 		
-		Box boundingBox = this.computeBoundingBoxWithAtomLabels();
+		Rectangle2D.Double boundingBox = this.computeBoundingBoxWithAtomLabels();
 		if (boundingBox == null) {
-			boundingBox = new Box();
+			boundingBox = new Rectangle2D.Double();
 		}
 		
 		

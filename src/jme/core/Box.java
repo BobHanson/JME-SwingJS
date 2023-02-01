@@ -2,76 +2,30 @@ package jme.core;
 
 import java.awt.geom.Rectangle2D;
 
-@SuppressWarnings("serial")
-public class Box extends Rectangle2D.Double {
+public class Box {
 	
 	public enum Axis {X, Y};
-	public final static Axis Axes[] = {Axis.X, Axis.Y};
-	
-	public Box(double x, double y, double width, double height) {
-		super(x,y,width,height); //why do we need to redefine the constructor?
-	}
-	
-	public Box() {
-	}
-	
-	@Override
-	public boolean isEmpty() {
-		return this.width <= 0 || this.height <= 0;
-	}
-	public double get(Axis xOrY) {
-		return xOrY == Axis.X? getX(): getY();
-	}
-	public double getDim(Axis xOrY) {
-		return xOrY == Axis.X ? getWidth(): getHeight();
+
+	private Box() {}
+	 
+	public static double get(Rectangle2D.Double box, Axis xOrY) {
+		return (xOrY == Axis.X? box.getX(): box.getY());
 	}
 
-	Box multiply(double factor) {
-		x *= factor ;
-		y *= factor;
-		width *= factor;
-		height *= factor;
-		
-		return  this;
+	public static double getDim(Rectangle2D.Double box, Axis xOrY) {
+		return xOrY == Axis.X ? box.getWidth(): box.getHeight();
 	}
 
-	/**
-	 * Duplicated code with super class to avoid type casting error at run time
-	 * 
-	 * @param r
-	 * @return
-	 */
-	public Box createUnion(Box r, Box union) {
+	public static Rectangle2D.Double createUnion(Rectangle2D.Double box, Rectangle2D.Double r, Rectangle2D.Double union) {
 		if (union == null) {
-			union = new Box();
-			union.setFrame(this);
+			union = new Rectangle2D.Double();
+			union.setFrame(box);
 		} else {
-			Box.union(union, this, union);
+			Rectangle2D.union(union, box, union);
 		}
 		if (r != null && r != union)
-			Box.union(union, r, union);
+			Rectangle2D.union(union, r, union);
 		return union;
 	}
 
-	int getRoundedWidth() {
-		return (int)Math.round(width);
-	}	
-	int getRoundedHeight() {
-		return (int)Math.round(height);
-	}
-	
-	int getRoundedTotalWidth(double multiply) {
-		return (int)Math.round((width  + x) * multiply);
-	}	
-	int getRoundedTotalHeight(double multiply) {
-		return (int)Math.round((height + y) * multiply);
-	}
-	
-	int getRoundedX() {
-		return (int) Math.round(x);
-	}
-	
-	int getRoundedY() {
-		return (int) Math.round(y);
-	}
 }

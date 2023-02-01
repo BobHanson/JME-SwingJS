@@ -1,5 +1,7 @@
 package jme.core;
 
+import java.awt.geom.Rectangle2D;
+
 import jme.event.JMEStatusListener;
 
 /**
@@ -1088,8 +1090,8 @@ public class JMECore {
 		return nparts;
 	}
 
-	public Box computeCoordinate2DboundingBox() {
-		Box bbox = null;
+	public Rectangle2D.Double computeCoordinate2DboundingBox() {
+		Rectangle2D.Double bbox = null;
 
 		if (natoms == 0)
 			return bbox;
@@ -1111,7 +1113,7 @@ public class JMECore {
 			maxy = Math.max(y, maxy);
 		}
 
-		bbox = new Box();
+		bbox = new Rectangle2D.Double();
 		bbox.x = minx;
 		bbox.y = miny;
 

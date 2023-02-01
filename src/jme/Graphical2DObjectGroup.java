@@ -1,5 +1,6 @@
 package jme;
 
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -35,7 +36,7 @@ class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2D
 
 	@Override
 	// duplicated code with JMEmolList
-	public Box computeBoundingBoxWithAtomLabels(Box union) {
+	public Rectangle2D.Double computeBoundingBoxWithAtomLabels(Rectangle2D.Double union) {
 		for (T go : group) {
 			union = go.computeBoundingBoxWithAtomLabels(union);
 		}
@@ -150,18 +151,18 @@ class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2D
 				@Override
 				public int compare(T m1, T m2) {
 					// -1 - less than, 1 - greater than, 0 - equal, all inversed for descending
-					double x2 = m1.computeBoundingBoxWithAtomLabels(null).get(xOrY);
-					double x1 = m2.computeBoundingBoxWithAtomLabels(null).get(xOrY);
+					double x2 = Box.get(m1.computeBoundingBoxWithAtomLabels(null), xOrY);
+					double x1 = Box.get(m2.computeBoundingBoxWithAtomLabels(null), xOrY);
 					return x1 > x2 ? -1 : (x2 < x1) ? 1 : 0;
 				}
 			});
 		}
 		double sumMove = 0;
 		for (T mol : sorted.group) {
-			Box moleculeBox = mol.computeBoundingBoxWithAtomLabels(null);
-			double move = sumMove - moleculeBox.get(xOrY);
+			Rectangle2D.Double moleculeBox = mol.computeBoundingBoxWithAtomLabels(null);
+			double move = sumMove - Box.get(moleculeBox, xOrY);
 			Graphical2DObject.move(mol, xOrY, move);
-			sumMove += moleculeBox.getDim(xOrY) + margin;
+			sumMove += Box.getDim(moleculeBox, xOrY) + margin;
 		}
 
 		// the algorithm above move the objects.
@@ -180,7 +181,7 @@ class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2D
 
 		Graphical2DObjectGroup<T> emptyList = new Graphical2DObjectGroup<T>();
 		for (T mol : this.group) {
-			Box moleculeBox = mol.computeBoundingBoxWithAtomLabels(null);
+			Rectangle2D.Double moleculeBox = mol.computeBoundingBoxWithAtomLabels(null);
 			if (moleculeBox == null || moleculeBox.isEmpty()) {
 				emptyList.add(mol);
 			}

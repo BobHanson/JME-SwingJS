@@ -1,9 +1,7 @@
 package jme.gui;
 
 import java.awt.BorderLayout;
-import java.awt.Container;
 import java.awt.Dimension;
-import java.awt.Event;
 import java.awt.FlowLayout;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
@@ -17,9 +15,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
 
-import jme.JME;
 import jme.event.ChangeAtomPropertyCallback;
 import jme.event.InspectorEvent;
 
@@ -35,7 +31,6 @@ public class AtomInspector {
 	ActionListener actionListener;
 	JTextField atomicMapField;
 	ChangeAtomPropertyCallback change;
-	@SuppressWarnings("serial")
 	public AtomInspector(ChangeAtomPropertyCallback change) {
 		// Create an OK button
 		final JButton ok = new JButton("OK");

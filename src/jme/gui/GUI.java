@@ -17,6 +17,7 @@ import javax.swing.JPopupMenu;
 import jme.ColorManager;
 import jme.ColorManager.ColorInfo;
 import jme.JME;
+import jme.JMEmol;
 import jme.PreciseGraphicsAWT;
 import jme.PreciseImage;
 import jme.core.Atom;
@@ -128,6 +129,8 @@ public class GUI {
 	private double ioArrowWidth;
 
 	static RingComparator ringComparator;
+
+	JMEmol uniColorMolecule = null;
 
 	// BB: the number of cells in the top menu - was ACTION_X
 	public static final int TOP_ACTION_COUNT = Actions.ACTION_JME - 100; // assume that ACTION_JME is the last menu
@@ -741,7 +744,7 @@ public class GUI {
 			return;
 
 		Rectangle2D.Double screenArea = new Rectangle2D.Double(jme.dimension.width - jme.rightBorder(),
-				jme.topMenuHeight(), jme.rightBorder(), jme.molecularAreaPixelHeight);
+				jme.topMenuHeight(), jme.rightBorder(), jme.molecularArea.height);
 		PreciseGraphicsAWT og = GUI.getScaledGraphicsOfPreciseImage(jme.rightBorderImage, jme.menuScale, screenArea);
 
 		double imgWidth = jme.rightBorder(1);
@@ -1366,5 +1369,188 @@ public class GUI {
 		return atomDrawingAreaFontMet;
 	}
 
+	/**
+	 * BB
+	 * 
+	 * Determine button-action matches the mouse coordinates.
+	 * 
+	 * Counting off cells in x and y coordinates, returning a row/column key.
+	 * 
+	 * @param x
+	 * @param y
+	 * @return  100 * row + column or 0 for none found
+	 */
+	public int determineMenuAction(double x, double y, boolean ignoreDisabledActions) {
+		int action = 0;
 
+		// convert the x,y event coordinate to the menu scale
+		x = (int) Math.round(x / jme.menuScale);
+		y = (int) Math.round(y / jme.menuScale);
+
+		if (x < jme.leftMenuWidth(1.0) || y < jme.topMenuHeight(1.0)) { // --- inside the menu area
+
+			int xbutton = 0;
+			for (int i = 1; i <= GUI.TOP_ACTION_COUNT; i++)
+				if (x < i * (menuCellSize + menuCellBorder())) {
+					xbutton = i;
+					break;
+				}
+			int ybutton = 0;
+			int n = jme.getLeftMenuCellCount();
+			double h = menuCellSize + menuCellBorder();
+			for (int i = 1; i <= n + 2; i++) {
+				if (y < i * h) {
+					ybutton = i;
+					break;
+				}
+			}
+			if (xbutton > 0 && ybutton > 0) {
+				action = ybutton * 100 + xbutton;
+			}
+		}
+
+		// TODO: filter out all actions that are disabled
+		if (ignoreDisabledActions) {
+			switch (action) {
+			case Actions.ACTION_REACP:
+				if (!jme.options.reaction)
+					action = 0;
+				break;
+			case Actions.ACTION_FG:
+				if (!jme.options.fgMenuOption)
+					action = 0;
+				break;
+
+			case Actions.ACTION_MARK:
+				if (jme.options.starNothing) {
+					action = 0;
+				}
+				break;
+			}
+
+		}
+		return action;
+	}
+
+	/**
+	 * mouse cursor move over the button square: special action
+	 * 
+	 * @param action
+	 * @return
+	 */
+	public boolean handleMouseEnterActionMenu(int action, JMEmol mol) {
+
+		// idea: show info for each button
+		// each action used here must also be declared in handleMouseLeaveActionMenu()
+		String note = null;
+		switch (action) {
+		case Actions.ACTION_NEW:
+			note = "Add new molecule";
+			break;
+		case Actions.ACTION_MOVE_AT:
+			note = "Move atom";
+			break;
+		case Actions.ACTION_FG:
+			note = "Add a functional group"; // BH added
+			break;
+		case Actions.ACTION_SPIRO:
+			note = "Activate spiro ring";
+			break;
+		case Actions.ACTION_STEREO:
+			note = "Stereo bond single or double";
+			break;
+		case Actions.ACTION_CHAIN:
+			note = "Create alkyl chain";
+			break;
+		case Actions.ACTION_DELETE:
+			note = "Delete atom or bond";
+			break;
+		case Actions.ACTION_DELGROUP:
+			note = "Click bond to delete smallest fragment";
+			break;
+		case Actions.ACTION_SMI:
+			note = "Show SMILES or SMIRKS";
+			break;
+		case Actions.ACTION_QRY:
+			note = "Open query box for SMARTS";
+			break;
+		case Actions.ACTION_AN_X:
+			note = "Select other atom type (" + jme.getAtomSymbolForX() + ")";
+			break;
+		case Actions.ACTION_AN_R:
+			note = "Select R group";
+			break;
+		}
+		if (note != null)
+			jme.info(note);
+		// if there is no atoms, then there is nothing to highlight
+		if (mol == null || mol.natoms == 0) {
+			return false;
+		}
+		switch (action) {
+		case Actions.ACTION_CLEAR:
+			note = (jme.moleculePartsList.size() > 1 ? "Delete selected molecule (red)" : "Clear canvas");
+			mol.forceUniColor(Color.RED);
+			uniColorMolecule = mol;
+			break;
+		case Actions.ACTION_REACP:
+			note = "Copy selected (blue) molecule to the other side of the reaction";
+			mol.forceUniColor(Color.BLUE);
+			uniColorMolecule = mol;
+		}
+		if (note == null) {
+			jme.setMustRedrawMolecularArea(false); // new oct 2016
+			mustReDrawTopMenu = false;
+		} else {
+			jme.info(note);
+			jme.setMustRedrawMolecularArea(true); // new oct 2016
+			mustReDrawTopMenu = true;
+		}
+		return note != null; // || mustReDrawMolecularArea || mustReDrawTopMenu;
+	}
+
+	/**
+	 * 
+	 * @param action
+	 * @return true if repaint needed
+	 */
+	public boolean handleMouseLeaveActionMenu(int action) {
+
+		switch (action) {
+		case Actions.ACTION_FG:
+		case Actions.ACTION_NEW:
+		case Actions.ACTION_MOVE_AT:
+		case Actions.ACTION_SPIRO:
+		case Actions.ACTION_SMI:
+		case Actions.ACTION_QRY:
+		case Actions.ACTION_AN_X:
+		case Actions.ACTION_AN_R:
+		case Actions.ACTION_STEREO:
+		case Actions.ACTION_CHAIN:
+		case Actions.ACTION_DELGROUP:
+		case Actions.ACTION_DELETE:
+			jme.clearInfo();
+			return true;
+		}
+		if (uniColorMolecule != null
+				&& (action == Actions.ACTION_CLEAR 
+				|| (jme.options.reaction && action == Actions.ACTION_REACP))) {
+
+			uniColorMolecule.resetForceUniColor();
+			uniColorMolecule = null;
+			for (JMEmol mol : jme.moleculePartsList) {
+				mol.resetForceUniColor();
+			}
+			jme.clearInfo();
+			jme.setMustRedrawMolecularArea(true);
+			mustReDrawTopMenu = true;
+		} else {
+			jme.setMustRedrawMolecularArea(false); // new october2016
+			mustReDrawTopMenu = false;
+		}
+		return mustReDrawMolecularArea;// || mustReDrawTopMenu;
+	}
+
+
+	
 }

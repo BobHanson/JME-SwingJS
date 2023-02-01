@@ -31,6 +31,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.beans.PropertyChangeEvent;
 import java.io.BufferedInputStream;
@@ -276,7 +277,7 @@ public class JmolJME extends JME implements WindowListener {
 	}
 
 	public Dimension getImageSize() {
-		jme.core.Box coordBox = activeMol.computeBoundingBoxWithAtomLabels(null);
+		Rectangle2D.Double coordBox = activeMol.computeBoundingBoxWithAtomLabels(null);
 		double f = molecularAreaScalePixelsPerCoord;
 		return new Dimension((int) (coordBox.width * f), (int) (coordBox.height * f));
 	}

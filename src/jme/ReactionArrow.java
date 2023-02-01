@@ -2,6 +2,7 @@ package jme;
 
 import java.awt.Color;
 import java.awt.geom.Line2D;
+import java.awt.geom.Rectangle2D;
 
 import jme.core.Box;
 
@@ -14,7 +15,7 @@ class ReactionArrow implements Graphical2DObject {
 	
 	public boolean hasBeenPlaced = false;
 	
-	Box boundingBox ;
+	Rectangle2D.Double boundingBox;
 	
 	
 	Line2D.Double horizontalLine = new Line2D.Double();
@@ -26,7 +27,7 @@ class ReactionArrow implements Graphical2DObject {
 
 	// TODO: use a base length propotiional to JMEmol RBond
 	public ReactionArrow(double size) {
-		this.boundingBox = new Box();
+		this.boundingBox = new Rectangle2D.Double();
 		this.arrowWidth = size;
 	}
 	
@@ -77,17 +78,17 @@ class ReactionArrow implements Graphical2DObject {
 		
 	}
 
-	public Box updateBoundingBox() {
+	public Rectangle2D.Double updateBoundingBox() {
 		boundingBox.setRect(centerX - arrowWidth / 2, centerY() + arrowHeigth() / 2, arrowWidth, arrowHeigth());
 		return boundingBox;
 	}
 	
 	@Override
-	public Box computeBoundingBoxWithAtomLabels(Box union) {
+	public Rectangle2D.Double computeBoundingBoxWithAtomLabels(Rectangle2D.Double union) {
 		updateBoundingBox();
 		if (union != null)
-			return boundingBox.createUnion(union, union);
-		union = new Box();
+			return Box.createUnion(boundingBox, union, union);
+		union = new Rectangle2D.Double();
 		union.setFrame(boundingBox);
 		return union;
 	}
