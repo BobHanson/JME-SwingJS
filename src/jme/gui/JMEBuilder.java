@@ -1163,4 +1163,22 @@ public class JMEBuilder {
 		System.err.println("error -report fall through bug Builder.newMolecule! " + action);
 	}
 
+	public boolean setAtom(int active_an) {
+		if (active_an != mol.an(mol.touchedAtom) && active_an != Atom.AN_X) {
+			mol.AN(mol.touchedAtom, active_an);
+			mol.Q(mol.touchedAtom, 0); // resetne naboj
+			// mol.iso[mol.touchedAtom] = 0; //BB: reset isotop
+			mol.atoms[mol.touchedAtom].iso = 0; // BB: reset isotop
+			// mol.nh[mol.touchedAtom] = 0;
+			mol.atoms[mol.touchedAtom].nh = 0;
+		} else if (active_an == Atom.AN_X) {
+			String xx = jme.atomicSymbol.getText();
+			mol.setAtom(mol.touchedAtom, xx);
+		} else {
+			return false;
+		}
+		jme.recordAtomEvent(JME.SET_ATOM);
+		return true;
+	}
+
 }

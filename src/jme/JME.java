@@ -2635,7 +2635,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			action = Actions.ACTION_GROUP_CC;
 
 		if (action > 0) {
-			processMenuAction(action);
+			processMenuAction(action, false);
 		} else
 			s = "Not known group!";
 		info(s);
@@ -3161,7 +3161,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	// ----------------------------------------------------------------------------
-	boolean processMenuAction(int thisAction) {
+	boolean processMenuAction(int thisAction, boolean isMouse) {
 		// calling actions after pressing menu button or actions initiated
 		// from mousePressed() or keyPressed()
 
@@ -3178,8 +3178,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		int actionOld = action;
 		action = thisAction;
 		boolean structureChangePerformed = 
-				(thisAction < Actions.ACTION_AN_C ? topMenuAction(actionOld)
-				: thisAction < 2000 ? leftMenuAction() : false);
+				(thisAction < Actions.ACTION_AN_C 
+						? topMenuAction(actionOld)
+				: thisAction < 2000 ? leftMenuAction(isMouse) : false);
 		if (!structureChangePerformed && (activeMol.touchedAtom > 0 || activeMol.touchedBond > 0)) {
 			// from mouse down in drawing area and atom or bond touched
 			structureChangePerformed = bondRingAction();
@@ -3481,10 +3482,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
-	private boolean leftMenuAction() {
+	private boolean leftMenuAction(boolean isMouse) {
 		// actions 300+
-		gui.mustReDrawLeftMenu = true;
-		gui.mustReDrawTopMenu = true;
+		int active_an = this.active_an;
 		// deselection of an item in the top menu
 		// if the action is coming from a keyboard structure change, then there is no
 		// need to redraw the the menu
@@ -3497,28 +3497,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		if (action >= Actions.ACTION_AN_R && action <= Actions.ACTION_AN_R_LAST) {
 			active_an = Atom.AN_R + (action - Actions.ACTION_AN_R);
 		}
-
-		// 2009.09 if touchedAtom, changes it
-		if (activeMol.touchedAtom == 0)
-			return false;
-		// BB
-		if (active_an != activeMol.an(activeMol.touchedAtom) && active_an != Atom.AN_X) {
-			activeMol.AN(activeMol.touchedAtom, active_an);
-			activeMol.Q(activeMol.touchedAtom, 0); // resetne naboj
-			// mol.iso[mol.touchedAtom] = 0; //BB: reset isotop
-			activeMol.atoms[activeMol.touchedAtom].iso = 0; // BB: reset isotop
-			// mol.nh[mol.touchedAtom] = 0;
-			activeMol.atoms[activeMol.touchedAtom].nh = 0;
-			this.recordAtomEvent(SET_ATOM); // useless since the JSME_Event has the atom number
-			return true;
+		if (isMouse) {
+			gui.mustReDrawLeftMenu = true;
+			gui.mustReDrawTopMenu = true;
+			this.active_an = active_an;
 		}
-		if (active_an == Atom.AN_X) {
-			String xx = atomicSymbol.getText();
-			activeMol.setAtom(activeMol.touchedAtom, xx);
-			this.recordAtomEvent(SET_ATOM);
-			return true;
-		}
-		return false;
+		return (activeMol.touchedAtom != 0 && getBuilder(activeMol).setAtom(active_an));
 	}
 
 	/**
@@ -3940,7 +3924,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// --- menu pressed
 			int action = gui.determineMenuAction(x, y, true);
 			return (action == 0 || isMouseDownActionAllowed(action) 
-					&& (mouseDownWasUsed = processMenuAction(action)));
+					&& (mouseDownWasUsed = processMenuAction(action, true)));
 		}
 
 		// --- mouse click in the drawing area
@@ -4105,20 +4089,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			activeMol.bonds[activeMol.touchedBond].btag = bondQuery;
 			recordBondEvent(SET_QUERY_BOND);
 		} else if (action == Actions.ACTION_MARK) {
-			boolean marked;
-
-			// some duplicated code logic with marking of atom
-			if (!options.pseudoMark) {
-				marked = activeMol.markBond(activeMarkerColorIndex);
-			} else {
-				marked = true;
-			}
-			// some duplicated code logic with marking of atom
-			if (marked)
-				recordBondEvent(MARK_BOND);
-			else
-				recordBondEvent(UN_MARK_BOND);
-
+			boolean marked = (options.pseudoMark
+					|| activeMol.markBond(activeMarkerColorIndex));
+			recordBondEvent(marked ? MARK_BOND : UN_MARK_BOND);
 			if (options.pseudoMark) {
 				willPostSave(false); // do not put on the undo stack
 			}
@@ -4463,21 +4436,19 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		int action = 0;
 		if (modifiers == 0) {
 			action = checkKeyPressLeftMenu(key);
-			if (action != 0) {
-				this.action = action;
-				return true;
-			}
 		}
 		// just about anything should be caught in the next method call
-		action = checkKeyBinding(key, shift);
+		if (action == 0)
+			action = checkKeyBinding(key, shift);
 		if (action == Actions.ACTION_UNCHANGED)
 			return true;
 		// unlikely anything here
 		if (action == 0 && menuXShortcuts != null && menuXShortcuts.length() > 0) {
 			action = checkKeyPressMenuX(key, shift);
 		}
+		// Atom symbol click will finish up here
 		return (action != 0 
-				&& processMenuAction(action));
+				&& processMenuAction(action, false));
 	}
 
 	/**
@@ -4538,6 +4509,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public void doAtomBond(int action) {
+		// keyboard only, so we reset
 		getBuilder(activeMol, action == Actions.ACTION_UNCHANGED ? updateLeftMenuActions() : action).checkAtomOrBondAction();
 		structureChangedByAction = true;
 	}

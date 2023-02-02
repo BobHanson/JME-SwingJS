@@ -364,7 +364,7 @@ public class Actions {
 	private int actionsBond = 0;
 
 	public void setBondVariableAction(boolean isBond) {
-		int newActions = (isBond ? Actions.ACTION_AN_C : Actions.ACTION_BOND_SINGLE);
+		int newActions = (isBond ? Actions.ACTION_BOND_SINGLE : Actions.ACTION_AN_C);
 		AbstractAction a = actionAtomBond;
 		if (actionsBond != newActions) {
 			actionsBond = newActions;
@@ -413,7 +413,7 @@ public class Actions {
 		}
 		actions0_9 = newActions;
 		if (isR) {
-			for (int i = 0; i <= 9;)
+			for (int i = 0; i <= 9; i++)
 				addAction("atombond", Actions.ACTION_AN_R + i, (char) (48 + i), 0, a);
 		} else {
 			addAction("atombond", Actions.ACTION_RING_FURANE, '0', 0, a);
