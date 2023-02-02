@@ -7,6 +7,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import jme.core.JMECore.Parameters;
+import jme.util.Isotopes;
 
 /**
  * @author bruno
@@ -300,7 +301,7 @@ public class Atom implements AtomBondCommon {
 		if (m.find()) {
 			int isomass = Integer.parseInt(m.group(1));
 			String element = m.group(2);
-			if (AtomicElements.isKnown(element, isomass)) {
+			if (Isotopes.isKnown(element, isomass)) {
 				// iso[atomIndex] = isomass;
 				this.iso = isomass;
 				symbol = element + m.group(3); // add the rest of the match to the symbol
@@ -372,12 +373,12 @@ public class Atom implements AtomBondCommon {
 
 			boolean isValid = true;
 
-			if (AtomicElements.getNaturalMass(element) != -1) {
+			if (Isotopes.getNaturalMass(element) != -1) {
 				if (iso != null && iso.length() > 0) { // the string length has to be tested because of the different
 														// behavior of IE
 					int isomass = Integer.parseInt(iso);
 
-					if (AtomicElements.isKnown(element, isomass)) {
+					if (Isotopes.isKnown(element, isomass)) {
 						this.iso = isomass;
 					} else {
 						isValid = false;

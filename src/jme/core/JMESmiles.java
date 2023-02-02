@@ -1,5 +1,7 @@
 package jme.core;
 
+import jme.util.Isotopes;
+
 public class JMESmiles extends JMECore {
 
 	// BH 2023.01.26 methods moved into core; SHIFT-DRAG rotation fixed
@@ -1538,7 +1540,7 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 			if (atom.iso != 0) {
 				// deltaIso = AtomicElements.getDeltaIsotopicMassOfElement(this.getAtomLabel(i),
 				// iso[i]);
-				deltaIso = AtomicElements.getDeltaIsotopicMassOfElement(getAtomLabel(i), atom.iso);
+				deltaIso = Isotopes.getDeltaIsotopicMassOfElement(getAtomLabel(i), atom.iso);
 				// what should happen if deltaIso < 0?
 				if (deltaIso < 0) {
 					deltaIso = 10 - deltaIso; // never tested

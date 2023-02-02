@@ -17,10 +17,10 @@ import org.jmol.util.Elements;
 
 import javajs.util.P3d;
 import jme.core.Atom;
-import jme.core.AtomicElements;
 import jme.core.Bond;
 import jme.core.JMECore;
 import jme.ocl.SVGDepictorWithEmbeddedChemicalStructure;
+import jme.util.Isotopes;
 import jme.util.JMEUtil;
 
 /**
@@ -508,7 +508,7 @@ public class JMEReader {
 					// delta can be [-3, +4]
 					// 0 means natural abundance
 					if (delta != 0 && delta >= -3 && delta <= 4) {
-						int iso = AtomicElements.getIsotopicMassOfElementDelta(symbol, delta);
+						int iso = Isotopes.getIsotopicMassOfElementDelta(symbol, delta);
 						if (iso < 0)
 							iso = 0;
 						mol.atoms[i].iso = iso;

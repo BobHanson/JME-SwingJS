@@ -9,9 +9,9 @@ import java.util.Iterator;
 import jme.JME;
 import jme.JMEmol;
 import jme.core.Atom;
-import jme.core.AtomicElements;
 import jme.core.Bond;
 import jme.core.JMECore;
+import jme.util.Isotopes;
 import jme.util.JMEUtil;
 
 public class JMEWriter extends JMECore {
@@ -199,7 +199,7 @@ public class JMEWriter extends JMECore {
 				// BB
 				int deltaIsotop = 0;
 				if (atom.iso != 0) {
-					int delta = AtomicElements.getDeltaIsotopicMassOfElement(getAtomLabel(i), this.atoms[i].iso);
+					int delta = Isotopes.getDeltaIsotopicMassOfElement(getAtomLabel(i), this.atoms[i].iso);
 					if (delta >= -3 && delta <= 4) {
 						deltaIsotop = delta;
 					}

@@ -1,7 +1,7 @@
 /**
  * 
  */
-package jme.core;
+package jme.util;
 
 import java.util.HashMap;
 
@@ -9,11 +9,11 @@ import java.util.HashMap;
  * @author bruno
  *
  */
-public class AtomicElements {
+public class Isotopes {
 	//gain: only 80 bytes when compressed - gzip is very smart
-	public static HashMap<String, int[]> isotopes;
+	private static HashMap<String, int[]> isotopes;
 	
-	public final static HashMap<String, int[]> getIsotopicMap() {
+	private final static HashMap<String, int[]> getIsotopicMap() {
 		return (isotopes == null? initIsotopMap() : isotopes);
 	}
 	//this is not up to date - new elements have been discovered
@@ -158,7 +158,7 @@ public class AtomicElements {
 	 * @return
 	 */
 	public static int getNaturalMass(String elementSymbol) {
-		int[] isotopes = AtomicElements.getIsotopicMap().get(elementSymbol);
+		int[] isotopes = Isotopes.getIsotopicMap().get(elementSymbol);
 		return (isotopes == null ? -1 : isotopes[0]);
 	}
 	/**
@@ -169,7 +169,7 @@ public class AtomicElements {
 	 * @return
 	 */
 	public static boolean isKnown(String elementSymbol, int isotop) {
-		int[] isotopes = AtomicElements.getIsotopicMap().get(elementSymbol);
+		int[] isotopes = Isotopes.getIsotopicMap().get(elementSymbol);
 		if(isotopes != null) {
 			for(int i = 0; i <isotopes.length; i++) {
 				if(isotop == isotopes[i])

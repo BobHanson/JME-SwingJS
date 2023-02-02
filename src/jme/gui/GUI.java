@@ -17,15 +17,34 @@ import javax.swing.JPopupMenu;
 import jme.JME;
 import jme.JMEmol;
 import jme.canvas.ColorManager;
+import jme.canvas.ColorManager.ColorInfo;
 import jme.canvas.PreciseGraphicsAWT;
 import jme.canvas.PreciseImage;
-import jme.canvas.ColorManager.ColorInfo;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;
 
 public class GUI {
 
+	@SuppressWarnings("serial")
+	public static class Icon extends Rectangle2D.Double {
+
+		/**
+		 * the Graphics on which the icon is drawn
+		 */
+		protected PreciseGraphicsAWT pg;
+		
+		private Icon(PreciseGraphicsAWT pg) {
+			this.pg = pg;
+		}
+		/**
+		 * useful for event handling, e.g. mouse click did happen on top of the icon
+		 */
+		public boolean contains(int screenX, int screenY) {
+			return contains(pg.screenToCoordX(screenX), pg.screenToCoordY(screenY));
+		}
+	}
+	
 	public static boolean isSwingJS = /** @j2sNative true || */
 			false;
 	
