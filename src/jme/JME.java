@@ -71,8 +71,13 @@ import javax.swing.JPopupMenu;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
-import jme.ColorManager.ColorInfo;
 import jme.JMEmol.ReactionRole;
+import jme.canvas.ColorManager;
+import jme.canvas.Graphical2DObject;
+import jme.canvas.Graphical2DObjectGroup;
+import jme.canvas.PreciseGraphicsAWT;
+import jme.canvas.PreciseImage;
+import jme.canvas.ColorManager.ColorInfo;
 import jme.core.Atom;
 import jme.core.AtomBondCommon;
 import jme.core.Bond;
@@ -100,6 +105,9 @@ import jme.js.JSFunction;
 import jme.js.JSME_RunAsyncCallback;
 import jme.js.RunAsyncCallback;
 import jme.js.RunWhenDataReadyCallback;
+import jme.ocl.Parser;
+import jme.util.ChangeManager;
+import jme.util.JMEUtil;
 
 // ----------------------------------------------------------------------------
 // ****************************************************************************
@@ -121,6 +129,23 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		public Object getParameter(String s);
 	}
 
+	/**
+	 * Storage of the state of the chemical structures of restoring for by the undo
+	 * manager
+	 * 
+	 * @author bruno
+	 *
+	 */
+	static class SavedState {
+		JMEmolList moleculePartsList = null; // when multipart, nealokuje !!
+		//int numberofMoleculeParts = 0;
+		//int actualMoleculePartIndex = 0;
+		JMEmol activeMol = null;
+		boolean reaction;
+		boolean multipart;
+		double depictScale = 1.0;
+		public int lastAction;
+	}
 	class Touched {
 		JMEmol mol;
 		int atomIndex;
@@ -262,7 +287,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	Touched keyTouched = new Touched();
 
 	int reactionParts[][]; // computed with getReactionParts()
-	public int active_an;
+	public int active_an = Atom.AN_C;
 
 	public String infoText = null;
 	String customDefaultInfoText = ""; // may be changed by the JS call
@@ -453,7 +478,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// true if the Java code has been compiled to JavaScript
 	final static boolean isJavaScript = System.getProperty("java.vm.name").equals("JavaScript");
 
-	final static double precision;
+	public final static double precision;
 
 	public static final double mouseWheelFactor = 10; // BH 2023 - now this works on my computer.
 

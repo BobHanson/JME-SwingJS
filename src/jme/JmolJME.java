@@ -65,6 +65,7 @@ import org.jmol.viewer.Viewer;
 
 import javajs.util.PT;
 import jme.io.FileDropper;
+import jme.util.JMEUtil;
 
 /**
  * An extension of JME that adds features of Jmol, such as many more file types for reading, 

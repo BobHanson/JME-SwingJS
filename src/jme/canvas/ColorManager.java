@@ -1,4 +1,4 @@
-package jme;
+package jme.canvas;
 
 
 //START JAVA_IMPORT
@@ -13,13 +13,23 @@ import java.awt.Color;
 public class ColorManager {
 	public final static String colorHashPrefix = "COLOR_HASH";
 	
-	
+	public static class ColorSpec {
+		String color; // hexadecimal
+		String label;
+		// comment, ...
+		
+		public ColorSpec(String hexColor, String label) {
+			this.color = hexColor;
+			this.label = label;
+		}
+		
+	}	
 
 	public class ColorInfo {
 		public Color color;
 		public String name;
 		public String hash;
-		int index;
+		public int index;
 		
 		ColorInfo(Color color, String name, int index) {
 			this.color = color;

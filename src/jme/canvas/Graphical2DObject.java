@@ -1,7 +1,7 @@
 /**
  * 
  */
-package jme;
+package jme.canvas;
 
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;

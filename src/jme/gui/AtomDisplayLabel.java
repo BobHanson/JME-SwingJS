@@ -10,7 +10,7 @@ import java.awt.geom.Rectangle2D;
 import java.util.BitSet;
 
 import jme.JMEmol;
-import jme.PreciseGraphicsAWT;
+import jme.canvas.PreciseGraphicsAWT;
 import jme.core.Atom;
 import jme.core.Bond;
 

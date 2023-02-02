@@ -14,12 +14,12 @@ import java.util.List;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 
-import jme.ColorManager;
-import jme.ColorManager.ColorInfo;
 import jme.JME;
 import jme.JMEmol;
-import jme.PreciseGraphicsAWT;
-import jme.PreciseImage;
+import jme.canvas.ColorManager;
+import jme.canvas.PreciseGraphicsAWT;
+import jme.canvas.PreciseImage;
+import jme.canvas.ColorManager.ColorInfo;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;

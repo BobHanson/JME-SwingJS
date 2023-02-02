@@ -5,7 +5,7 @@ package jme.gui;
 import java.awt.Rectangle;
 import java.awt.geom.Rectangle2D;
 
-import jme.PreciseGraphicsAWT;
+import jme.canvas.PreciseGraphicsAWT;
 
 //END JAVA_IMPORT
 

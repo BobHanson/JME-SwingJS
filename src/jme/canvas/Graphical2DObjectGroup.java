@@ -1,4 +1,4 @@
-package jme;
+package jme.canvas;
 
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
@@ -7,9 +7,9 @@ import java.util.Comparator;
 
 import jme.core.Box;
 
-class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2DObject {
+public class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2DObject {
 
-	ArrayList<T> group;
+	public ArrayList<T> group;
 
 	public Graphical2DObjectGroup() {
 		this.group = new ArrayList<T>();

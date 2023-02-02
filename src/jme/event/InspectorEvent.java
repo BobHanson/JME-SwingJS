@@ -4,10 +4,10 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 import jme.JME;
-import jme.JMEUtil;
 import jme.JMEmol;
 import jme.gui.AtomInspector;
 import jme.js.JSME_RunAsyncCallback;
+import jme.util.JMEUtil;
 
 public class InspectorEvent implements ActionListener {
 	public JME jme;

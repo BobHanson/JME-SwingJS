@@ -1,4 +1,4 @@
-package jme;
+package jme.util;
 
 import java.util.StringTokenizer;
 

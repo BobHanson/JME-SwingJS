@@ -8,12 +8,15 @@ import java.util.ArrayList;
 import java.util.StringTokenizer;
 
 import jme.JME.SupportedFileFormat;
+import jme.canvas.Graphical2DObject;
+import jme.canvas.Graphical2DObjectGroup;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.Box;
 import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
 import jme.io.JMEWriter;
+import jme.util.JMEUtil;
 
 /**
  * Class that parses input string that contains multiple molecules formats,

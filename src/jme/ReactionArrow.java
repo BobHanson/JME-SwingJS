@@ -4,6 +4,8 @@ import java.awt.Color;
 import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 
+import jme.canvas.Graphical2DObject;
+import jme.canvas.PreciseGraphicsAWT;
 import jme.core.Box;
 
 class ReactionArrow implements Graphical2DObject {

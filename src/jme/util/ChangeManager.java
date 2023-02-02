@@ -1,7 +1,7 @@
 /**
  * 
  */
-package jme;
+package jme.util;
 
 /**
  * * Manages a double linked lists to perform undo and/or redo operations.

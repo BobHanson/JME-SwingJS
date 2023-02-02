@@ -16,12 +16,12 @@ import org.jmol.util.Edge;
 import org.jmol.util.Elements;
 
 import javajs.util.P3d;
-import jme.JMEUtil;
 import jme.core.Atom;
 import jme.core.AtomicElements;
 import jme.core.Bond;
 import jme.core.JMECore;
 import jme.ocl.SVGDepictorWithEmbeddedChemicalStructure;
+import jme.util.JMEUtil;
 
 /**
  * @author bruno

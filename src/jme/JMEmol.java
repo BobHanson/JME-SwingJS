@@ -6,6 +6,9 @@ import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
+import jme.canvas.ColorManager;
+import jme.canvas.Graphical2DObject;
+import jme.canvas.PreciseGraphicsAWT;
 import jme.core.Atom;
 import jme.core.AtomBondCommon;
 import jme.core.Bond;
@@ -19,6 +22,7 @@ import jme.gui.GUI.RingInfo;
 import jme.io.JMEReader;
 import jme.io.JMEWriter;
 import jme.ocl.OclAdapter;
+import jme.util.JMEUtil;
 
 // --------------------------------------------------------------------------
 public class JMEmol extends JMECore implements Graphical2DObject {

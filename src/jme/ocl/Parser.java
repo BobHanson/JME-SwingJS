@@ -1,4 +1,4 @@
-package jme;
+package jme.ocl;
 
 import jme.core.JMECore;
 import jme.gui.GUI.RingInfo;

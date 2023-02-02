@@ -15,7 +15,6 @@ import com.actelion.research.gui.generic.GenericRectangle;
 
 import jme.JME;
 import jme.JMEmol;
-import jme.Parser;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;

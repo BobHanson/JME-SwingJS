@@ -1138,16 +1138,6 @@ public class JMEBuilder {
 			jme.recordAfterStructureChangedEvent(JME.ADD_RING);
 			return;
 		}
-		if (action >= Actions.ACTION_AN_C) { // adding 1st atom
-			createAtom(x, y);
-			if (jme.active_an == Atom.AN_X) {
-				mol.setAtom(1, jme.getAtomSymbolForX());
-			} else {
-				mol.AN(1, jme.active_an);				
-			}
-			jme.recordAtomEvent(JME.ADD_ATOM);
-			return;
-		}
 		if (action == Actions.ACTION_TEMPLATE) {
 			//mol.addTemplate(templateString);
 			jme.recordAfterStructureChangedEvent(JME.ADD_TEMPLATE);
@@ -1158,6 +1148,16 @@ public class JMEBuilder {
 			createAtom(x, y);
 			addGroup(true);
 			jme.recordAfterStructureChangedEvent(JME.ADD_GROUP);
+			return;
+		}
+		if (action >= Actions.ACTION_AN_C) { // adding 1st atom
+			createAtom(x, y);
+			if (jme.active_an == Atom.AN_X) {
+				mol.setAtom(1, jme.getAtomSymbolForX());
+			} else {
+				mol.AN(1, jme.active_an);				
+			}
+			jme.recordAtomEvent(JME.ADD_ATOM);
 			return;
 		}
 		System.err.println("error -report fall through bug Builder.newMolecule! " + action);

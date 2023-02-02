@@ -7,12 +7,12 @@ import java.util.Date;
 import java.util.Iterator;
 
 import jme.JME;
-import jme.JMEUtil;
 import jme.JMEmol;
 import jme.core.Atom;
 import jme.core.AtomicElements;
 import jme.core.Bond;
 import jme.core.JMECore;
+import jme.util.JMEUtil;
 
 public class JMEWriter extends JMECore {
 
