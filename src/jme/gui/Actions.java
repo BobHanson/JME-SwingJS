@@ -288,9 +288,9 @@ public class Actions {
 			}			
 		};
 
-		addAction("undo", -1, 'Y', InputEvent.CTRL_MASK, a);
+		addAction("redo", 1, 'Y', InputEvent.CTRL_MASK, a);
 		addAction("undo", -1, 'U', 0, a);
-		addAction("redo", 1, 'Z', InputEvent.CTRL_MASK, a);
+		addAction("undo", -1, 'Z', InputEvent.CTRL_MASK, a);
 		
 		a = new AbstractAction() {
 			@Override

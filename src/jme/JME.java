@@ -4539,6 +4539,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	public void doAtomBond(int action) {
 		getBuilder(activeMol, action == Actions.ACTION_UNCHANGED ? updateLeftMenuActions() : action).checkAtomOrBondAction();
+		structureChangedByAction = true;
 	}
 
 	private int updateLeftMenuActions() {
@@ -5632,6 +5633,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		SavedState state = createState();
 		// if(state != null) {
 		molChangeManager.insertItem(state);
+		System.err.println("JME.postSave saving state");
 		// }
 
 	}
