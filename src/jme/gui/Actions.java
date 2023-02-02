@@ -197,11 +197,8 @@ public class Actions {
 	}
 
 	
-	private class WrappedAction extends AbstractAction {
+	private static class WrappedAction extends AbstractAction {
 
-			/**
-		 * 
-		 */
 		private static final long serialVersionUID = 1L;
 			int id;
 			AbstractAction a;
@@ -227,6 +224,7 @@ public class Actions {
 	}
 	
 	protected void addAction(String name, int id, int key, int modifiers, AbstractAction a) {
+		a.putValue(AbstractAction.NAME, name);
 		if (id == 0)
 			id = key;
 		if (id != 0) {
@@ -235,7 +233,7 @@ public class Actions {
 		actions.put(name, a);
 		if (key != 0) {
 			KeyStroke shortcut = getKeyStroke(key, modifiers);
-			a.putValue("shortcut", shortcut);
+			a.putValue(AbstractAction.ACCELERATOR_KEY, shortcut);
 			actions.put(shortcut, a);		
 		}
 	}
