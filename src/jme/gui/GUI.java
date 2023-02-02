@@ -1551,6 +1551,10 @@ public class GUI {
 		return mustReDrawMolecularArea;// || mustReDrawTopMenu;
 	}
 
+	public void dispose() {
+		jme = null;
+	}
+
 
 	
 }

@@ -721,7 +721,6 @@ public class JMEBuilder {
 	}
 
 	public void addGroup(boolean emptyCanvas) {
-		//
 		mol.touched_org = touchedAtom;
 		int nadded = 0;
 		switch (action) {
@@ -951,7 +950,7 @@ public class JMEBuilder {
 		return templateString;
 	}
 
-	public String checkBondAction() {
+	public void checkBondAction() {
 		String event = null;
 		boolean cleanPolar = false;
 		Bond b = mol.bonds[mol.touchedBond];
@@ -1012,22 +1011,25 @@ public class JMEBuilder {
 			break;
 		}
 		if (cleanPolar)
-			mol.cleanAfterChanged(jme.options.polarnitro); 
-		return event;
+			mol.cleanAfterChanged(jme.options.polarnitro);
+		if (event != null)
+			jme.recordBondEvent(event, mol.touchedBond);
 	}
 
-	public String checkAtomOrBondAction() {
-		return (touchedAtom > 0 ? checkAtomAction() 
-				: touchedBond > 0 ? checkBondAction() : null);
+	public void checkAtomOrBondAction() {
+		if (touchedAtom > 0)
+			checkAtomAction();
+		else if (touchedBond > 0)
+			checkBondAction();
 	}
 	
-	public String checkAtomAction() {
+	public void checkAtomAction() {
 		String event = null;
 		if (action == Actions.ACTION_DELETE) {
 			deleteAtomOrBond();
 			jme.updatePartsList();
 		} else if (action == Actions.ACTION_DELGROUP) {
-			return "RETURN_TRUE"; // do nothing
+			return;//return "RETURN_TRUE"; // do nothing
 		} else if (action == Actions.ACTION_CHARGE) {
 			if (mol.changeCharge(mol.touchedAtom, 0))
 				event = JME.CHARGE_ATOM0;
@@ -1046,7 +1048,7 @@ public class JMEBuilder {
 				// for the CHAIN, save the state at mouseUp event
 			} else {
 				jme.recordBondEvent(JME.ADD_BOND);
-				event = "";
+				event = null;
 			}
 		} else if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
 			jme.lastAction = JME.LA_RING; // in addRing may be set to 0
@@ -1073,7 +1075,8 @@ public class JMEBuilder {
 				event = JME.SET_ATOM;
 			}
 		}
-		return event;
+		if (event != null)
+			jme.recordAtomEvent(event, mol.touchedAtom);
 	}
 
 	public void deleteAtomOrBond() {

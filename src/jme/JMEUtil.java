@@ -119,4 +119,9 @@ public interface JMEUtil {
 		//System.out.println(s);	
 	}
 
+	public static boolean isMacintosh() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
 }
