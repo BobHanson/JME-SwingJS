@@ -1,4 +1,4 @@
-package jme.core;
+package jme.util;
 
 import java.awt.geom.Rectangle2D;
 

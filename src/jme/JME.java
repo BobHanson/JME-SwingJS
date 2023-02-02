@@ -81,7 +81,6 @@ import jme.canvas.ColorManager.ColorInfo;
 import jme.core.Atom;
 import jme.core.AtomBondCommon;
 import jme.core.Bond;
-import jme.core.Box;
 import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
 import jme.core.JMECore.Parameters.HydrogenParams;
@@ -106,6 +105,7 @@ import jme.js.JSME_RunAsyncCallback;
 import jme.js.RunAsyncCallback;
 import jme.js.RunWhenDataReadyCallback;
 import jme.ocl.Parser;
+import jme.util.Box;
 import jme.util.ChangeManager;
 import jme.util.JMEUtil;
 

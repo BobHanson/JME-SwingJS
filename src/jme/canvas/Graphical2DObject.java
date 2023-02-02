@@ -7,7 +7,7 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
-import jme.core.Box;
+import jme.util.Box;
 
 /**
  * @author bruno

@@ -6,7 +6,7 @@ import java.awt.geom.Rectangle2D;
 
 import jme.canvas.Graphical2DObject;
 import jme.canvas.PreciseGraphicsAWT;
-import jme.core.Box;
+import jme.util.Box;
 
 class ReactionArrow implements Graphical2DObject {
 

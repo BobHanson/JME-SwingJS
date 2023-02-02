@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 
-import jme.core.Box;
+import jme.util.Box;
 
 public class Graphical2DObjectGroup<T extends Graphical2DObject> implements Graphical2DObject {
 

@@ -12,7 +12,6 @@ import jme.canvas.PreciseGraphicsAWT;
 import jme.core.Atom;
 import jme.core.AtomBondCommon;
 import jme.core.Bond;
-import jme.core.Box;
 import jme.core.JMECore;
 import jme.core.JMESmiles;
 import jme.gui.Actions;
@@ -22,6 +21,7 @@ import jme.gui.GUI.RingInfo;
 import jme.io.JMEReader;
 import jme.io.JMEWriter;
 import jme.ocl.OclAdapter;
+import jme.util.Box;
 import jme.util.JMEUtil;
 
 // --------------------------------------------------------------------------
