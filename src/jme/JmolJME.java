@@ -66,6 +66,7 @@ import org.jmol.viewer.Viewer;
 import javajs.util.PT;
 import jme.io.FileDropper;
 import jme.util.JMEUtil;
+import jme.util.StructureComparator;
 
 /**
  * An extension of JME that adds features of Jmol, such as many more file types for reading, 
@@ -765,6 +766,7 @@ public class JmolJME extends JME implements WindowListener {
 
 	}
 
+	
 	public static void main(String[] args) {
 		JFrame frame = null;
 		JmolJME jjme = new JmolJME(new String[] { JME.NO_INIT });
