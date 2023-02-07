@@ -4,7 +4,7 @@ package jme.util;
 /**
  * 
  * 
- * Eigenvalues and eigenvectors of a symmetric 3x3 matrix.
+ * Eigenvalues and eigenvectors of a symmetric 4x4 matrix.
  * 
  * Adapted specifically for 4D by Bob Hanson from
  * http://math.nist.gov/javanumerics/jama/ (public domain); adding quaternion
