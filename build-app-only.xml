@@ -1,0 +1,120 @@
+<project name="Jmol" default="main" basedir=".">
+  <!--
+      DocumentId  $Id: build.xml 21793 2018-01-02 16:58:31Z hansonr $
+  -->
+	
+  <!-- Contributions -->
+  <!-- <for list ...> construct needs ant-contrib.jar
+  <taskdef resource="net/sf/antcontrib/antlib.xml">
+    <classpath>
+      <pathelement location="tools/ant-contrib.jar" />
+    </classpath>
+  </taskdef>
+ -->
+  <property name="debug" value="on" />
+  <property name="lib.dir" value="jars" />
+  <property name="appjars.dir" value="build/appjars" />
+  <property name="classes.dir" value="build/classes" />
+  <property name="ocl-swingjs.jar" value="OCL-SwingJS.jar" />
+	
+	  <path id="project.class.path">
+	    <fileset dir="${lib.dir}">
+	      <include name="*.jar" />
+	    </fileset>
+	  </path>
+	  
+
+  <target name="main" id="main" depends="init,jar"/>
+  
+  <target name="init" id="init">
+    <tstamp/>
+  </target>
+
+
+  <target id="classes" name="classes" depends="init">
+    <mkdir dir="${classes.dir}"/>
+    <javac verbose="true" srcdir="src" destdir="${classes.dir}" encoding="UTF8" debug="on" source="1.8" target="1.8">
+      <classpath refid="project.class.path" />
+    </javac>
+    <copy todir="${classes.dir}" >
+      <fileset dir="src">
+        <include name="**/license.txt" />
+        <include name="**/*.jpg" />
+        <include name="**/*.gif" />
+      	<include name="**/*.png" />
+        <include name="**/*.html" />
+        <include name="**/*.js" />
+        <include name="**/*.dtd" />
+        <include name="**/*.properties" />
+        <include name="**/Properties/*" />
+        <include name="**/*.txt" />
+      </fileset>
+    </copy>
+  </target>
+  
+  <target name="check.libjars" id="check.libjars">
+    <condition property="libjars.uptodate">
+      <and>
+        <uptodate targetfile="${appjars.dir}">
+          <srcfiles dir="${lib.dir}" includes="${ocl-swingjs.jar}"/>
+        </uptodate>
+        <uptodate targetfile="build/libjars.timestamp"
+                  srcfile="${appjars.dir}"/>
+      </and>
+    </condition>
+  </target>
+
+
+  <target name="libjars" id="libjars" depends="check.libjars" unless="libjars.uptodate">
+    <delete file="build/libjars.timestamp"/>
+    <mkdir dir="${appjars.dir}"/>
+    <unjar dest="${appjars.dir}" src="${lib.dir}/${ocl-swingjs.jar}"/>
+  	<delete dir="${appjars.dir}/javajs" />
+  	<delete dir="${appjars.dir}/META-INF" />
+    <touch file="build/libjars.timestamp"/>
+  </target>
+
+  <target name="jar" id="jar"
+          depends="init,classes,libjars">
+     <jar destfile="build/JME-SwingJS.jar"
+         manifest="manifest/application.txt">
+      <fileset dir="${classes.dir}" >
+        <exclude name="**/.*" />
+        <exclude name="ant/**" />
+        <include name="com/**" />
+        <include name="images/*" />
+        <include name="jme/**" />
+      </fileset>
+      <fileset dir="${appjars.dir}" includes="**/*"/>
+    </jar>
+  	<echo>build/JME-SwingJS.jar created (unsigned)</echo>
+  	<copy file="build/JME-SwingJS.jar" tofile="dist/JME-SwingJS.jar" />
+  	
+  </target>
+
+  <target name="clean" id="clean">
+    <delete dir="${classes.dir}"/>
+    <delete dir="${applet.classes.dir}"/>
+    <delete dir="${apisio.classes.dir}"/>
+    <delete dir="${test-classes.dir}"/>
+    <delete dir="${appjars.dir}"/>
+    <delete dir="build/dist"/>
+    <delete>
+      <fileset dir="build">
+        <include name="*.jar" />
+      </fileset>
+    </delete>
+  </target>
+
+  <target name="spotless" id="spotless" depends="clean">
+    <delete dir="build"/>
+    <delete dir="${javadoc.dir}"/>
+    <delete dir="packaging/rpm/dist"/>
+  </target>
+  
+  <target name="run" id="run" depends="main">
+    <java fork="true" jar="build/JmolD.jar" />
+  </target>
+
+  	
+</project>

@@ -3,19 +3,10 @@
  */
 package jme.io;
 
-import java.util.Hashtable;
-import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.jmol.api.JmolAdapter;
-import org.jmol.api.JmolAdapterAtomIterator;
-import org.jmol.api.JmolAdapterBondIterator;
-import org.jmol.util.Edge;
-import org.jmol.util.Elements;
-
-import javajs.util.P3d;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;
@@ -670,58 +661,6 @@ public class JMEReader {
 				}
 			}
 		}
-		mol.finalizeMolecule();
-	}
-
-	public static void createJMEFromJmolAdapter(JMECore mol, Object[] iterators) {
-		JmolAdapterAtomIterator atomIterator = (JmolAdapterAtomIterator) iterators[0];
-		JmolAdapterBondIterator bondIterator = (JmolAdapterBondIterator) iterators[1];
-		Map<Object, Integer> atomMap = new Hashtable<Object, Integer>();
-		while (atomIterator.hasNext()) {
-			String sym = Elements.elementSymbolFromNumber(atomIterator.getElementNumber());
-			// from Jmol -- could be 13C;
-			Atom a = mol.createAtom(sym);
-			atomMap.put(atomIterator.getUniqueID(), Integer.valueOf(mol.natoms));
-			P3d pt = atomIterator.getXYZ();
-			a.x = pt.x;
-			a.y = -pt.y;
-			a.q = atomIterator.getFormalCharge();
-			mol.setAtom(mol.natoms, JmolAdapter.getElementSymbol(atomIterator.getElement()));
-		}
-		while (bondIterator.hasNext()) {
-			Bond b = mol.createAndAddBondFromOther(null);
-			b.va = atomMap.get(bondIterator.getAtomUniqueID1()).intValue();
-			b.vb = atomMap.get(bondIterator.getAtomUniqueID2()).intValue();
-			int bo = bondIterator.getEncodedOrder();
-			switch (bo) {
-			case Edge.BOND_STEREO_NEAR:
-				b.bondType = Bond.SINGLE;
-				b.stereo = Bond.STEREO_UP;
-				break;
-			case Edge.BOND_STEREO_FAR:
-				b.bondType = Bond.SINGLE;
-				b.stereo = Bond.STEREO_DOWN;
-				break;
-			case Edge.BOND_COVALENT_SINGLE:
-			case Edge.BOND_AROMATIC_SINGLE:
-				b.bondType = Bond.SINGLE;
-				break;
-			case Edge.BOND_COVALENT_DOUBLE:
-			case Edge.BOND_AROMATIC_DOUBLE:
-				b.bondType = Bond.DOUBLE;
-				break;
-			case Edge.BOND_COVALENT_TRIPLE:
-				b.bondType = Bond.TRIPLE;
-				break;
-			case Edge.BOND_AROMATIC:
-			case Edge.BOND_STEREO_EITHER:
-			default:
-				if ((bo & 0x07) != 0)
-					b.bondType = (bo & 0x07);
-				break;
-			}
-		}
-
 		mol.finalizeMolecule();
 	}
 

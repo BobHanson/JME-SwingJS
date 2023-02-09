@@ -173,9 +173,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		case MOL: // V2000, actually
 			createFromMOLString((String) molecule);
 			break;
-		case JMOL:
-			createFromJmolAdapter((Object[]) molecule);
-			break;
 		default:
 			throw new IllegalArgumentException("Unrecognized format");
 		}
@@ -204,17 +201,6 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 */
 	private void createFromMOLString(String molData) {
 		JMEReader.createJMEFromMolData(this, molData);
-	}
-
-	/**
-	 * From Jmol's SmarterJmolAdapter -- could be any one of dozens of kinds of
-	 * file.
-	 * 
-	 * @param iterators [atomIterator, bondIterator]
-	 * @throws Exception
-	 */
-	private void createFromJmolAdapter(Object[] iterators) throws Exception {
-		JMEReader.createJMEFromJmolAdapter(this, iterators);
 	}
 
 	public static JMEmol mergeMols(ArrayList<JMEmol> mols) {

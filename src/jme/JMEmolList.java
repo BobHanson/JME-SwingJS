@@ -14,6 +14,7 @@ import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
+import jme.io.JMEReader;
 import jme.io.JMEWriter;
 import jme.util.Box;
 import jme.util.JMEUtil;
@@ -267,16 +268,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			}
 		}
 		return true;
-	}
-
-	public boolean readJmolAdaptorInput(Object[] iterators, Parameters params) {
-		try {
-			add(new JMEmol(null, iterators, SupportedFileFormat.JMOL, params));
-			return true;
-		} catch (Exception e) {
-			this.error = e;
-			return false;
-		}
 	}
 
 	/*

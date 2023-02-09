@@ -77,6 +77,7 @@ import jme.canvas.Graphical2DObject;
 import jme.canvas.Graphical2DObjectGroup;
 import jme.canvas.PreciseGraphicsAWT;
 import jme.canvas.PreciseImage;
+import jme.canvas.ReactionArrow;
 import jme.canvas.ColorManager.ColorInfo;
 import jme.core.Atom;
 import jme.core.AtomBondCommon;
@@ -282,9 +283,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	// editor state
 	public int action;
 
-	Touched lastTouched = new Touched();
-	Touched newTouched = new Touched();
-	Touched keyTouched = new Touched();
+	final Touched lastTouched = new Touched();
+	final Touched newTouched = new Touched();
+	final Touched keyTouched = new Touched();
 
 	int reactionParts[][]; // computed with getReactionParts()
 	public int active_an = Atom.AN_C;
@@ -582,8 +583,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		addKeyListener(this);
 		addMouseListener(this);
 		addMouseMotionListener(this);
+		
+		System.out.println("JME frame " + frame);
 		new FileDropper(this);
 		application = true;
+		System.out.println("JME frame OK " + frame);
 	}
 
 	// ----------------------------------------------------------------------------
@@ -616,7 +620,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		action = Actions.ACTION_BOND_SINGLE; // musi to tu but, inak nic
 
 		validate();
-
+		System.out.println("JME.init dim " + getSize());
 		mustRedrawEverything();
 		if (myFrame != null) {
 			myFrame.setResizable(true);
@@ -647,6 +651,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			pt++;
 
 		dimension = getSize();
+		
+		System.out.println("JME start " + dimension);
 		// no repaint because the applet viewer will call repaint() after start()
 		// this was changed because the molecule is always loaded with a GWT.runasync
 		boolean repaint = true;
@@ -1425,17 +1431,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// duplicated code, a pointer to a function would solve the problem?
 		JMEmolList inputMolList = new JMEmolList();
 		boolean success = inputMolList.readJMEstringInput(molecule, this.params);
-		if (success && !inputMolList.isReallyEmpty()) {
-			this.processIncomingMolecules(inputMolList, repaint);
-		}
-		return success;
-	}
-
-	protected boolean handleReadJmolAdaptorInput(Object[] iterators, boolean repaint) {
-
-		// duplicated code, a pointer to a function would solve the problem?
-		JMEmolList inputMolList = new JMEmolList();
-		boolean success = inputMolList.readJmolAdaptorInput(iterators, this.params);
 		if (success && !inputMolList.isReallyEmpty()) {
 			this.processIncomingMolecules(inputMolList, repaint);
 		}
