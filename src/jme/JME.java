@@ -4263,7 +4263,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 		if (lastAction == LA_BOND) {
 			boolean done = false;
-			this.lastTouched.mol.touchedAtom = 0;
+			if (lastTouched.mol != null)
+				lastTouched.mol.touchedAtom = 0;
 
 			// to be used for adding a bond with another part
 			// need to differentiate the temporary moving atom that was created during
