@@ -15,6 +15,8 @@
   <property name="lib.dir" value="jars" />
   <property name="appjars.dir" value="build/appjars" />
   <property name="classes.dir" value="build/classes" />
+  <property name="site.dir" value="site" />
+  <property name="dist.dir" value="dist" />
   <property name="ocl-swingjs.jar" value="OCL-SwingJS.jar" />
 	
 	  <path id="project.class.path">
@@ -90,6 +92,11 @@
   	<echo>build/JME-SwingJS.jar created (unsigned)</echo>
   	<copy file="build/JME-SwingJS.jar" tofile="dist/JME-SwingJS.jar" />
   	
+    <zip basedir="${site.dir}" 
+    	 includes="**/*"
+   	     destfile="${dist.dir}/JME-SwingJS.zip" 
+    />
+
   </target>
 
   <target name="clean" id="clean">
