@@ -5,17 +5,12 @@ package jme;
 
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
-import java.util.StringTokenizer;
 
-import jme.JME.SupportedFileFormat;
 import jme.canvas.Graphical2DObject;
 import jme.canvas.Graphical2DObjectGroup;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;
-import jme.core.JMECore.Parameters;
-import jme.io.JMEReader;
-import jme.io.JMEWriter;
 import jme.util.Box;
 import jme.util.JMEUtil;
 
@@ -45,24 +40,24 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			int molCount = 0;
 			for (JMEmol mol : moleculeParts) {
 				molCount++; // Feb 2020: was missing
-				this.molIndex = molCount;
-				this.mol = mol;
+				molIndex = molCount;
+				mol = mol;
 				if (atomIndex > cumulAtomCount + mol.nAtoms()) {
 					// atomIndex is an ensemble index
-					this.atomEnsembleIndex = atomIndex;
-					this.atomIndex = this.atomEnsembleIndex - cumulAtomCount;
+					atomEnsembleIndex = atomIndex;
+					atomIndex = atomEnsembleIndex - cumulAtomCount;
 					break;
 				}
 				if (molIndex > 0 && molIndex == molCount) {
-					this.atomEnsembleIndex = atomIndex + cumulAtomCount;
-					this.atomIndex = atomIndex;
+					atomEnsembleIndex = atomIndex + cumulAtomCount;
+					atomIndex = atomIndex;
 					break;
 				}
 				cumulAtomCount += mol.nAtoms();
 			}
-			if (this.mol != null) {
-				this.atom = this.mol.getAtom(this.atomIndex);
-				if (this.atom == null)
+			if (mol != null) {
+				atom = mol.getAtom(atomIndex);
+				if (atom == null)
 					System.out.println("DETLETED >>>");
 			}
 		}		
@@ -80,40 +75,32 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			int molCount = 0;
 			for (JMEmol mol : molList) {
 				molCount++;
-				this.molIndex = molCount;
-				this.mol = mol;
+				molIndex = molCount;
+				mol = mol;
 				if (bondIndex > cumulBondCount + mol.nBonds()) {
 					// bondIndex is an ensemble index
-					this.bondEnsembleIndex = bondIndex;
-					this.bondIndex = this.bondEnsembleIndex - cumulBondCount;
+					bondEnsembleIndex = bondIndex;
+					bondIndex = bondEnsembleIndex - cumulBondCount;
 					break;
 				}
 				if (molIndex > 0 && molIndex == molCount) {
-					this.bondEnsembleIndex = bondIndex + cumulBondCount;
-					this.bondIndex = bondIndex;
+					bondEnsembleIndex = bondIndex + cumulBondCount;
+					bondIndex = bondIndex;
 					break;
 				}
 				cumulBondCount += mol.nBonds();
 			}
-			if (this.mol != null) {
-				this.bond = this.mol.getBond(this.bondIndex);
+			if (mol != null) {
+				bond = mol.getBond(bondIndex);
 			}
 		}
 	}
 
-	boolean isReaction = false ;
-	protected String errorMsg = null;
-	String warning = null;
-	protected Exception error = null;
+	public boolean isReaction = false ;
+	private String errorMsg = null;
+	String warnng = null;
+	public Exception error = null;
 
-	public void reset() {
-		removeAll();
-		errorMsg = null;
-		error = null;
-		isReaction =false;
-	}
-	
-	
 	public void removeAll() {
 		super.clear();
 	}
@@ -130,6 +117,12 @@ public class JMEmolList extends ArrayList<JMEmol> {
 			return JME.makeErrorMessage(error);
 		
 		return null;
+	}
+	
+	public JMEmolList setErrorMsg(String msg) {
+		errorMsg = msg;
+		removeAll();
+		return this;
 	}
 	
 	public boolean isReaction() {
@@ -155,132 +148,11 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	}
 
 	public int computeAtomEnsembleIndex( int mol, int atom) {
-		return this.getEnsembleAtom( mol, atom).atomEnsembleIndex;
+		return getEnsembleAtom( mol, atom).atomEnsembleIndex;
 	}
 	
 	public int computeBondEnsembleIndex( int mol, int bond) {
-		return this.getEnsembleBond(mol, bond).bondEnsembleIndex;
-	}
-
-	/*
-	 * parse and read the argument and put the molecules into a vector
-	 *
-	 */
-	//TODO: handle input with 3D or no coordinates
-	public boolean readJMEstringInput(String molecule, Parameters pars) {
-		
-		//| is molecular separator
-		//> is reaction separator
-		
-		this.reset();
-		StringTokenizer st = new StringTokenizer(molecule, "|>", true);
-		isReaction = (molecule.indexOf(">") > -1); //false means it is a molecule
-		int nt = st.countTokens();
-		int roleIndex = 0;
-				
-		for (int i = 1; i <= nt; i++) {
-			String s = st.nextToken();
-			s.trim();
-			if (s.equals("|"))
-				continue;
-			if (s.equals(">")) {
-				roleIndex++;
-				continue;
-			}
-			
-			if(roleIndex > 3) {
-				errorMsg = "too many \">\"";
-				return false;
-			}
-			
-			JMEmol mol = null;
-			
-			try {
-				mol = new JMEmol(null, s, JME.SupportedFileFormat.JME, pars);
-				if (mol.natoms == 0) {
-					//this.showError("problems in reading/processing molecule !"); //old original error message
-					errorMsg = "0 atoms found in \"" + s + "\"";
-					return  false;
-				
-				}
-		
-			} catch(Exception e) {
-				this.errorMsg = JME.makeErrorMessage(e) + ": " + s;
-				return false;
-			}
-			
-			
-
-			this.add(mol);
-			if(isReaction) {
-				mol.setReactionRole(JMEmol.ReactionRole.all[roleIndex]);
-			}
-
-		}
-
-		return true;
-	}
-
-	// can raise exception
-	public boolean readMDLstringInput(String s, Parameters pars) {
-
-		reset();
-		isReaction = s.startsWith("$RXN");
-		if (!isReaction) {
-			return readSingleMOL(s, pars);
-		}
-		String separator = JMEUtil.findLineSeparator(s);
-		StringTokenizer st = new StringTokenizer(s, separator, true);
-		String line = "";
-		for (int i = 1; i <= 5; i++) {
-			line = JMEUtil.nextData(st, separator);
-		}
-		// TODO: exception handling
-		int nr = Integer.valueOf(line.substring(0, 3).trim()).intValue();
-		int np = Integer.valueOf(line.substring(3, 6).trim()).intValue();
-		// support of agents, this is not standard, same convention as in Marvin JS
-		int na = 0;
-		if (line.length() >= 9) {
-			na = Integer.valueOf(line.substring(6, 9).trim()).intValue();
-		}
-
-		JMEUtil.nextData(st, separator); // 1. $MOL
-		for (int p = 1; p <= nr + np + na; p++) {
-			String m = "";
-			while (true) {
-				String ns = JMEUtil.nextData(st, separator);
-				if (ns == null || ns.equals("$MOL"))
-					break;
-				else
-					m += ns + separator;
-			}
-			// System.err.print("MOLS"+p+separator+m);
-			if (!this.readSingleMOL(m, pars)) {
-				return false;
-			}
-			JMEmol mol = this.last();
-			if (p <= nr) {
-				mol.setReactionRole(JMEmol.ReactionRole.REACTANT);
-			} else if (p > nr && p <= nr + np) {
-				mol.setReactionRole(JMEmol.ReactionRole.PRODUCT);
-			} else {
-				mol.setReactionRole(JMEmol.ReactionRole.AGENT);
-			}
-		}
-		return true;
-	}
-
-	/*
-	 * MDL MOL
-	 */
-	private boolean readSingleMOL(String s, Parameters pars) {
-		try {
-			add(new JMEmol(null, s, JME.SupportedFileFormat.MOL, pars));
-			return true;
-		} catch (Exception e) {
-			this.error = e;
-			return false;
-		}
+		return getEnsembleBond(mol, bond).bondEnsembleIndex;
 	}
 
 	/**
@@ -299,8 +171,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	public boolean splitFragments(boolean removeEmpty) {
 		JMEmolList fragmentList = new JMEmolList();
 		boolean changed = false;
-		
-		
 		for(JMEmol each: this) {
 			int nparts = each.computeMultiPartIndices();
 			JME jme = each.jme;
@@ -322,50 +192,19 @@ public class JMEmolList extends ArrayList<JMEmol> {
 				changed = true;
 						
 			}
-		}
-		
+		}		
 		if(changed) {
 			removeAll();
-			//this.addAll(fragmentList); //very complicated implementation at least in Java
+			//addAll(fragmentList); //very complicated implementation at least in Java
 			for(JMEmol each: fragmentList) {
-				this.add(each);
-			}
-			
+				add(each);
+			}	
 		}
-		
 		return changed;
 
 
 	}
 		
-	/**
-	 * 
-	 * @param showImplicitHydrogens : atom symbols like CH3
-	 * @return
-	 */
-	public String generateJMEstring(boolean showImplicitHydrogens, Rectangle2D.Double boundingBox) {
-		String result = "";
-		
-		if (isReaction) {
-			
-			result = reactionParts(JMEmol.ReactionRole.REACTANT).generateJMEstring(showImplicitHydrogens, boundingBox) + ">" + 
-					 reactionParts(JMEmol.ReactionRole.AGENT).generateJMEstring(showImplicitHydrogens, boundingBox)    + ">" +
-					 reactionParts(JMEmol.ReactionRole.PRODUCT).generateJMEstring(showImplicitHydrogens, boundingBox);
-		
-		} else {
-			for(JMEmol mol : this) {
-				String jme = JMEWriter.createJMEString(mol, showImplicitHydrogens, boundingBox);
-				if (jme.length() > 0) {
-					if (result.length() > 0)
-						result += "|";
-					result += jme; // ta molekula moze byt empty
-				}
-			}
-			
-		}
-		return result;
-	}
-	
 	/**
 	 * 
 	 * @param reactionRole
@@ -377,12 +216,10 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	
 	public JMEmolList reactionParts(int reactionRole, boolean mergeMolecules) {
 		JMEmolList reactionParts = new JMEmolList();
-
 		for (JMEmol mol : this) {
 			if (mol.nAtoms() > 0 && mol.getReactionRole() == reactionRole)
 				reactionParts.add(mol);
 		}
-
 		if (mergeMolecules && reactionParts.size() > 1) {
 			JMEmol merged = JMEmol.mergeMols(reactionParts);
 			merged.setReactionRole(reactionRole);
@@ -392,93 +229,6 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		return reactionParts;
 	}
 
-	//duplicated code with generateJmeFile
-	public String generateSmilesOrSmirks(Parameters pars) {
-		String result = "";
-		
-		if (isReaction) {
-			
-			result = reactionParts(JMEmol.ReactionRole.REACTANT).generateSmilesOrSmirks(pars) + ">" + 
-					 reactionParts(JMEmol.ReactionRole.AGENT).generateSmilesOrSmirks(pars)    + ">" +
-					 reactionParts(JMEmol.ReactionRole.PRODUCT).generateSmilesOrSmirks(pars);
-		
-		} else {
-			for(JMEmol mol : this) {
-				String smiles = mol.createSmiles(pars);
-				if (smiles.length() > 0) {
-					if (result.length() > 0)
-						result += ".";
-					result += smiles; // ta molekula moze byt empty
-				}
-			}
-			
-		}
-		return result;
-	}
-
-	
-	/**
-	 * Generate  MOL file, or RXN reaction file
-	 * @param MolFileOrRxnParameters instance
-	 * @return
-	 */
-	public String generateMolFileOrRxn(JMEWriter.MolFileOrRxnParameters pars) {
-		String s = "";
-		String newLine = "\n";
-		
-		if (isReaction) {
-			int roles[];
-		
-			
-			//suppress the agents if none because writing out agents is not standard
-			if(reactionParts(JMEmol.ReactionRole.AGENT).size() > 0) {
-				roles = new int[] {JMEmol.ReactionRole.REACTANT, JMEmol.ReactionRole.PRODUCT, JMEmol.ReactionRole.AGENT};
-			} else {
-				roles = new int[] {JMEmol.ReactionRole.REACTANT, JMEmol.ReactionRole.PRODUCT};
-				
-			}
-
-			s += "$RXN" + newLine + newLine + newLine
-					+ "JME Molecular Editor" + newLine;
-
-			//write the number of molecules for each role
-			for(int r : roles) {
-				int n =  pars.mergeReationComponents ? 1 :reactionParts(r).size();
-				s += JMEUtil.iformat(n, 3);
-			}
-
-			s += newLine;
-			
-			//reactants products, agents
-			for(int r : roles) {
-				ArrayList<JMEmol> mols =  reactionParts(r, pars.mergeReationComponents);
-				
-				for(JMEmol mol: mols) {
-					s += "$MOL" + newLine;
-					s += createMolfile(mol, pars);
-				}
-			}
-				
-		} else { // viac molekul do 1 mol file
-			//we could create a SDF
-			JMEmol mol ;
-			if(size() > 1) {
-				mol = JMEmol.mergeMols(this);
-			} else {
-				mol = get(0);
-			}
-			s = createMolfile(mol, pars);
-
-		}
-		return s;
-	}
-
-	
-	protected static String createMolfile(JMEmol mol, JMEWriter.MolFileOrRxnParameters arg) {
-		return (arg.isV3000 ? JMEWriter.createExtendedMolFile(mol, arg.header, arg.stampDate, null)
-				: JMEWriter.createMolFile(mol, arg.header, arg.stampDate, null));
-	}
-	
 	public JMEmol last() {
 		return get(size() - 1);
 	}
@@ -496,14 +246,14 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	public int[] overlap() {
 		double closeContactDist = JMECore.RBOND/10;
 		
-		int results[] = new int[this.size() * (this.size()-1)];
+		int results[] = new int[size() * (size()-1)];
 		int rpos = 0;
 		
-		for(int m1=0; m1< this.size() - 1; m1++) {
-			JMEmol mol1 = this.get(m1);
+		for(int m1=0; m1< size() - 1; m1++) {
+			JMEmol mol1 = get(m1);
 		
-			for(int m2=m1+1; m2< this.size() - 1; m1++) {
-				JMEmol mol2 = this.get(m1);
+			for(int m2=m1+1; m2< size() - 1; m1++) {
+				JMEmol mol2 = get(m1);
 				if(mol1.hasCloseContactWith(mol2, closeContactDist)) {
 					results[rpos++] = m1;
 					results[rpos++] = m2;
@@ -517,11 +267,11 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	//not tested
 	public boolean hasCloseContact(double closeContactDist) {
 				
-		for(int m1=0; m1< this.size() - 1; m1++) {
-			JMEmol mol1 = this.get(m1);
+		for(int m1=0; m1< size() - 1; m1++) {
+			JMEmol mol1 = get(m1);
 		
-			for(int m2=m1+1; m2< this.size() - 1; m2++) {
-				JMEmol mol2 = this.get(m2);
+			for(int m2=m1+1; m2< size() - 1; m2++) {
+				JMEmol mol2 = get(m2);
 				if(mol1.hasCloseContactWith(mol2, closeContactDist)) {
 					return true;
 				}
@@ -541,7 +291,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		}
 		
 		for(JMEmol mol : emptyList) {
-			this.remove(mol);
+			remove(mol);
 		}
 			
 		return emptyList.size() > 0;
@@ -584,7 +334,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	 */
 	public Rectangle2D.Double safeComputeBoundingBoxWithAtomLabels(double minWidth, double minHeight) {
 		
-		Rectangle2D.Double boundingBox = this.computeBoundingBoxWithAtomLabels();
+		Rectangle2D.Double boundingBox = computeBoundingBoxWithAtomLabels();
 		if (boundingBox == null) {
 			boundingBox = new Rectangle2D.Double();
 		}
@@ -642,10 +392,10 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	 * @return the position of the new molecule in the list
 	 */
 	public int replace(JMEmol mol, JMEmol newMol) {
-		int index = this.indexOf(mol);
+		int index = indexOf(mol);
 		
 		if(index >= 0)
-			this.set(index, newMol);
+			set(index, newMol);
 		
 		return index;
 	}
@@ -655,7 +405,7 @@ public class JMEmolList extends ArrayList<JMEmol> {
 	 * @return
 	 */
 	public int jmeIndex(JMEmol mol) {
-		return this.indexOf(mol) + 1;
+		return indexOf(mol) + 1;
 	}
 	
 
@@ -853,6 +603,5 @@ public class JMEmolList extends ArrayList<JMEmol> {
 		return newGroup;
 		
 	}
-
 
 }

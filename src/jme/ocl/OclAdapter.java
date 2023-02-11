@@ -149,7 +149,7 @@ public class OclAdapter implements Parser {
 					// TODO: test case:
 					MolfileCreator mfc = new MolfileCreator(oclMol);
 					try {
-						result = new JMEmol(mol.jme, mfc.getMolfile(), JME.SupportedFileFormat.MOL,
+						result = new JMEmol(mol.jme, mfc.getMolfile(), JME.SupportedInputFileFormat.MOL,
 								mol.parameters);
 					} catch (Exception e) {
 						e.printStackTrace();

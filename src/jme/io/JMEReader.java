@@ -3,13 +3,21 @@
  */
 package jme.io;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import jme.JME;
+import jme.JME.SupportedInputFileFormat;
+import jme.JMEmol;
+import jme.JMEmol.ReactionRole;
+import jme.JMEmolList;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;
+import jme.core.JMECore.Parameters;
 import jme.ocl.SVGDepictorWithEmbeddedChemicalStructure;
 import jme.util.Isotopes;
 import jme.util.JMEUtil;
@@ -369,12 +377,123 @@ public class JMEReader {
 		
 	}
 
+	public static JMEmolList readMDLstringInput(String s, Parameters pars) {
+		JMEmolList molList = new JMEmolList();
+		try {
+			molList.isReaction = s.startsWith("$RXN");
+			if (molList.isReaction) {
+				molList.addAll(readReactionMols(s, pars));
+			} else {
+				molList.add(readSingleMOL(s, pars));
+			}
+		} catch (Exception e) {
+			molList.error = e;
+			return null;
+		}
+		return molList;
+	}
+
+	/*
+	 * parse and read the argument and put the molecules into a vector
+	 *
+	 */
+	// TODO: handle input with 3D or no coordinates
+	public static JMEmolList readJMEstringInput(String molecule, Parameters pars) {
+
+		// | is molecular separator
+		// > is reaction separator
+		JMEmolList molList = new JMEmolList();
+		StringTokenizer st = new StringTokenizer(molecule, "|>", true);
+		molList.isReaction = (molecule.indexOf(">") > -1); // false means it is a molecule
+		int nt = st.countTokens();
+		int roleIndex = 0;
+
+		for (int i = 1; i <= nt; i++) {
+			String s = st.nextToken();
+			s.trim();
+			if (s.equals("|"))
+				continue;
+			if (s.equals(">")) {
+				roleIndex++;
+				continue;
+			}
+
+			if (roleIndex > 3) {
+				return molList.setErrorMsg("too many \">\"");
+			}
+
+			JMEmol mol = null;
+
+			try {
+				mol = new JMEmol(null, s, JME.SupportedInputFileFormat.JME, pars);
+				if (mol.natoms == 0) {
+					// this.showError("problems in reading/processing molecule !"); //old original
+					// error message
+					return molList.setErrorMsg("0 atoms found in \"" + s + "\"");
+				}
+
+			} catch (Exception e) {
+				return molList.setErrorMsg(JME.makeErrorMessage(e) + ": " + s);
+			}
+			molList.add(mol);
+			if (molList.isReaction) {
+				mol.setReactionRole(JMEmol.ReactionRole.all[roleIndex]);
+			}
+		}
+		return molList;
+	}
+
+	public static List<JMEmol> readReactionMols(String s, Parameters pars) throws Exception {
+		List<JMEmol> mols = new ArrayList<>();
+			String separator = JMEUtil.findLineSeparator(s);
+			StringTokenizer st = new StringTokenizer(s, separator, true);
+			String line = "";
+			for (int i = 1; i <= 5; i++) {
+				line = JMEUtil.nextData(st, separator);
+			}
+			// TODO: exception handling
+			int nr = Integer.valueOf(line.substring(0, 3).trim()).intValue();
+			int np = Integer.valueOf(line.substring(3, 6).trim()).intValue();
+			// support of agents, this is not standard, same convention as in Marvin JS
+			int na = 0;
+			if (line.length() >= 9) {
+				na = Integer.valueOf(line.substring(6, 9).trim()).intValue();
+			}
+	
+			JMEUtil.nextData(st, separator); // 1. $MOL
+			for (int p = 1; p <= nr + np + na; p++) {
+				String m = "";
+				while (true) {
+					String ns = JMEUtil.nextData(st, separator);
+					if (ns == null || ns.equals("$MOL"))
+						break;
+					else
+						m += ns + separator;
+				}
+				// System.err.print("MOLS"+p+separator+m);
+				JMEmol mol = readSingleMOL(m, pars);
+				mols.add(mol);
+				if (p <= nr) {
+					mol.setReactionRole(JMEmol.ReactionRole.REACTANT);
+				} else if (p > nr && p <= nr + np) {
+					mol.setReactionRole(JMEmol.ReactionRole.PRODUCT);
+				} else {
+					mol.setReactionRole(JMEmol.ReactionRole.AGENT);
+				}
+			}
+			return mols;
+	}
+
+	public static JMEmol readSingleMOL(String s, Parameters pars) throws Exception {
+		return new JMEmol(null, s, JME.SupportedInputFileFormat.MOL, pars);
+	}
+
 	// from Objects.equals, needed for unittests
 	public static boolean equals(Object a, Object b) {
 	        return (a == b) || (a != null && a.equals(b));
 	    }
 
-	public static void createJMEFromString(JMECore mol, String jmeString) {
+	public static void createMolFromString(JMECore mol, String jmeString) {
 		if (jmeString.startsWith("\""))
 			jmeString = jmeString.substring(1, jmeString.length());
 		if (jmeString.endsWith("\""))
@@ -438,7 +557,7 @@ public class JMEReader {
 		}
 	}
 
-	public static void createJMEFromMolData(JMECore mol, String molData) {
+	public static void createMolFromMolData(JMECore mol, String molData) {
 
 		String line = "";
 		String separator = JMEUtil.findLineSeparator(molData);

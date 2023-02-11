@@ -162,7 +162,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param pars
 	 * @throws Exception
 	 */
-	public JMEmol(JME jme, Object molecule, JME.SupportedFileFormat type, Parameters pars) throws Exception {
+	public JMEmol(JME jme, Object molecule, JME.SupportedInputFileFormat type, Parameters pars) throws Exception {
 		this(jme, pars);
 		if (molecule == null)
 			return;
@@ -191,7 +191,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param jmeString
 	 */
 	private void createFromJMEString(String jmeString) {
-		JMEReader.createJMEFromString(this, jmeString);
+		JMEReader.createMolFromString(this, jmeString);
 	}
 
 	/**
@@ -200,7 +200,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param molData
 	 */
 	private void createFromMOLString(String molData) {
-		JMEReader.createJMEFromMolData(this, molData);
+		JMEReader.createMolFromMolData(this, molData);
 	}
 
 	public static JMEmol mergeMols(ArrayList<JMEmol> mols) {

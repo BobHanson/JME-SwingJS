@@ -263,10 +263,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	public static boolean isStandAloneApplication = false; // by default the program starts as an applet
 
-	public static enum SupportedFileFormat {
-		JME, SMILES, MOL, MOL_V3000, JMOL, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC
+	public static enum SupportedInputFileFormat {
+		JME, SMILES, MOL, MOL_V3000, OCLCODE
 	}
 
+	public static enum SupportedOutputFileFormat {
+		JME, SMILES, MOL, MOL_V3000, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC
+	}
 	// should extend CopyOnClipboard
 	// - not possible in Java ??
 	// BH -- What's the question here?
@@ -275,8 +278,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		JME, SMILES, MOL, MOL_V3000, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC,
 		SEARCH_INCHI_KEY, PASTE;
 
-		public SupportedFileFormat getFormat() {
-			return SupportedFileFormat.valueOf(toString());
+		public SupportedOutputFileFormat getFormat() {
+			return SupportedOutputFileFormat.valueOf(toString());
 		}
 	}
 
@@ -304,7 +307,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public Color leftMenuAtomColor = null;
 
 	// File format for Ctrl C
-	protected SupportedFileFormat clipboardFormat = SupportedFileFormat.MOL;
+	protected SupportedOutputFileFormat clipboardFormat = SupportedOutputFileFormat.MOL;
 
 	protected JMEevent afterStructureChangeEvent = new JMEevent();
 
@@ -1140,11 +1143,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	}
 
-	public SupportedFileFormat getCopyToClipboardFormat() {
+	public SupportedOutputFileFormat getCopyToClipboardFormat() {
 		return this.clipboardFormat;
 	}
 
-	public void setCopyToClipboardFormat(SupportedFileFormat format) {
+	public void setCopyToClipboardFormat(SupportedOutputFileFormat format) {
 		this.clipboardFormat = format;
 	}
 
@@ -1278,10 +1281,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	String getSmiles(Parameters params) {
 		updateReactionRoles();
-		if (params == null) {
-			params = this.params;
-		}
-		return moleculePartsList.generateSmilesOrSmirks(params);
+		return JMEWriter.generateSmilesOrSmirks(params == null ? this.params : params, moleculePartsList);
 	}
 
 	public void reset(boolean repaint) {
@@ -1367,12 +1367,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	// ----------------------------------------------------------------------------
+	/**
+	 * Return molecule or reaction in JME format.
+	 * 
+	 * @return JME string
+	 */
 	public String jmeFile() {
-		// returns molecule(s) in jme format
-		this.updateReactionRoles();
-		String result = moleculePartsList.generateJMEstring(false,
-				this.computeMoleculeEnsembleCoordinate2DboundingBox());
-		return result;
+		updateReactionRoles();
+		return JMEWriter.generateJMEstring(false,
+				computeMoleculeEnsembleCoordinate2DboundingBox(), moleculePartsList);
 	}
 
 	/**
@@ -1383,10 +1386,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return
 	 */
 	int findMaxAtomMapOfMoleculeParts(JMEmolList moleculeParts, int reactionRole) {
-
 		this.updateReactionRoles();
 		return moleculeParts.findMaxAtomMap(reactionRole);
-
 	}
 
 	/**
@@ -1429,17 +1430,19 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	protected boolean handleReadMolecule(String molecule, boolean repaint) {
 
 		// duplicated code, a pointer to a function would solve the problem?
-		JMEmolList inputMolList = new JMEmolList();
-		boolean success = inputMolList.readJMEstringInput(molecule, this.params);
-		if (success && !inputMolList.isReallyEmpty()) {
-			this.processIncomingMolecules(inputMolList, repaint);
+		JMEmolList inputMolList = JMEReader.readJMEstringInput(molecule, this.params);
+		if (inputMolList.isReallyEmpty()) {
+			String err = inputMolList.getErrorMessage();
+			if (err != null)
+				log(err);
+			return false;
 		}
-		return success;
+		processIncomingMolecules(inputMolList, repaint);
+		return true;
 	}
 
 	public void showError(String errorMessage) {
 		this.showInfo("ERROR - " + errorMessage);
-
 	}
 
 	private JMEBuilder getBuilder(JMEmol mol) {
@@ -1833,26 +1836,30 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return
 	 */
 	public String molFile() {
-		return this.molFile(false);
+		return molFile(false);
 	}
 
 	public String molFile(boolean isV3000) {
-		return this.molFileOrRxn(null, true, isV3000, options.exportRXNmergeOption);
+		return molFileOrRxn(null, true, isV3000, options.exportRXNmergeOption);
 	}
 
 	public String molFile(JMEWriter.MolFileOrRxnParameters pars) {
-
 		if (pars.debugDoNotUpdateReactionRole) {
 			moleculePartsList.isReaction = true;
-			;
 		} else {
 			this.updateReactionRoles();
 		}
-
-		return moleculePartsList.generateMolFileOrRxn(pars);
-
+		return JMEWriter.generateMolFileOrRxn(pars, moleculePartsList);
 	}
 
+	/**
+	 * Creates MOL file V2000 or V3000 string data
+	 * @param header_
+	 * @param stampDate_
+	 * @param isV3000_
+	 * @param mergeReationComponents
+	 * @return MOL file data
+	 */
 	public String molFileOrRxn(String header_, boolean stampDate_, boolean isV3000_, boolean mergeReationComponents) {
 
 		JMEWriter.MolFileOrRxnParameters pars = new JMEWriter.MolFileOrRxnParameters() {
@@ -1863,71 +1870,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				mergeReationComponents = options.exportRXNmergeOption;
 			}
 		};
-
 		return this.molFile(pars);
-
-//		// creates mol file, multipart sd file or reaction (rxn file)
-//
-//		if (header == null) {
-//			header = smiles(); // now, otherwise for multipart cuts them
-//		}
-//
-//		String s = "";
-//		if (options.reaction) {
-//			int nReactants;
-//			int nProducts;
-//			int nAgents;
-//			int part[][] = getReactionParts();
-//			if (mergeReationComponents) {
-//				nReactants = 1;
-//				nProducts = 1;
-//				nAgents = 1;
-//			} else {
-//				nReactants = part[JMEmol.ReactionRole.REACTANT][0];
-//				nProducts = part[JMEmol.ReactionRole.PRODUCT][0];
-//				nAgents = part[JMEmol.ReactionRole.PRODUCT][0];
-//
-//			}
-//
-//			s += "$RXN" + separator + separator + separator + "JME Molecular Editor" + separator;
-//			s += JMEmol.iformat(nReactants, 3) + JMEmol.iformat(nProducts, 3);
-//			if (part[2][0] > 0) { // if agents are present
-//				s += JMEmol.iformat(nAgents, 3);
-//			}
-//			s += separator;
-//
-//			// reactants products, agents
-//			for (int role : new int[] { JMEmol.ReactionRole.REACTANT, JMEmol.ReactionRole.PRODUCT,
-//					JMEmol.ReactionRole.AGENT }) {
-//				if (mergeReationComponents && part[role][0] > 1) {
-//					JMEmol toMerge[] = new JMEmol[part[role][0] + 1];
-//					for (int mol : part[role]) {
-//						toMerge[mol] = moleculeParts[mol];
-//					}
-//
-//					JMEmol merged = new JMEmol(this, toMerge, toMerge.length);
-//					s += "$MOL" + separator + merged.createMolFile(header, stampDate);
-//				} else {
-//					for (int i = 1; i <= part[role][0]; i++) {
-//						s += "$MOL" + separator + moleculeParts[part[role][i]].createMolFile(header, stampDate);
-//					}
-//				}
-//			}
-//
-//		} else { // viac molekul do 1 mol file
-//			if (moleculePartsList.size() > 1)
-//				// merge the molecules into one ensemble
-//				activeMol = new JMEmol(this, (JMEmol[]) moleculePartsList.toArray(), moleculePartsList.size());
-//			if (!isV3000)
-//				s = activeMol.createMolFile(header, stampDate);
-//			else // BB
-//				s = activeMol.createExtendedMolFile(header, stampDate);
-//
-//			// ???? WHY DOES THIS CHANGE THE IN MEMORY MOL?
-//			if (numberofMoleculeParts > 1)
-//				activeMol = moleculeParts[actualMoleculePartIndex];
-//		}
-//		return s;
 	}
 
 	// --------------------------------------------------------------------------
@@ -2360,27 +2303,21 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	void processIncomingMolecules(JMEmolList newMolecules, boolean repaint) {
-
-		if (!newMolecules.isReallyEmpty()) {
-
-			if (this.params.internalBondScalingForInput) {
-				newMolecules.internalBondLengthScaling();
-			}
-			activeMol = processIncomingMolecules(newMolecules);
-			if (newMolecule) {
-				newMolecule = false; // addition performed, cancel NEW option
-				gui.mustReDrawTopMenu = true;
-			}
-			if (repaint && !headless) {
-				drawMolecularAreaRightNow();
-				if (gui.mustReDrawTopMenu) {
-					gui.drawTopMenu(getGraphics());
-				}
-
+		if (this.params.internalBondScalingForInput) {
+			newMolecules.internalBondLengthScaling();
+		}
+		activeMol = processIncomingMolecules(newMolecules);
+		if (newMolecule) {
+			newMolecule = false; // addition performed, cancel NEW option
+			gui.mustReDrawTopMenu = true;
+		}
+		if (repaint && !headless) {
+			drawMolecularAreaRightNow();
+			if (gui.mustReDrawTopMenu) {
+				gui.drawTopMenu(getGraphics());
 			}
 
 		}
-
 	}
 
 	/**
@@ -2537,13 +2474,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 */
 	boolean handleReadMolFileRXN(String s, boolean repaint) {
 
-		JMEmolList inputMolList = new JMEmolList();
-		boolean success = inputMolList.readMDLstringInput(s, this.params);
-		if (success && !inputMolList.isReallyEmpty()) {
-			this.processIncomingMolecules(inputMolList, repaint);
-		}
-
-		return success;
+		JMEmolList inputMolList = JMEReader.readMDLstringInput(s, this.params);
+		if (inputMolList == null || inputMolList.isReallyEmpty())
+			return false;
+		processIncomingMolecules(inputMolList, repaint);
+		return true;
 	}
 
 	public int findMaxAtomMapAmongAllMolecules() {
@@ -5196,9 +5131,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * MENU AND DIRECT COPY AND DIRECT CUT AND d&d
 	 * 
 	 * @param format
+f
 	 * @param callBack
 	 */
-	public void exportFile(SupportedFileFormat format, final RunWhenDataReadyCallback callBack) {
+	public void exportFile(SupportedOutputFileFormat format, final RunWhenDataReadyCallback callBack) {
 		// TODO NOTE IMPLEMENTED
 		switch (format) {
 		case INCHI:
@@ -5223,7 +5159,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			break;
 		default:
 			break;
-
 		}
 	}
 
@@ -5233,11 +5168,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		case MOL:
 			this.copyMolFileToClipboard(false);
 			break;
-
 		case MOL_V3000:
 			this.copyMolFileToClipboard(true);
 			break;
-
 		case JME:
 			this.copyJmeStringToClipboard();
 			break;
@@ -5261,6 +5194,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			break;
 		case OCLCODE:
 			this.copyOclCodetoClipboard();
+			break;
 		default:
 			clipBoardManager.setClipboardContents("incorrect or unsupported export format");
 		}
@@ -5285,7 +5219,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param callBack
 	 */
 
-	public void generateOuttputFile(SupportedFileFormat format, final RunWhenDataReadyCallback callBack) {
+	public void generateOuttputFile(SupportedOutputFileFormat format, final RunWhenDataReadyCallback callBack) {
 
 		String output = null;
 
@@ -5348,7 +5282,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 	}
 
-	public void computeInchi(final SupportedFileFormat action, final RunWhenDataReadyCallback callBack) {
+	public void computeInchi(final SupportedOutputFileFormat action, final RunWhenDataReadyCallback callBack) {
 
 	}
 

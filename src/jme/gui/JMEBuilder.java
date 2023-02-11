@@ -1,7 +1,7 @@
 package jme.gui;
 
 import jme.JME;
-import jme.JME.SupportedFileFormat;
+import jme.JME.SupportedInputFileFormat;
 import jme.JMEmol;
 import jme.core.Atom;
 import jme.core.Bond;
@@ -936,7 +936,7 @@ public class JMEBuilder {
 		templateString = t;
 		Parameters pars = new Parameters();
 		pars.mark = true; // needed otherwise the atom map will be ignored
-		templateMolecule = new JMEmol(jme, t, SupportedFileFormat.JME, pars);
+		templateMolecule = new JMEmol(jme, t, SupportedInputFileFormat.JME, pars);
 		templateMolecule.internalBondLengthScaling();		
 		if (!templateMolecule.hasMappedOrMarkedAtom()) {
 			// console warning

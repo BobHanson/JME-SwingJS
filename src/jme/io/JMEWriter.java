@@ -1,6 +1,7 @@
 package jme.io;
 
 import java.awt.geom.Rectangle2D;
+import java.awt.geom.Rectangle2D.Double;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -8,6 +9,8 @@ import java.util.Iterator;
 
 import jme.JME;
 import jme.JMEmol;
+import jme.JMEmol.ReactionRole;
+import jme.JMEmolList;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;
@@ -38,7 +41,7 @@ public class JMEWriter extends JMECore {
 			return new JMEWriter(mol).createMolFile(header, stampDate, box);
 		}
 		
-		public static String createExtendedMolFile(JMEmol mol, String header, boolean stampDate, Rectangle2D.Double box) {
+		public static String createExtendedMolFile(JMECore mol, String header, boolean stampDate, Rectangle2D.Double box) {
 			return new JMEWriter(mol).createExtendedMolFile(header, stampDate, box);
 		}
 
@@ -508,6 +511,93 @@ public class JMEWriter extends JMECore {
 		protected int mdlChiralFlag() {
 			return getChiralFlag() && canBeChiral() ? 1 : 0;
 		}
+
+	public static String createMolfile(JMEmol mol, MolFileOrRxnParameters arg) {
+			return (arg.isV3000 ? createExtendedMolFile(mol, arg.header, arg.stampDate, null)
+					: createMolFile(mol, arg.header, arg.stampDate, null));
+		}
+
+	/**
+		 * Generate MOL file, or RXN reaction file
+		 * 
+		 * @param MolFileOrRxnParameters instance
+		 * @return
+		 */
+		public static String generateMolFileOrRxn(MolFileOrRxnParameters pars, JMEmolList molList) {
+			if (!molList.isReaction) {
+				return createMolfile(molList.size() > 1 ? JMEmol.mergeMols(molList) : molList.get(0), pars);
+			}
+			String s = "";
+			int roles[];
+			// suppress the agents if none because writing out agents is not standard
+			if (molList.reactionParts(JMEmol.ReactionRole.AGENT).size() > 0) {
+				roles = new int[] { JMEmol.ReactionRole.REACTANT, JMEmol.ReactionRole.PRODUCT, JMEmol.ReactionRole.AGENT };
+			} else {
+				roles = new int[] { JMEmol.ReactionRole.REACTANT, JMEmol.ReactionRole.PRODUCT };
+		
+			}
+			s += "$RXN\n\n\nJME Molecular Editor\n";
+			// write the number of molecules for each role
+			for (int r : roles) {
+				int n = pars.mergeReationComponents ? 1 : molList.reactionParts(r).size();
+				s += JMEUtil.iformat(n, 3);
+			}
+		
+			s += "\n";
+		
+			// reactants products, agents
+			for (int r : roles) {
+				JMEmolList mols = molList.reactionParts(r, pars.mergeReationComponents);
+				for (JMEmol mol : mols) {
+					s += "$MOL\n";
+					s += createMolfile(mol, pars);
+				}
+			}
+			return s;
+		}
+
+		// duplicated code with generateJmeFile
+		public static String generateSmilesOrSmirks(Parameters pars, JMEmolList molList) {
+			if (molList.isReaction) {
+				return generateSmilesOrSmirks(pars, molList.reactionParts(JMEmol.ReactionRole.REACTANT)) + ">"
+						+ generateSmilesOrSmirks(pars, molList.reactionParts(JMEmol.ReactionRole.AGENT)) + ">"
+						+ generateSmilesOrSmirks(pars, molList.reactionParts(JMEmol.ReactionRole.PRODUCT));
+			}
+			String result = "";
+			for (JMEmol mol : molList) {
+				String smiles = mol.createSmiles(pars);
+				if (smiles.length() > 0) {
+					if (result.length() > 0)
+						result += ".";
+					result += smiles; // ta molekula moze byt empty
+				}
+			}
+			return result;
+		}
+
+	/**
+	 * 
+	 * @param showImplicitHydrogens : atom symbols like CH3
+	 * @return
+	 */
+	public static String generateJMEstring(boolean showImplicitHydrogens, Rectangle2D.Double boundingBox,
+			JMEmolList molList) {
+		if (molList.isReaction) {
+			return generateJMEstring(showImplicitHydrogens, boundingBox, molList) + ">"
+					+ generateJMEstring(showImplicitHydrogens, boundingBox, molList) + ">"
+					+ generateJMEstring(showImplicitHydrogens, boundingBox, molList);
+		}
+		String result = "";
+		for (JMEmol mol : molList) {
+			String jme = createJMEString(mol, showImplicitHydrogens, boundingBox);
+			if (jme.length() > 0) {
+				if (result.length() > 0)
+					result += "|";
+				result += jme; // ta molekula moze byt empty
+			}
+		}
+		return result;
+	}
 
 		// ----------------------------------------------------------------------------
 		/**
