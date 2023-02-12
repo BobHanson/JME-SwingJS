@@ -3,10 +3,12 @@ package jme.event;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+import javax.swing.SwingUtilities;
+
 import jme.JME;
 import jme.JMEmol;
 import jme.gui.AtomInspector;
-import jme.js.JSME_RunAsyncCallback;
+import jme.js.AsyncCallback;
 import jme.util.JMEUtil;
 
 public class InspectorEvent implements ActionListener {
@@ -39,13 +41,8 @@ public class InspectorEvent implements ActionListener {
 	@Override
 	public void actionPerformed(final ActionEvent e) {
 
-		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-			/**
-			 * @j2sAlias onSuccess
-			 */
-			@Override
-			public void onSuccess() {
+		SwingUtilities.invokeLater(()->{
+	
 				ChangeAtomPropertyCallback change = null;
 				if (e.getActionCommand() == JME.changeAtomMapAction || e.getActionCommand() == JME.changeAtomMarkAction) {
 
@@ -77,12 +74,10 @@ public class InspectorEvent implements ActionListener {
 							jme.setAtomToHighLight(molIndex, 0);
 							jme.requestFocusInWindow();
 						}
-						
+											
 					};
 
-				}
-
-				else if (e.getActionCommand() == JME.changeAtomChargeAction) {
+				} else if (e.getActionCommand() == JME.changeAtomChargeAction) {
 					final String actionType = "charge";
 					
 					change = new ChangeAtomPropertyCallback() {
@@ -108,12 +103,12 @@ public class InspectorEvent implements ActionListener {
 							showError(errorMessage);
 						}
 
-						@Override
-						public void finished() {
-							jme.setAtomToHighLight(molIndex, 0);
-							jme.requestFocusInWindow();
-							
-						}
+					@Override
+					public void finished() {
+						jme.setAtomToHighLight(molIndex, 0);
+						jme.requestFocusInWindow();
+
+					}
 							
 						
 						
@@ -128,8 +123,6 @@ public class InspectorEvent implements ActionListener {
 					atomInspector.action(InspectorEvent.this);
 					
 				}
-
-			}
 
 		});
 

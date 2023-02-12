@@ -73,12 +73,12 @@ import javax.swing.SwingUtilities;
 
 import jme.JMEmol.ReactionRole;
 import jme.canvas.ColorManager;
+import jme.canvas.ColorManager.ColorInfo;
 import jme.canvas.Graphical2DObject;
 import jme.canvas.Graphical2DObjectGroup;
 import jme.canvas.PreciseGraphicsAWT;
 import jme.canvas.PreciseImage;
 import jme.canvas.ReactionArrow;
-import jme.canvas.ColorManager.ColorInfo;
 import jme.core.Atom;
 import jme.core.AtomBondCommon;
 import jme.core.Bond;
@@ -96,14 +96,14 @@ import jme.gui.MultiBox;
 import jme.gui.QueryBox;
 import jme.io.FileDropper;
 import jme.io.JMEReader;
-import jme.io.JMEReader.MajorChemicalFormat;
+import jme.io.JMEReader.SupportedInputFileFormat;
 import jme.io.JMEWriter;
+import jme.io.JMEWriter.MolFileOrRxnParameters;
 import jme.io.SDFstack;
 import jme.io.TextTransfer;
 import jme.io.TextTransfer.PasteAction;
+import jme.js.AsyncCallback;
 import jme.js.JSFunction;
-import jme.js.JSME_RunAsyncCallback;
-import jme.js.RunAsyncCallback;
 import jme.js.RunWhenDataReadyCallback;
 import jme.ocl.Parser;
 import jme.util.Box;
@@ -214,6 +214,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public static final String SD_FSTACK = "SDFstack";
 	public static final String REDO = "redo";
 	public static final String UNDO = "undo";
+
 	public static final String READ_MOL_FILE = "readMolFile";
 	public static final String READ_RXN_FILE = "readRXNFile";
 	public static final String READ_JME = "readJME";
@@ -263,23 +264,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	public static boolean isStandAloneApplication = false; // by default the program starts as an applet
 
-	public static enum SupportedInputFileFormat {
-		JME, SMILES, MOL, MOL_V3000, OCLCODE
-	}
-
-	public static enum SupportedOutputFileFormat {
-		JME, SMILES, MOL, MOL_V3000, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC
-	}
-	// should extend CopyOnClipboard
-	// - not possible in Java ??
-	// BH -- What's the question here?
-
 	public static enum CopyPasteAction {
 		JME, SMILES, MOL, MOL_V3000, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC,
 		SEARCH_INCHI_KEY, PASTE;
 
-		public SupportedOutputFileFormat getFormat() {
-			return SupportedOutputFileFormat.valueOf(toString());
+		public JMEWriter.SupportedOutputFileFormat getFormat() {
+			return JMEWriter.SupportedOutputFileFormat.valueOf(toString());
 		}
 	}
 
@@ -307,7 +297,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public Color leftMenuAtomColor = null;
 
 	// File format for Ctrl C
-	protected SupportedOutputFileFormat clipboardFormat = SupportedOutputFileFormat.MOL;
+	protected JMEWriter.SupportedOutputFileFormat clipboardFormat = JMEWriter.SupportedOutputFileFormat.MOL;
 
 	protected JMEevent afterStructureChangeEvent = new JMEevent();
 
@@ -1135,20 +1125,19 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 	}
 
-	/*
-	 * 
-	 * For subclassses
+	/**
+	 * For subclasses to handle additional parameter settings.
 	 */
 	protected void handleAdditionalParameters() {
-
+		// subclasses only
 	}
 
-	public SupportedOutputFileFormat getCopyToClipboardFormat() {
+	public JMEWriter.SupportedOutputFileFormat getCopyToClipboardFormat() {
 		return this.clipboardFormat;
 	}
 
-	public void setCopyToClipboardFormat(SupportedOutputFileFormat format) {
-		this.clipboardFormat = format;
+	public void setCopyToClipboardFormat(String format) {
+		this.clipboardFormat = JMEWriter.SupportedOutputFileFormat.valueOf(format);
 	}
 
 	/**
@@ -1862,15 +1851,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 */
 	public String molFileOrRxn(String header_, boolean stampDate_, boolean isV3000_, boolean mergeReationComponents) {
 
-		JMEWriter.MolFileOrRxnParameters pars = new JMEWriter.MolFileOrRxnParameters() {
-			{
-				header = header_; // 1st line of the MOL
-				stampDate = stampDate_;
-				isV3000 = isV3000_;
-				mergeReationComponents = options.exportRXNmergeOption;
-			}
-		};
-		return this.molFile(pars);
+		MolFileOrRxnParameters pars = new MolFileOrRxnParameters();
+		pars.header = header_; // 1st line of the MOL
+		pars.stampDate = stampDate_;
+		pars.isV3000 = isV3000_;
+		pars.mergeReationComponents = options.exportRXNmergeOption;
+		return molFile(pars);
 	}
 
 	// --------------------------------------------------------------------------
@@ -1915,10 +1901,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * repaint and record event
 	 * 
 	 * @param s
-	 * @param sucessAndFailureHandler
+	 * @param callback
 	 */
-	public void handleReadGenericInput(String s, RunAsyncCallback sucessAndFailureHandler) {
-		handleReadGenericInput(s, sucessAndFailureHandler, true, true);
+	public void handleReadGenericInput(String s, AsyncCallback callback) {
+		handleReadGenericInput(s, callback, true, true);
 	}
 
 	/**
@@ -1926,191 +1912,62 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * 
 	 * @param s
 	 */
-	public void handleReadGenericInput(String s, RunAsyncCallback sucessAndFailureHandler, boolean repaint,
+	public void handleReadGenericInput(String s, AsyncCallback callback, boolean repaint,
 			boolean recordEvent) {
 
 		if (s == null || s.trim().length() == 0) {
 			return;
 		}
 
-		JMEReader cfd = new JMEReader(s);
-		String error = null;
-		boolean runAsync = false;
-
-		this.afterStructureChangeEvent.setOrigin_API();
+		afterStructureChangeEvent.setOrigin_API();
 		// will not overwrite if already set for instance if the call is
 		// coming from the GUI
-
 		clearInfo(); // clear previous error message if any
-		String afterStructureChangedEvent = null;
 
-		do {
-
-			if (cfd.majorChemicalFormat == JMEReader.MajorChemicalFormat.SVG && cfd.embeddedChemicalFormat != null) {
-				// copy the embedded chemical format to cfd
-				cfd.init(cfd.embeddedChemicalFormat);
-			}
-			if (cfd.author == JMEReader.Author.MDL && cfd.minorChemicalFormat != JMEReader.MinorChemicalFormat.V3000) {
-				// bug: handling "|" as a line separator
-
-				// TODO : handleReadMolFileRXN is async because of the 2D coordinate computation
-				if (!JME.this.handleReadMolFileRXN(cfd.chemicalString, false)) // will do repaint later after event
-																				// recording
-					error = "Invalid V2000 molfile";
-				else {
-					afterStructureChangedEvent = cfd.isReaction() ? READ_RXN_FILE : READ_MOL_FILE;
-				}
-				break;
-			}
-
-			if (cfd.author == JMEReader.Author.P_ERTL) {
-				if (!readMolecule(cfd.chemicalString, false)) { // will do repaint later after event recording
-					error = "Invalid JME string";
-				} else {
-					afterStructureChangedEvent = READ_JME;
-				}
-				break;
-			}
-			if (cfd.author == JMEReader.Author.IUPAC
-					|| cfd.majorChemicalFormat == JMEReader.MajorChemicalFormat.CSRML) {
-				// GWT: <set-configuration-property name="compiler.enum.obfuscate.names"
-				// value="false" /> otherwise the number of the enum is shown instead of its
-				// name
-				error = "Reading " + cfd.majorChemicalFormat + " is not supported";
-				break;
-			}
-
-			if (options.useOpenChemLib) {
-				runAsync = true;
-				// code splitting used to run OpenChemlib code
-				JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-					/**
-					 * @j2sAlias onSuccess
-					 */
-					@Override
-					public void onSuccess() {
-						oclSuccess(cfd, sucessAndFailureHandler, recordEvent, repaint);
-					}
-				});
-
-				break;
-			}
-
-		} while (false);
-
-		if (!runAsync) {
-
-			if (error == null && recordEvent && afterStructureChangedEvent != null) {
-				JME.this.recordAfterStructureChangedEvent(afterStructureChangedEvent); // the event will be fired after
-																						// the repaint() has completed
-			}
-
-			// duplicated code with the one inside the runAsync block
-			// used for debugging JS code
-			setMustRedrawMolecularArea(error == null);
-			if (sucessAndFailureHandler != null) {
-				if (error == null) {
-					sucessAndFailureHandler.onSuccess();
-				} else {
-					sucessAndFailureHandler.onFailure(new Exception(error));
-				}
-			} else {
-				if (error != null) {
-					showError(error);
-				}
-
-			}
-
-			if (error == null && repaint) {
-				repaint();
-
-			}
-		}
-
+		JMEReader jmeReader = new JMEReader(this, s);
+		boolean runAsync = options.useOpenChemLib;
+		jmeReader.readGenericString(runAsync, callback, repaint, recordEvent);
+		if (runAsync)
+			return;		
+		processFileRead(callback, recordEvent ? jmeReader.fileTypeRead : null, jmeReader.error, repaint);
 	}
-
-	protected void oclSuccess(JMEReader cfd, RunAsyncCallback sucessAndFailureHandler, boolean recordEvent,
-			boolean repaint) {
-		String error = null;
-		String convertedmolFile = null;
-		String afterStructureChangedEvent = null;
-
-		if (cfd.author == JMEReader.Author.MDL && cfd.minorChemicalFormat == JMEReader.MinorChemicalFormat.V3000) {
-			try {
-				convertedmolFile = v3000toV2000MOL(cfd.chemicalString);
-				if (convertedmolFile == null) {
-					throw new Exception("V3000 read failed.");
-				}
-				afterStructureChangedEvent = READ_MOL_FILE;
-				sdfPastedMessage.innnerString = "V3000 conversion provided by OpenChemLib";
-			} catch (Exception e) {
-				error = e.getMessage();
-			}
-		} else {
-			if (cfd.author == JMEReader.Author.DAYLIGHT) {
-				try {
-					convertedmolFile = SMILESorSMIRKStoMolOrRXN(cfd.chemicalString);
-					if (cfd.majorChemicalFormat == MajorChemicalFormat.SMIRKS)
-						afterStructureChangedEvent = READ_SMIRKS;
-					else if (cfd.majorChemicalFormat == MajorChemicalFormat.SMILES)
-						afterStructureChangedEvent = READ_SMILES;
-
-					sdfPastedMessage.innnerString = "SMILES conversion provided by OpenChemLib";
-
-				} catch (Exception e) {
-					error = "SMILES parsing error:" + e.getMessage();
-				}
-			} else {
-				error = "Invalid or unsupported input";
-				if (options.useOclIdCode && cfd.couldBeOclIdCode()) {
-					// try to parse OCL if not SMILES
-					// ChemicalFormatDetector can not detect OCLcode
-					try {
-						convertedmolFile = OclCodeToMOL(cfd.chemicalString);
-						afterStructureChangedEvent = READ_OCLCODE;
-						error = null;
-					} catch (Exception e) {
-
-					}
-				}
-			}
+	
+	public void processFileRead(AsyncCallback callback, SupportedInputFileFormat fileTypeRead, String error, boolean repaint) {
+		if (error == null && fileTypeRead != null) {
+			recordAfterStructureChangedEvent(getEventNameFromFormatRead(fileTypeRead));
 		}
-
-		boolean success = false;
-		if (convertedmolFile != null && error == null) {
-			try {
-				success = handleReadMolFileRXN(convertedmolFile, false);
-				if (success && recordEvent) {
-					assert (afterStructureChangedEvent != null);
-					recordAfterStructureChangedEvent(afterStructureChangedEvent);
-
-				}
-			} catch (Exception e) {
-				error = "Invalid converted molfile";
-			}
-		}
-		setMustRedrawMolecularArea(success);
-
-		if (sucessAndFailureHandler != null) {
-			if (success) {
-				sucessAndFailureHandler.onSuccess();
+		setMustRedrawMolecularArea(error == null);
+		if (callback != null) {
+			if (error == null) {
+				callback.onSuccess();
 			} else {
-				assert (error != null);
-				sucessAndFailureHandler.onFailure(new Exception(error));
+				callback.onFailure(new Exception(error));
 			}
-		} else {
-			if (error != null) {
-				showError(error);
-			}
-
+		} else if (error != null) {
+			showError(error);
 		}
 		if (repaint) {
 			repaint();
-			// drawMolecularAreaRightNow(); //does not work if called from start(),
-			// molecularAreaImage is not initialized
 		}
+	}
 
+	private String getEventNameFromFormatRead(SupportedInputFileFormat f) {
+		switch (f) {
+		case JME:
+			return READ_JME;
+		case MOL:
+		case MOL_V3000:
+			return READ_MOL_FILE;
+		case RXN:
+			return READ_RXN_FILE;
+		case OCLCODE:
+			return READ_OCLCODE;
+		case SMILES:
+			return READ_SMILES;
+		case SMIRKS:
+			return READ_SMIRKS;		
+		}
+		return null;
 	}
 
 	/**
@@ -2168,7 +2025,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param oclCode
 	 * @return
 	 */
-	public String OclCodeToMOL(String oclCode) {
+	public String oclCodeToMOL(String oclCode) {
 		return getParser().OclCodeToMOL(oclCode);
 	}
 
@@ -2243,17 +2100,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		this.handleReadMolFileRXN(convertedmolFile, false);
 
 		return true;
-	}
-
-	/**
-	 * Use the openchemlib to convert a V3000 MOL to a V2000 molfile string
-	 * 
-	 * @param v3000
-	 * @return
-	 * @throws Exception
-	 */
-	public String v3000toV2000MOL(String v3000Mol) throws Exception {
-		return getParser().v3000toV2000MOL(v3000Mol);
 	}
 
 	public static Parser getParser() {
@@ -2472,7 +2318,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param MOL or a RXN
 	 * @return true on success
 	 */
-	boolean handleReadMolFileRXN(String s, boolean repaint) {
+	public boolean handleReadMolFileRXN(String s, boolean repaint) {
 
 		JMEmolList inputMolList = JMEReader.readMDLstringInput(s, this.params);
 		if (inputMolList == null || inputMolList.isReallyEmpty())
@@ -3481,39 +3327,20 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @param message
 	 */
 	public void alert(final String message) {
-		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-			/**
-			 * @j2sAlias onSuccess
-			 */
-			@Override
-			public void onSuccess() {
-
-				new AlertBox(message, JME.this, JME.this.bgColor).setVisible(true);
-
-			}
+		SwingUtilities.invokeLater(()->{
+			new AlertBox(message, JME.this, JME.this.bgColor).setVisible(true);
 		});
-
 	}
 
 	/**
 	 * Will be overidden in JSME for code splitting
 	 */
 	protected void handleAboutBox() {
-		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-			/**
-			 * @j2sAlias onSuccess
-			 */
-			@Override
-			public void onSuccess() {
-
-				if (aboutBox != null) {
-					aboutBox.disposeIfShowing();
-				}
-				aboutBox = new MultiBox(MultiBox.BOX_ABOUT, JME.this);
-
+		SwingUtilities.invokeLater(() -> {
+			if (aboutBox != null) {
+				aboutBox.disposeIfShowing();
 			}
+			aboutBox = new MultiBox(MultiBox.BOX_ABOUT, JME.this);
 		});
 	}
 
@@ -3521,56 +3348,31 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * Will be overidden in JSME for code splitting
 	 */
 	protected void handleQueryBox() {
-		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-			/**
-			 * @j2sAlias onSuccess
-			 */
-			@Override
-			public void onSuccess() {
-
-				// if (queryBox != null) {
-				// queryBox.disposeIfShowing();
-				// }
-				// queryBox = new QueryBox(this);
-
-				// BB: it is better that the query box keeps its selection when brought back -
-				// dispose() erase everything
-				// however, it might be hidden behind another window, thus it has to show in
-				// front
-				if (queryBox == null) {
-					queryBox = new QueryBox(JME.this);
+		SwingUtilities.invokeLater(() -> {
+			if (queryBox == null) {
+				queryBox = new QueryBox(JME.this);
+			} else {
+				if (queryBox.isShowing()) {
+					queryBox.toFront(); // not tested wihthin a browser window, works fine with Eclipse/Linux
+					// queryBox.setVisible(false);
+					// queryBox.setVisible(true);
 				} else {
-					if (queryBox.isShowing()) {
-						queryBox.toFront(); // not tested wihthin a browser window, works fine with Eclipse/Linux
-						// queryBox.setVisible(false);
-						// queryBox.setVisible(true);
-					} else {
-						queryBox.setVisible(true);
-					}
+					queryBox.setVisible(true);
 				}
 
 			}
 		});
-
 	}
 
 	/**
 	 * Will be overidden in JSME for code splitting
 	 */
 	protected void handleSmilesBox() {
-		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-			/**
-			 * @j2sAlias onSuccess
-			 */
-			@Override
-			public void onSuccess() {
-				if (smilesBox != null) {
-					smilesBox.disposeIfShowing();
-				}
-				smilesBox = new MultiBox(MultiBox.BOX_SMILES, JME.this);
+		SwingUtilities.invokeLater(() -> {
+			if (smilesBox != null) {
+				smilesBox.disposeIfShowing();
 			}
+			smilesBox = new MultiBox(MultiBox.BOX_SMILES, JME.this);
 		});
 
 	}
@@ -3579,26 +3381,16 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * Will be overidden in JSME for code splitting
 	 */
 	protected void handleAtomXbox() {
-		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-			/**
-			 * @j2sAlias onSuccess
-			 */
-			@Override
-			public void onSuccess() {
-
-				if (!webme) {
-					if (atomxBox != null) {
-						atomxBox.disposeIfShowing();
-						atomxBox = null;
-					}
-					if (activeMol.touchedAtom == 0)
-						atomxBox = new MultiBox(MultiBox.BOX_ATOMX, JME.this);
+		if (!webme) {
+			SwingUtilities.invokeLater(() -> {
+				if (atomxBox != null) {
+					atomxBox.disposeIfShowing();
+					atomxBox = null;
 				}
-			}
-
-		});
-
+				if (activeMol.touchedAtom == 0)
+					atomxBox = new MultiBox(MultiBox.BOX_ATOMX, JME.this);
+			});
+		}
 	}
 
 	// ----------------------------------------------------------------------------
@@ -4447,12 +4239,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			info("No more molecules in SDF buffer");
 			return;
 		}
-		// sdf = sdf.replace("\n", "|");
 		this.clearMyMolecularContent();
 		// to avoid any merging with the current molecule
 		pasteFromSDFstack = true;
-		// Does not work with V3000!!!!
-		// this.readMolFile(sdf, false);//do not copy in undo
 		this.handleReadGenericInput(sdf, null, false, false);
 		// do not repaint and record event here
 		pasteFromSDFstack = false;
@@ -5047,20 +4836,11 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				this.recordMoleculePartEvent(DELETE_HYDROGENS, this.activeMolIndex());
 			}
 		} else if (cmd == compute2DcoordinatesMoleculeAction) {
-
 			// compute2Dcoordinates needs openchemlib
-			JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-				/**
-				 * @j2sAlias onSuccess
-				 */
-				@Override
-				public void onSuccess() {
-					compute2DSuccess();
-				}
-
+			SwingUtilities.invokeLater(() -> {
+				compute2DSuccess();
 			});
-
+			return;
 		} else if (cmd.equals("scale100")) { // used by touch devices
 			// BB : rotation coming from the touch handling
 			// problem: unwanted interaction with the rotation
@@ -5101,28 +4881,28 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	protected void compute2DSuccess() {
-		if (activeMol.nAtoms() > 1) {
-			int index = activeMolIndex();
+		if (activeMol.nAtoms() == 0)
+			return;
+		int index = activeMolIndex();
 
-			double centerX = activeMol.centerX();
-			double centerY = activeMol.centerY();
+		double centerX = activeMol.centerX();
+		double centerY = activeMol.centerY();
 
-			// newActiveMol may or may not be activeMol
-			JMEmol newActiveMol = activeMol.compute2DcoordinatesIfMissing();
+		// newActiveMol may or may not be activeMol
+		JMEmol newActiveMol = activeMol.compute2DcoordinatesIfMissing();
 
-			if (newActiveMol != null) {
-				double dx = centerX - newActiveMol.centerX();
-				double dy = centerY - newActiveMol.centerY();
-				newActiveMol.moveXY(dx, dy);
+		if (newActiveMol != null) {
+			double dx = centerX - newActiveMol.centerX();
+			double dy = centerY - newActiveMol.centerY();
+			newActiveMol.moveXY(dx, dy);
 
-				moleculePartsList.set(index, newActiveMol);
-				recordMoleculePartEvent(COMPUTE_2D, index);
-				setMustRedrawMolecularArea(true);
-				info("2D coordinates provided by OpenChemLib");
-				repaint();
-			} else {
-				info("2D coordinates computation failed");
-			}
+			moleculePartsList.set(index, newActiveMol);
+			recordMoleculePartEvent(COMPUTE_2D, index);
+			setMustRedrawMolecularArea(true);
+			info("2D coordinates provided by OpenChemLib");
+			repaint();
+		} else {
+			info("2D coordinates computation failed");
 		}
 	}
 
@@ -5134,7 +4914,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 f
 	 * @param callBack
 	 */
-	public void exportFile(SupportedOutputFileFormat format, final RunWhenDataReadyCallback callBack) {
+	public void exportFile(JMEWriter.SupportedOutputFileFormat format, final RunWhenDataReadyCallback callBack) {
 		// TODO NOTE IMPLEMENTED
 		switch (format) {
 		case INCHI:
@@ -5201,7 +4981,7 @@ f
 	}
 
 	/**
-	 * Work for all upported file formats, even thos that require loading code
+	 * Work for all supported file formats, even thos that require loading code
 	 * dynamically, hence the callback argument
 	 * 
 	 * @param format
@@ -5219,10 +4999,8 @@ f
 	 * @param callBack
 	 */
 
-	public void generateOuttputFile(SupportedOutputFileFormat format, final RunWhenDataReadyCallback callBack) {
-
+	public void generateOuttputFile(JMEWriter.SupportedOutputFileFormat format, final RunWhenDataReadyCallback callBack) {
 		String output = null;
-
 		switch (format) {
 		case MOL:
 			output = this.molFile(false);
@@ -5237,16 +5015,10 @@ f
 			break;
 
 		case SVG:
-			JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-				@Override
-				public void onSuccess() {
-					callBack.onSuccess(JME.this.getOclSVG());
-				}
-
+			SwingUtilities.invokeLater(() -> {
+				callBack.onSuccess(getOclSVG());
 			});
 			break;
-
 		case RAW_STRING_GRAPHIC:
 			output = this.getMolecularAreaGraphicsString();
 			break;
@@ -5260,18 +5032,11 @@ f
 		case INCHI_JSON:
 			this.computeInchi(format, callBack);
 			break;
-
 		case OCLCODE:
-			JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-				@Override
-				public void onSuccess() {
-					callBack.onSuccess(JME.this.getOclCode());
-				}
-
+			SwingUtilities.invokeLater(() -> {
+				callBack.onSuccess(getOclCode());
 			});
-			break;
-
+			return;
 		default:
 			Throwable error = new Throwable("incorrect or unsupported export format");
 			callBack.onFailure(error);
@@ -5282,11 +5047,11 @@ f
 		}
 	}
 
-	public void computeInchi(final SupportedOutputFileFormat action, final RunWhenDataReadyCallback callBack) {
+	public void computeInchi(final JMEWriter.SupportedOutputFileFormat format, final RunWhenDataReadyCallback callBack) {
 
 	}
 
-	// BB
+ 	// BB
 	// should use new gneral methodexportFile
 	@Deprecated
 	public void copyMolFileToClipboard(boolean isV3000) {
@@ -5303,29 +5068,16 @@ f
 	// should use new gneral methodexportFile
 
 	public void copyOclCodetoClipboard() {
-		// use RunAsyncCallback to trigger a code split to download openchemlib
-		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-			@Override
-			public void onSuccess() {
-				clipBoardManager.setClipboardContents(JME.this.getOclCode());
-			}
-
+		SwingUtilities.invokeLater(() -> {
+			clipBoardManager.setClipboardContents(getOclCode());
 		});
-
 	}
 
 	// should use new gneral methodexportFile
 
 	public void copySVGToClipboard() {
-		// use RunAsyncCallback to trigger a code split to download openchemlib
-		JMEUtil.runAsync(new JSME_RunAsyncCallback() {
-
-			@Override
-			public void onSuccess() {
-				clipBoardManager.setClipboardContents(JME.this.getOclSVG());
-			}
-
+		SwingUtilities.invokeLater(() -> {
+			clipBoardManager.setClipboardContents(getOclSVG());
 		});
 
 	}
@@ -5415,7 +5167,7 @@ f
 		if (handleBeforePasteEvent(clipboardContent)) { // if the callback is set
 			return;
 		}
-		pasteGenericInput(clipboardContent, true, new RunAsyncCallback() {
+		pasteGenericInput(clipboardContent, true, new AsyncCallback() {
 
 			/**
 			 * @j2sAlias onFailure
@@ -5438,13 +5190,11 @@ f
 		});
 	}
 
-	class StringWrapper {
-		public String innnerString;
+	public class StringWrapper {
+		public String innerString;
 	};
 
-	// TODO the input error handling has to be redesigned
-	// test cases with invalid MOL
-	final StringWrapper sdfPastedMessage = new StringWrapper();
+	public final StringWrapper sdfPastedMessage = new StringWrapper();
 
 	public final static String JME_EVENT_STRUCTURE_MODIFIED = "JME_StructureModifiedEvent";
 	public final static String JME_EVENT_PASTE = "JME_PasteEvent";
@@ -5455,9 +5205,9 @@ f
 	private static final String JME_EVENT_BOND_HIGHLIGHT = "JME_BondHighlightEvent";
 
 	public void pasteGenericInput(String chemicalString, boolean recordEvent,
-			final RunAsyncCallback sucessAndFailureHandle) {
+			final AsyncCallback sucessAndFailureHandle) {
 
-		sdfPastedMessage.innnerString = "";
+		sdfPastedMessage.innerString = "";
 		this.afterStructureChangeEvent.setOrigin_API();
 
 		// todo: handle RDF
@@ -5465,7 +5215,7 @@ f
 		if (countSDF > 0) {
 			// sdfPastedMessage = ". " + countSDF + " structures in stack .Use Page Up/Down
 			// for SDF access";
-			sdfPastedMessage.innnerString = " Use Page Up/Down for SDF access (" + countSDF + ")";
+			sdfPastedMessage.innerString = " Use Page Up/Down for SDF access (" + countSDF + ")";
 
 			// emit an event that says that a SDF mutiple structure was added sept 2019
 			this.afterStructureChangeEvent.setAction(READ_MULTI_SDF);
@@ -5473,7 +5223,7 @@ f
 
 		}
 
-		RunAsyncCallback localSucessAndFailureHandle = new RunAsyncCallback() {
+		AsyncCallback localSucessAndFailureHandle = new AsyncCallback() {
 
 			/**
 			 * @j2sAlias onFailure
@@ -5492,7 +5242,7 @@ f
 			 */
 			@Override
 			public void onSuccess() {
-				info("Structure pasted. " + sdfPastedMessage.innnerString);
+				info("Structure pasted. " + sdfPastedMessage.innerString);
 				// JME.this.postSave(); //add it to the undo/redo manager
 				JME.this.setMustRedrawMolecularArea(true);
 				JME.this.repaint();
@@ -7407,7 +7157,5 @@ f
 	public void endKeyboardAction() {
 		postAction(structureChangedByAction);
 	}
-
 	
-
-} // End of JME class
+}

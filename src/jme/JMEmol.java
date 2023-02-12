@@ -162,7 +162,7 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 	 * @param pars
 	 * @throws Exception
 	 */
-	public JMEmol(JME jme, Object molecule, JME.SupportedInputFileFormat type, Parameters pars) throws Exception {
+	public JMEmol(JME jme, Object molecule, JMEReader.SupportedInputFileFormat type, Parameters pars) throws Exception {
 		this(jme, pars);
 		if (molecule == null)
 			return;

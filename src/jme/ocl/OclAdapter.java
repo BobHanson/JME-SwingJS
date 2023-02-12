@@ -13,13 +13,13 @@ import com.actelion.research.chem.StereoMolecule;
 import com.actelion.research.chem.coords.CoordinateInventor;
 import com.actelion.research.gui.generic.GenericRectangle;
 
-import jme.JME;
 import jme.JMEmol;
 import jme.core.Atom;
 import jme.core.Bond;
 import jme.core.JMECore;
 import jme.gui.GUI.Ring;
 import jme.gui.GUI.RingInfo;
+import jme.io.JMEReader;
 
 public class OclAdapter implements Parser {
 
@@ -149,7 +149,7 @@ public class OclAdapter implements Parser {
 					// TODO: test case:
 					MolfileCreator mfc = new MolfileCreator(oclMol);
 					try {
-						result = new JMEmol(mol.jme, mfc.getMolfile(), JME.SupportedInputFileFormat.MOL,
+						result = new JMEmol(mol.jme, mfc.getMolfile(), JMEReader.SupportedInputFileFormat.MOL,
 								mol.parameters);
 					} catch (Exception e) {
 						e.printStackTrace();

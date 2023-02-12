@@ -2,7 +2,9 @@ package jme.util;
 
 import java.util.StringTokenizer;
 
-import jme.js.RunAsyncCallback;
+import javax.swing.SwingUtilities;
+
+import jme.js.AsyncCallback;
 
 public interface JMEUtil {
 
@@ -18,12 +20,6 @@ public interface JMEUtil {
 
 	public static boolean isHighDPI() {
 		return false;
-	}
-
-	public static void runAsync(RunAsyncCallback runAsyncCallback) {
-	
-		runAsyncCallback.onSuccess();
-	
 	}
 
 	public static String nextData(StringTokenizer st, String separator) {

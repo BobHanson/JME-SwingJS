@@ -2,6 +2,11 @@ package jme.io;
 
 import java.util.ArrayList;
 
+
+/**
+ * A stack of SDF strings created 
+ *
+ */
 @SuppressWarnings("serial")
 public class SDFstack extends ArrayList<String> {
 
@@ -55,7 +60,6 @@ public class SDFstack extends ArrayList<String> {
 	
 	public String last() {
 		currentIndex = this.size();
-
 		return this.previous();
 	}
 	/**

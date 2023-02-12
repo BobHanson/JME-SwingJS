@@ -33,6 +33,13 @@ public class JMEWriter extends JMECore {
 		public boolean debugDoNotUpdateReactionRole = false;
 	}
 
+		public static enum SupportedOutputFileFormat {
+			JME, SMILES, MOL, MOL_V3000, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC
+		}
+		// should extend CopyOnClipboard
+		// - not possible in Java ??
+		// BH -- What's the question here?
+
 		public static String createJMEString(JMECore mol, boolean addHydrogens, Rectangle2D.Double box) {
 			return new JMEWriter(mol).createJME(addHydrogens, box);
 		}
