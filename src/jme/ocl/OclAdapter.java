@@ -20,14 +20,11 @@ import jme.core.JMECore;
 import jme.gui.GUI.Ring;
 import jme.gui.GUI.RingInfo;
 import jme.io.JMEReader;
+import jme.io.JMESVGWriter;
 
-public class OclAdapter implements Parser {
+public class OclAdapter {
 
-	public OclAdapter() {
-	 // for reflection	
-	}
 	
-	@Override
 	public String getOclCode(String molFile) {
 		// TODO : error handling
 		String result = null;
@@ -40,7 +37,7 @@ public class OclAdapter implements Parser {
 		return result;
 	}
 
-	@Override
+	
 	public String getOclSVG(String molFile) {
 		double width = 400;
 		double height = 300;
@@ -48,7 +45,7 @@ public class OclAdapter implements Parser {
 		StereoMolecule mol = new StereoMolecule();		
 		
 		if (new MolfileParser().parse(mol, molFile)) {			
-			SVGDepictor svgd = new JMESVGDepictor(mol, molFile);
+			SVGDepictor svgd = new JMESVGWriter(mol, molFile);
 			svgd.setLegacyMode(false); // include font information
 			svgd.validateView(null, new GenericRectangle(0, 0, width, height),
 					AbstractDepictor.cModeInflateToHighResAVBL);
@@ -58,7 +55,7 @@ public class OclAdapter implements Parser {
 		return null;
 	}
 
-	@Override
+	
 	public String OclCodeToMOL(String oclCode) {
 		StereoMolecule mol = new IDCodeParser().getCompactMolecule(oclCode.trim());
 		MolfileCreator mfc = new MolfileCreator(mol);
@@ -66,7 +63,7 @@ public class OclAdapter implements Parser {
 
 	}
 
-	@Override
+	
 	public String SMILEStoMOL(String smiles) throws Exception {
 
 		// OCLSmilesParser generates an exception if the SMILES is empty
@@ -80,7 +77,7 @@ public class OclAdapter implements Parser {
 		return mfc.getMolfile();
 	}
 
-	@Override
+	
 	public String v3000toV2000MOL(String v3000Mol) {
 		StereoMolecule mol = new StereoMolecule();
 		boolean success = new MolfileParser().parse(mol, v3000Mol);
@@ -233,7 +230,7 @@ public class OclAdapter implements Parser {
 	 * 
 	 * @author Bob Hanson
 	 */
-	@Override
+	
 	public void getRingInfo(RingInfo info, JMECore mol) {		
 		StereoMolecule m = new StereoMolecule();
 		for (int i = 1; i <= mol.natoms; i++) {

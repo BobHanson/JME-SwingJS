@@ -104,7 +104,7 @@ import jme.io.TextTransfer;
 import jme.io.TextTransfer.PasteAction;
 import jme.js.AsyncCallback;
 import jme.js.JSFunction;
-import jme.ocl.Parser;
+import jme.ocl.OclAdapter;
 import jme.util.Box;
 import jme.util.ChangeManager;
 import jme.util.JMEUtil;
@@ -125,6 +125,37 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 */
 	public static final String NO_INIT = "$NOINIT$";
 
+//	private static void setLogging() {
+//		Logger rootLogger = Logger.getLogger("");
+//		rootLogger.setLevel(Level.ALL);
+//		logClass("java.awt.EventDispatchThread");
+//		logClass("java.awt.EventQueue");
+//		logClass("java.awt.Component");
+//		logClass("java.awt.focus.Component");
+//		logClass("java.awt.focus.DefaultKeyboardFocusManager");
+//
+//	}
+//
+//	private static void logClass(String name) {
+//		ConsoleHandler consoleHandler = new ConsoleHandler() {
+//			@Override
+//			public void publish(LogRecord r) {
+//				if (r.getMessage().indexOf("mouse event") > 0)
+//					System.out.println(r.getMessage());
+//			}
+//		};
+//		consoleHandler.setLevel(Level.ALL);
+//		Logger logger = Logger.getLogger(name);
+//		logger.setLevel(Level.ALL);
+//		logger.addHandler(consoleHandler);
+//	}
+//
+//	static {
+//		setLogging();
+//	}
+//
+//	
+	
 	public interface HTML5Applet {
 		public Object getParameter(String s);
 	}
@@ -501,7 +532,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public static String changeAtomMarkAction = "Change atom mark value";
 	static String autoAtomMapMoleculeAction = "Auto atom map molecule";
 	static String deleteAtomMapMoleculeAction = "Delete all atom map molecule";
-	private static Parser oclAdapter;
+	private static OclAdapter oclAdapter;
 	final static String deleteHydrogensMoleculeAction = "Delete hydrogens";
 	final static String compute2DcoordinatesMoleculeAction = "Compute 2D coordinates";
 
@@ -544,6 +575,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	public JME(JFrame frame, boolean embedded, String[] args) {
+
 		this.embedded = embedded;
 		activeMol = new JMEmol(this, params);
 		lastTouched.mol = activeMol;
@@ -2004,7 +2036,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	public String getOclCode() {
 		String molFile = this.molFileOrRxn(null, false, true, false);
-		return getParser().getOclCode(molFile);
+		return getOclAdapter().getOclCode(molFile);
 	}
 
 	/**
@@ -2014,7 +2046,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 */
 	public String getOclSVG() {
 		String molFile = this.molFileOrRxn(null, false, true, false); // use v3000
-		return getParser().getOclSVG(molFile);
+		return getOclAdapter().getOclSVG(molFile);
 	}
 
 	/**
@@ -2025,7 +2057,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @return
 	 */
 	public String oclCodeToMOL(String oclCode) {
-		return getParser().OclCodeToMOL(oclCode);
+		return getOclAdapter().OclCodeToMOL(oclCode);
 	}
 
 	/**
@@ -2037,7 +2069,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 * @throws Exception
 	 */
 	public String SMILEStoMOL(String smiles) throws Exception {
-		return getParser().SMILEStoMOL(smiles);
+		return getOclAdapter().SMILEStoMOL(smiles);
 	}
 
 	/**
@@ -2101,8 +2133,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return true;
 	}
 
-	public static Parser getParser() {
-		return (oclAdapter == null ? (oclAdapter = (Parser) getInterface(parserImpl)) : oclAdapter);
+	public static OclAdapter getOclAdapter() {
+		return (oclAdapter == null ? (oclAdapter = new OclAdapter()) : oclAdapter);
 	}
 
 	protected static Object getInterface(String name) {
@@ -6404,10 +6436,16 @@ f
 	public void propertyChange(PropertyChangeEvent evt) {
 		String name = evt.getPropertyName();
 		try {
-			if (name == FileDropper.PROPERTY_FILEDROPPER_FILE) {
+			switch (name) {
+			case FileDropper.PROPERTY_FILEDROPPER_FILE:
 				readDroppedTextFile((String) evt.getNewValue());
-			} else if (name == FileDropper.PROPERTY_FILEDROPPER_INLINE) {
+				break;
+			case FileDropper.PROPERTY_FILEDROPPER_INLINE:
 				readDroppedData(evt.getNewValue());
+				break;
+		    default:
+		    	//System.out.println("JME PL " + name + " " + evt.getNewValue());
+		    	break;
 			}
 		} catch (Throwable t) {
 			System.err.println("JME couldn't load data for drop " + name);
@@ -6436,7 +6474,7 @@ f
 
 	protected void readSmiles(String data) {
 		try {
-			readMolFile(getParser().SMILEStoMOL(data));
+			readMolFile(getOclAdapter().SMILEStoMOL(data));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

@@ -1244,7 +1244,7 @@ public class GUI {
 				}
 				b.guideX = Double.NaN;
 			}
-			JME.getParser().getRingInfo(this, mol);
+			JME.getOclAdapter().getRingInfo(this, mol);
 			if (rings.size() > 0) {
 				// delete duplicate bonds and set guide points
 				for (int i = 0, n = rings.size(); i < n; i++) {

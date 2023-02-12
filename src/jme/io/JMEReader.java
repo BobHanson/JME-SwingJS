@@ -19,7 +19,6 @@ import jme.core.Bond;
 import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
 import jme.js.AsyncCallback;
-import jme.ocl.JMESVGDepictor;
 import jme.util.Isotopes;
 import jme.util.JMEUtil;
 
@@ -236,7 +235,7 @@ public class JMEReader {
 				if (chemicalString.startsWith("<")) {
 					if (chemicalString.toLowerCase().startsWith("<svg")) {
 						// Extract the embedded chemical within the SVG
-						String mol = JMESVGDepictor
+						String mol = ChemicalMimeType
 								.extractEmbeddedChemicalString(chemicalString);
 						if (mol != null) {
 							this.embeddedChemicalFormat = new JMEReader(jme, mol);
@@ -905,7 +904,7 @@ public class JMEReader {
 	 * @throws Exception
 	 */
 	public static String v3000toV2000MOL(String v3000Mol) throws Exception {
-		return JME.getParser().v3000toV2000MOL(v3000Mol);
+		return JME.getOclAdapter().v3000toV2000MOL(v3000Mol);
 	}
 
 	public void oclSuccess(AsyncCallback callback, boolean recordEvent, boolean repaint) {

@@ -120,4 +120,14 @@ public interface JMEUtil {
 		return false;
 	}
 
+	public static String wrapCDATA(String data) {
+		return "<![CDATA[" + data + "]]>";
+	}
+
+	public static String unwrapCData(String result) {
+		int pt = result.indexOf("<![CDATA[");
+		int pt1 = result.indexOf("]]>");
+		return (pt >= 0 && pt1 > pt ? result.substring(pt + 9, pt1) : result);			
+	}
+
 }
