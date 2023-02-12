@@ -40,7 +40,6 @@ public class OclAdapter implements Parser {
 		return result;
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
 	public String getOclSVG(String molFile) {
 		double width = 400;
@@ -49,8 +48,7 @@ public class OclAdapter implements Parser {
 		StereoMolecule mol = new StereoMolecule();		
 		
 		if (new MolfileParser().parse(mol, molFile)) {			
-			// recipe found in openchemlib-js
-			SVGDepictor svgd = new SVGDepictorWithEmbeddedChemicalStructure(mol, molFile);
+			SVGDepictor svgd = new JMESVGDepictor(mol, molFile);
 			svgd.setLegacyMode(false); // include font information
 			svgd.validateView(null, new GenericRectangle(0, 0, width, height),
 					AbstractDepictor.cModeInflateToHighResAVBL);

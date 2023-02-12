@@ -18,7 +18,7 @@ public interface AsyncCallback {
 	/**
 	 * Called once the necessary code for it has been loaded.
 	 */
-	default public void onSuccess() {
+	default public void onSuccess(Object o) {
 		
 	}
 	
@@ -27,6 +27,23 @@ public interface AsyncCallback {
 	 */
 	default public void onWarn() {
 		
+	}
+	
+	default public void loadClassAsync(String className, Runnable whenDone) {
+		/**
+		 * @j2sNative
+		 * 
+		 *   Clazz.
+		 */
+		{
+			try {
+				Class<?> c = Class.forName(className);
+				onSuccess(c);
+			} catch (Throwable t) {
+				onFailure(t);
+			}
+			
+		}
 	}
 
 }

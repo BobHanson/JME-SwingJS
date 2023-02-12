@@ -104,7 +104,6 @@ import jme.io.TextTransfer;
 import jme.io.TextTransfer.PasteAction;
 import jme.js.AsyncCallback;
 import jme.js.JSFunction;
-import jme.js.RunWhenDataReadyCallback;
 import jme.ocl.Parser;
 import jme.util.Box;
 import jme.util.ChangeManager;
@@ -1939,7 +1938,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		setMustRedrawMolecularArea(error == null);
 		if (callback != null) {
 			if (error == null) {
-				callback.onSuccess();
+				callback.onSuccess(fileTypeRead);
 			} else {
 				callback.onFailure(new Exception(error));
 			}
@@ -4914,7 +4913,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 f
 	 * @param callBack
 	 */
-	public void exportFile(JMEWriter.SupportedOutputFileFormat format, final RunWhenDataReadyCallback callBack) {
+	public void exportFile(JMEWriter.SupportedOutputFileFormat format, final AsyncCallback callBack) {
 		// TODO NOTE IMPLEMENTED
 		switch (format) {
 		case INCHI:
@@ -4986,7 +4985,7 @@ f
 	 * 
 	 * @param format
 	 */
-	public void generateOuttputFile(final RunWhenDataReadyCallback callBack) {
+	public void generateOuttputFile(final AsyncCallback callBack) {
 		this.generateOuttputFile(this.clipboardFormat, callBack);
 
 	}
@@ -4999,7 +4998,7 @@ f
 	 * @param callBack
 	 */
 
-	public void generateOuttputFile(JMEWriter.SupportedOutputFileFormat format, final RunWhenDataReadyCallback callBack) {
+	public void generateOuttputFile(JMEWriter.SupportedOutputFileFormat format, final AsyncCallback callBack) {
 		String output = null;
 		switch (format) {
 		case MOL:
@@ -5047,7 +5046,7 @@ f
 		}
 	}
 
-	public void computeInchi(final JMEWriter.SupportedOutputFileFormat format, final RunWhenDataReadyCallback callBack) {
+	public void computeInchi(final JMEWriter.SupportedOutputFileFormat format, final AsyncCallback callBack) {
 
 	}
 
@@ -5181,7 +5180,7 @@ f
 			 * @j2sAlias onSuccess
 			 */
 			@Override
-			public void onSuccess() {
+			public void onSuccess(Object o) {
 				// callback to client
 				JME.this.handleAfterPasteEvent(clipboardContent);
 
@@ -5241,13 +5240,12 @@ f
 			 * @j2sAlias onSuccess
 			 */
 			@Override
-			public void onSuccess() {
+			public void onSuccess(Object o) {
 				info("Structure pasted. " + sdfPastedMessage.innerString);
 				// JME.this.postSave(); //add it to the undo/redo manager
 				JME.this.setMustRedrawMolecularArea(true);
 				JME.this.repaint();
-
-				sucessAndFailureHandle.onSuccess();
+				sucessAndFailureHandle.onSuccess(o);
 			}
 		};
 		try {
@@ -5277,7 +5275,12 @@ f
 		return s;
 	}
 
-	public void cutSelectedMoleculeForSystemClipBoard(RunWhenDataReadyCallback callBack) {
+	/**
+	 * Not implemented? 
+	 * 
+	 * @param callBack
+	 */
+	public void cutSelectedMoleculeForSystemClipBoard(AsyncCallback callBack) {
 		if (this.activeMol.natoms == 0) {
 			return;
 		}
@@ -6412,21 +6415,23 @@ f
 	}
 
 	protected void readDroppedData(Object newValue) {
-		String data = newValue.toString();
-		String trimmed = data.trim();
+//		String data = newValue.toString();
+//		String trimmed = data.trim();
 		// BH 2023.1.18 Allowing for copying with a bit of whitespace for SMILES
-		try {
-			if (trimmed.indexOf("\n") >= 0)
-				readMolFile(data);
-			else if (trimmed.indexOf(" ") >= 0)
-				readMolecule(data);
-			else
-				readSmiles(trimmed);
-			activeMol.center();
-		} catch (Exception e) {
-			System.err.println("JME error reading data starting with " + data.substring(Math.min(data.length(), 100)));
-		}
-
+		new JMEReader(this, newValue.toString()).readGenericString(false,  null, true, true);
+//		reader.
+//		try {
+//			if (trimmed.indexOf("\n") >= 0)
+//				readMolFile(data);
+//			else if (trimmed.indexOf(" ") >= 0)
+//				readMolecule(data);
+//			else
+//				readSmiles(trimmed);
+//			activeMol.center();
+//		} catch (Exception e) {
+//			System.err.println("JME error reading data starting with " + data.substring(Math.min(data.length(), 100)));
+//		}
+//
 	}
 
 	protected void readSmiles(String data) {

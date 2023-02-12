@@ -19,7 +19,7 @@ import jme.core.Bond;
 import jme.core.JMECore;
 import jme.core.JMECore.Parameters;
 import jme.js.AsyncCallback;
-import jme.ocl.SVGDepictorWithEmbeddedChemicalStructure;
+import jme.ocl.JMESVGDepictor;
 import jme.util.Isotopes;
 import jme.util.JMEUtil;
 
@@ -236,7 +236,7 @@ public class JMEReader {
 				if (chemicalString.startsWith("<")) {
 					if (chemicalString.toLowerCase().startsWith("<svg")) {
 						// Extract the embedded chemical within the SVG
-						String mol = SVGDepictorWithEmbeddedChemicalStructure
+						String mol = JMESVGDepictor
 								.extractEmbeddedChemicalString(chemicalString);
 						if (mol != null) {
 							this.embeddedChemicalFormat = new JMEReader(jme, mol);
@@ -328,8 +328,7 @@ public class JMEReader {
 
 		if (majorChemicalFormat == MajorChemicalFormat.InChIkey || majorChemicalFormat == MajorChemicalFormat.InChI) {
 			author = Author.IUPAC;
-		}
-		if (majorChemicalFormat == MajorChemicalFormat.SMILES || majorChemicalFormat == MajorChemicalFormat.SMARTS
+		} else if (majorChemicalFormat == MajorChemicalFormat.SMILES || majorChemicalFormat == MajorChemicalFormat.SMARTS
 				|| majorChemicalFormat == MajorChemicalFormat.SMIRKS) {
 			author = Author.DAYLIGHT;
 		}
@@ -354,8 +353,6 @@ public class JMEReader {
 				majorChemicalFormat = MajorChemicalFormat.RXN;
 			} else if (chemicalString.contains("$$$$")) {
 				majorChemicalFormat = MajorChemicalFormat.SDF;
-			} else if (chemicalString.contains("M  V30")) {
-				initAsV3000MOL();
 			}
 			return true;
 		}
@@ -887,15 +884,15 @@ public class JMEReader {
 				error = "Reading " + majorChemicalFormat + " is not supported";
 				break;
 			}
+			Runnable r = ()->{
+				oclSuccess(callback, recordEvent, repaint);				
+			};
 			if (runAsync) {
 				// code splitting used to run OpenChemlib code
-				SwingUtilities.invokeLater(()->{
-						oclSuccess(callback, recordEvent, repaint);
-				});
-
-				break;
+				SwingUtilities.invokeLater(r);
+			} else {
+				r.run();
 			}
-
 		} while (false);
 
 	}

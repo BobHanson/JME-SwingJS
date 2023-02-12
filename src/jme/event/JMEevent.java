@@ -91,21 +91,16 @@ public class JMEevent {
 	public JMEevent setAtomAndMol(JMEmolList moleculeParts, int atom, int mol) {
 		this.atom = atom;
 		molecule = mol + 1;
-
 		atomE = moleculeParts.computeAtomEnsembleIndex(mol, atom);
-
 		JMEmolList.EnsembleAtom eAtom = moleculeParts.getEnsembleAtom(mol, atom);
-
-		if (eAtom != null) {
-			AtomBondCommon atomObj = eAtom.atom;
-			if (atomObj == null) {
-				System.out.println("????");
-				// BH 2023.01.30 this can occur after atom deletion
-			} else {
-				atomBackgroundColorIndex = atomObj.getMark();
-			}
+		if (eAtom != null && eAtom.atom != null) {
+//			AtomBondCommon atomObj = eAtom.atom;
+//			if (atomObj == null) {
+//				// BH 2023.01.30 this can occur after atom deletion, as when a fused ring is added
+//			} else {
+				atomBackgroundColorIndex = eAtom.atom.getMark();
+//			}
 		}
-
 		return this;
 	}
 
