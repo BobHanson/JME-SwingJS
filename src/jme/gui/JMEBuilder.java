@@ -218,14 +218,14 @@ public class JMEBuilder {
 				spiroAdding = false;
 				// checking whether can do spiro
 				if (action == Actions.ACTION_RING_PH || action == Actions.ACTION_RING_FURANE || action == Actions.ACTION_RING_3FURYL) {
-					mol.info("ERROR - cannot add aromatic spiro ring !", LA_FAILED);
+					mol.failed("ERROR - cannot add aromatic spiro ring !");
 					return;
 				}
 				for (int i = 1; i <= a.nv; i++) {
 					// int bo = bondType[bondIdentity(touchedAtom,v(touchedAtom)[i])];
 					int bo = mol.getBond(touchedAtom, a.v[i]).bondType;
 					if (i > 2 || bo != Bond.SINGLE) {
-						mol.info("ERROR - spiro ring not possible here !", LA_FAILED);
+						mol.failed("ERROR - spiro ring not possible here !");
 						return;
 					}
 				}
@@ -248,7 +248,7 @@ public class JMEBuilder {
 			} else {
 				// adding bond and ring
 				returnTouch = touchedAtom;
-				jme.lastAction = JME.LA_BOND;
+				jme.setLastAction(JME.LA_RING);
 				addBond();
 				touchedAtom = mol.natoms;
 				addRingToBond(nmembered, diel, rc);
@@ -1004,7 +1004,7 @@ public class JMEBuilder {
 		default:
 			if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
 				// fusing ring to bond
-				jme.lastAction = JME.LA_RING; // in addRing may be set to 0
+				jme.setLastAction(JME.LA_RING); // in addRing may be set to 0
 				addRing();
 				cleanPolar = true;
 				event = JME.ADD_RING_BOND;
@@ -1037,7 +1037,7 @@ public class JMEBuilder {
 		} else if (action == Actions.ACTION_BOND_SINGLE || action == Actions.ACTION_BOND_DOUBLE
 				|| action == Actions.ACTION_BOND_TRIPLE || action == Actions.ACTION_STEREO
 				|| action == Actions.ACTION_CHAIN) {
-			jme.lastAction = JME.LA_BOND; // allows for snap drag
+			jme.setLastAction(JME.LA_BOND); // allows for snap drag
 			addBond();
 			mol.touched_org = mol.touchedAtom;
 			if (action == Actions.ACTION_CHAIN) {
@@ -1052,18 +1052,18 @@ public class JMEBuilder {
 				event = null;
 			}
 		} else if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
-			jme.lastAction = JME.LA_RING; // in addRing may be set to 0
+			jme.setLastAction(JME.LA_RING); // in addRing may be set to 0
 			addRing();
 			event = JME.ADD_RING;
 		} else if (action == Actions.ACTION_TEMPLATE) {
 			// BH Not implemented??
 			// mol.addTemplate(template);
-			jme.lastAction = JME.LA_GROUP;
+			jme.setLastAction(JME.LA_GROUP);
 			event = JME.ADD_TEMPLATE;
 		} else if (action >= Actions.ACTION_GROUP_MIN && action < Actions.ACTION_GROUP_MAX) {
 			addGroup(false);
 			event = JME.ADD_GROUP;
-			jme.lastAction = JME.LA_GROUP; // may be set to 0
+			jme.setLastAction(JME.LA_GROUP); // may be set to 0
 		} else if (action > 300) { // atoms
 			if (jme.active_an != mol.an(mol.touchedAtom) || jme.active_an == Atom.AN_X) {
 				mol.AN(mol.touchedAtom, jme.active_an);
@@ -1117,7 +1117,7 @@ public class JMEBuilder {
 		if (action >= Actions.ACTION_BOND_SINGLE && action <= Actions.ACTION_BOND_TRIPLE
 				|| action == Actions.ACTION_CHAIN) {
 			createAtom(x, y);
-			jme.lastAction = JME.LA_BOND;
+			jme.setLastAction(JME.LA_BOND);
 			addBond();
 			// orienting chain
 			if (action == Actions.ACTION_CHAIN) {
@@ -1134,7 +1134,7 @@ public class JMEBuilder {
 		if (action >= Actions.ACTION_RING_3 && action <= Actions.ACTION_RING_9) {
 			mol.xorg = x;
 			mol.yorg = y;
-			jme.lastAction = JME.LA_RING;
+			jme.setLastAction(JME.LA_RING);
 			addRing();
 			jme.recordAfterStructureChangedEvent(JME.ADD_RING);
 			return;

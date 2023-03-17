@@ -691,6 +691,7 @@ public class JMECore {
 		for (int i = 1; i <= nv(atom); i++) {
 			Bond bond = getBond(atom, v(atom)[i]);
 			if (bond == null) {
+				System.out.println("??JMECore.sumBondOrders null after touching atom for aromatic");
 				// assert (bond != null);
 			}
 			if (bond.isSingle())

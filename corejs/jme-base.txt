@@ -403,4 +403,4 @@ java/lang/StringBuffer.js
 javax/swing/JSeparator.js
 swingjs/plaf/JSPopupMenuSeparatorUI.js
 swingjs/plaf/JSSeparatorUI.js
-
+javajs/util/Base64.js

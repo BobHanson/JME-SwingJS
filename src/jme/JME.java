@@ -424,7 +424,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public static final Color color[] = new Color[Atom.AN_R_LAST + 1];
 
 	// info about last action & undo
-	public int lastAction = 0; // trva len po mouse up
+	private int lastAction = 0; // trva len po mouse up
+	public void setLastAction(int a) {
+		lastAction = a;
+	}
 	public static final int LA_BOND = 1;
 	public static final int LA_RING = 2;
 	public static final int LA_GROUP = 3;
@@ -3306,7 +3309,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// and 0 for furyl groups a - COOH, y - NO2, z - SO3H, t - tert. butyl, ft - CF3
 			//
 			// fusing ring to bond
-			lastAction = LA_RING; // in addRing may be set to 0
+			setLastAction(LA_RING); // in addRing may be set to 0
 			getBuilder(activeMol).addRing();
 			recordBondEvent(ADD_RING_BOND);
 			return true;

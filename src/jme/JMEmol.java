@@ -1554,9 +1554,9 @@ public class JMEmol extends JMECore implements Graphical2DObject {
 		return false;
 	}
 
-	public void info(String msg, int laFailed) {
+	public void failed(String msg) {
 		info(msg);
-		jme.lastAction = laFailed;
+		jme.setLastAction(JME.LA_FAILED);
 	}
 
 	public JMEmol compute2DcoordinatesIfMissing() {
