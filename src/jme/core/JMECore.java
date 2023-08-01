@@ -35,6 +35,7 @@ public class JMECore {
 			 */
 			public boolean autoez        = true;
 			public boolean allHs         = false;
+			public boolean smarts       = false;
 			public boolean star          = false;
 			public boolean polarnitro    = false;
 			

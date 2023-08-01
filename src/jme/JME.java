@@ -2788,11 +2788,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		Point coordOffset = null;
 		boolean needRecenter = activeMol.needRecentering;
 		if (g == null) {
-			Rectangle.Double coordBox = activeMol.computeBoundingBoxWithAtomLabels(null);
+			Rectangle.Double coordBox = null;
+			for (int i = moleculePartsList.size(); --i >= 0;) {
+				JMEmol m = moleculePartsList.get(i);
+				coordBox = m.computeBoundingBoxWithAtomLabels(coordBox);
+				m.needRecentering = false;
+			}
 			double f = molecularAreaScalePixelsPerCoord;
 			img = new BufferedImage((int) (coordBox.getWidth() * f) + margins.x * 2,
 					(int) (coordBox.getHeight() * f) + margins.y * 2, BufferedImage.TYPE_INT_ARGB);
-			activeMol.needRecentering = false;
 			coordOffset = new Point((int) (margins.x / f - coordBox.x), (int) (margins.y / f - coordBox.y));
 		} else if (g != null && !gui.mustReDrawMolecularArea) {
 			return null;
@@ -3441,9 +3445,17 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public void info(String text) {
 		if (text == null)
 			text = customDefaultInfoText;
+		boolean dolog = (infoText != text && text != "");
 		gui.mustReDrawInfo = true;
-		if (infoText != text && text != "")
-			this.log("info: " + text);
+		infoText = text;
+		if (dolog)
+			log("info: " + text);
+	}
+	
+	public void infoNoLog(String text) {
+		if (text == null)
+			text = customDefaultInfoText;
+		gui.mustReDrawInfo = true;
 		infoText = text;
 	}
 
@@ -6835,6 +6847,9 @@ f
 			if ((o = parseOption("polarnitro")) != null) {
 				polarnitro = params.smilesParams.polarnitro = o;
 			}
+			if ((o = parseOption("smarts")) != null || (o = parseOption("search")) != null) {
+				params.smilesParams.smarts = o;
+			}
 			if ((o = parseOption("stereo")) != null)
 				stereo = params.smilesParams.stereo = o;
 
@@ -7116,7 +7131,7 @@ f
 			/**
 			 * @j2sNative
 			 * 
-			 * 			return html5applet.__Info[param];
+			 * 			return (param == null ? html5applet.__Info : html5applet.__Info[param]);
 			 */
 			{
 				return null;
@@ -7187,6 +7202,9 @@ f
 			frame.setVisible(true);
 			jme.start(args);
 		});
+		/**
+		 * @j2sNative return jme;
+		 */
 	}
 
 	public boolean doDrawChiralText() {

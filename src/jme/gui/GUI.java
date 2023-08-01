@@ -1488,7 +1488,7 @@ public class GUI {
 			note = "Click bond to delete smallest fragment";
 			break;
 		case Actions.ACTION_SMI:
-			note = "Show SMILES or SMIRKS";
+			note = "Show " + (jme.params.smilesParams.smarts ? "SMARTS" : "SMILES or SMIRKS");
 			break;
 		case Actions.ACTION_QRY:
 			note = "Open query box for SMARTS";
@@ -1501,7 +1501,7 @@ public class GUI {
 			break;
 		}
 		if (note != null)
-			jme.info(note);
+			jme.infoNoLog(note);
 		// if there is no atoms, then there is nothing to highlight
 		if (mol == null || mol.natoms == 0) {
 			return false;

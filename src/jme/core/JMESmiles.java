@@ -4,6 +4,7 @@ import jme.util.Isotopes;
 
 public class JMESmiles extends JMECore {
 
+	// BH 2023.07.24 allows SMILES generation hydrogen parameters to be set by user
 	// BH 2023.01.26 methods moved into core; SHIFT-DRAG rotation fixed
 	// BH 2023.01.25 adds JMEcore.
 	// BH 2023.01.24 this class pulled out from JMEmol
@@ -21,10 +22,9 @@ public class JMESmiles extends JMECore {
 	private boolean isQuery;
 	private boolean autoez;
 
-	
-	
+	private boolean smartsMode = false;
 
-public JMESmiles(JMECore mol, int part, boolean isQuery) {
+	public JMESmiles(JMECore mol, int part, boolean isQuery) {
 		super(mol, part);
 		this.isQuery = isQuery;
 	}
@@ -66,6 +66,7 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 		// asi to treba takto komplikovane
 		// btype RING_NONAROMATIC sa nepouziva ! (len aromatic)
 		if (mpars.smilesParams.canonize && !haveQueryOrCoordBonds()) {
+			smartsMode = mpars.smilesParams.smarts;
 			Parameters.HydrogenParams pars = setHydrogenParams(mpars);
 			deleteHydrogens(pars);
 			cleanPolarBonds(mpars.smilesParams.polarnitro);
@@ -238,9 +239,9 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 
 		// identification of stereo atoms
 		int slashBond[] = new int[nbonds + 1]; // info about / or \ bonds (1,0,or -1)
-		int slimak[] = new int[natoms + 1]; // info about @ or @@ (1,0,or -1)
+		int stereo[] = new int[natoms + 1]; // info about @ or @@ (1,0,or -1)
 		if (mpars.smilesParams.stereo)
-			smilesStereo(aa, parent, slashBond, slimak, bondMinimumRingSize, con1, con2, nconnections);
+			smilesStereo(aa, parent, slashBond, stereo, bondMinimumRingSize, con1, con2, nconnections);
 
 		// -------- vlastne vytvaranie SMILESu
 		// poradie ako sa vytvara je ulozene v aa[] a parent[]
@@ -262,7 +263,7 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 				smiles.append("(");
 			if (parent[i] > 0)
 				smilesAddBond(atom, parent[atom], smiles, slashBond, queryMode);
-			smilesAddAtom(atom, smiles, isAromatic[atom], slimak);
+			smilesAddAtom(atom, smiles, isAromatic[atom], stereo);
 
 			for (int j = 1; j <= nconnections; j++) {
 				if (con1[j] == atom || con2[j] == atom) {
@@ -286,38 +287,33 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 	}
 
 	private static Parameters.HydrogenParams setHydrogenParams(Parameters mpars) {
-		boolean keepStereo = !mpars.smilesParams.stereo;
 		Parameters.HydrogenParams pars = new Parameters().hydrogenParams;
+		pars.keepStereoHs = !mpars.smilesParams.stereo;
 		// BH TODO -- this should be allowed to be modifed based on user settings
-		pars.keepStereoHs = keepStereo;
-		pars.removeHs = true;
-		pars.removeOnlyCHs = false;
+//		pars.removeHs = true;
+		pars.removeOnlyCHs = mpars.smilesParams.smarts;
 		return pars;
 	}
 
 	// ----------------------------------------------------------------------------
-	private void smilesAddAtom(int at, StringBuffer smiles, boolean isAromatic, int slimak[]) {
+	private void smilesAddAtom(int at, StringBuffer smiles, boolean isAromatic, int stereo[]) {
 		String z = "X";
-		Atom atom = this.atoms[at];
+		Atom atom = atoms[at];
 		int iso = atom.iso;
 		int nh = atom.nh;
 		int q = atom.q;
 		int an = atom.an;
 
-		boolean bracket = false;
-		if (q != 0 || iso != 0)
-			bracket = true;
-		if (slimak[at] != 0)
-			bracket = true;
-
 		int map = this.findAtomMapForOutput(at);
 		boolean isMapped = (map != 0);
-		bracket = bracket || isMapped;
-
-		if (doMark && atoms[at].backgroundColors[0] > 0) {
-			bracket = true;
-		}
-
+		boolean bracket = (
+				q != 0 
+				|| iso != 0 
+				|| stereo[at] != 0 
+				|| isMapped
+				|| doMark && atom.backgroundColors[0] > 0
+				|| smartsMode && nh > 0 && an != Atom.AN_C
+				);
 		switch (an) {
 		case Atom.AN_B:
 			z = "B";
@@ -391,7 +387,7 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 		// case Atom.AN_R3: z = "R3"; bracket = true; break;
 		case Atom.AN_X:
 			bracket = true;
-			z = atoms[at].label;
+			z = atom.label;
 
 			// BB June 2020
 			if (z == null) {
@@ -426,9 +422,9 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 				z = "[" + z;
 			}
 
-			if (slimak[at] == 1)
+			if (stereo[at] == 1)
 				z += "@";
-			else if (slimak[at] == -1)
+			else if (stereo[at] == -1)
 				z += "@@";
 
 			// Bug found by Peter: pyrole n does not get an H
@@ -498,9 +494,9 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 	}
 
 	// ----------------------------------------------------------------------------
-	private void smilesStereo(int aa[], int parent[], int slashBond[], int slimak[], int bondMinimumRingSize[],
+	private void smilesStereo(int aa[], int parent[], int slashBond[], int stereo[], int bondMinimumRingSize[],
 			int con1[], int con2[], int nconnections) {
-		// --- identifikuje stereocentra, plni slashBond[] a slimak[]
+		// --- identifikuje stereocentra, plni slashBond[] a stereo[]
 		// (c) Peter Ertl - April 1999
 
 		// pozor v aa[1] je ktory atom sa robi ako 1. (nie kolky sa robi atom 1)
@@ -548,14 +544,14 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 				continue;
 
 			if (doubleBonded > 0) // allene, e.g. =C<stereo
-				stereoAllene(at, ax, slimak, parent, con1, con2, nconnections);
+				stereoAllene(at, ax, stereo, parent, con1, con2, nconnections);
 			else // --- C4 stereo
-				stereoC4(at, parent, ax, con1, con2, nconnections, slimak);
+				stereoC4(at, parent, ax, con1, con2, nconnections, stereo);
 		}
 	}
 
 	// ----------------------------------------------------------------------------
-	private void stereoC4(int atom, int parent[], int ax[], int con1[], int con2[], int nconnections, int slimak[]) {
+	private void stereoC4(int atom, int parent[], int ax[], int con1[], int con2[], int nconnections, int stereo[]) {
 
 		// najde 4 referencne atomy (v poradi v akom su v SMILESe)
 		int ref[] = new int[4]; // 0 - atom z ktoreho sa pozera
@@ -722,13 +718,13 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 		stereoTransformation(t, ref);
 
 		if (t[2] == ref[2])
-			slimak[atom] = 1;
+			stereo[atom] = 1;
 		else if (t[2] == ref[3])
-			slimak[atom] = -1;
+			stereo[atom] = -1;
 		else
 			info("Error in stereoprocessing ! - t30");
 
-		slimak[atom] *= stereoRef;
+		stereo[atom] *= stereoRef;
 	}
 
 	// ----------------------------------------------------------------------------
@@ -1151,7 +1147,7 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 	}
 
 	// ----------------------------------------------------------------------------
-	private void stereoAllene(int ati, int ax[], int slimak[], int parent[], int con1[], int con2[], int nconnections) {
+	private void stereoAllene(int ati, int ax[], int stereo[], int parent[], int con1[], int con2[], int nconnections) {
 		int cumuleneAtoms[] = this.findCumuleneChain(ati);
 		int numberCumuleneAtoms = cumuleneAtoms[0]; // kolko ich je v chaine
 
@@ -1262,19 +1258,19 @@ public JMESmiles(JMECore mol, int part, boolean isQuery) {
 		
 		// teraz to bude dost complikovane
 		if (y2 > 0)
-			slimak[center] = 1;
+			stereo[center] = 1;
 		else
-			slimak[center] = -1;
+			stereo[center] = -1;
 		if (ref1x)
-			slimak[center] *= -1;
+			stereo[center] *= -1;
 		if (ref2x)
-			slimak[center] *= -1;
+			stereo[center] *= -1;
 		if (ref1 == ref11 && ref11x < 0)
-			slimak[center] *= -1;
+			stereo[center] *= -1;
 		if (ref1 == ref12 && ref12x < 0)
-			slimak[center] *= -1;
+			stereo[center] *= -1;
 		if (ax[ref1] > ax[ref2])
-			slimak[center] *= -1;
+			stereo[center] *= -1;
 	}
 
 	public static String getSmiles(JMECore deepCopy, Parameters pars, boolean isQuery) {
