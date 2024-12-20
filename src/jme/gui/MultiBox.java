@@ -182,6 +182,14 @@ public class MultiBox extends FrameWithLocation {
 		if (jme.options.runsmi) {
 			JButton b = new JButton("Submit");
 			p.add(b);
+			b.addActionListener(new ActionListener() {
+
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					submitSmiles(smilesText.getText());
+				}
+				
+			});
 		}
 		add("South", p);
 
@@ -190,6 +198,15 @@ public class MultiBox extends FrameWithLocation {
 		// this.setMaximumSize(new Dimension(330, 200)); //BB does not work
 		smilesText.setText(smilesText.getText().trim()); // odstrani " "
 		setResizable(true);
+	}
+
+	protected void submitSmiles(String smiles) {
+		try {
+			jme.readMolFile(jme.SMILEStoMOL(smiles));
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	// ----------------------------------------------------------------------------

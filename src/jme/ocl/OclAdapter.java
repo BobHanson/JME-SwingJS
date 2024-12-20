@@ -11,6 +11,10 @@ import com.actelion.research.chem.SVGDepictor;
 import com.actelion.research.chem.SmilesParser;
 import com.actelion.research.chem.StereoMolecule;
 import com.actelion.research.chem.coords.CoordinateInventor;
+import com.actelion.research.chem.moreparsers.CDXParser;
+import com.actelion.research.chem.moreparsers.CDXMLParser;
+import com.actelion.research.chem.moreparsers.InChIParser;
+import com.actelion.research.chem.moreparsers.InChIKeyParser;
 import com.actelion.research.gui.generic.GenericRectangle;
 
 import jme.JMEmol;
@@ -63,16 +67,12 @@ public class OclAdapter {
 
 	}
 
-	
 	public String SMILEStoMOL(String smiles) throws Exception {
-
 		// OCLSmilesParser generates an exception if the SMILES is empty
 		if (smiles == null || smiles.length() == 0 || smiles.trim().length() == 0)
 			return new JMEmol().createMolFile(""); // empty mol
-
 		StereoMolecule mol = new StereoMolecule();
 		new SmilesParser().parse(mol, smiles.trim());
-
 		MolfileCreator mfc = new MolfileCreator(mol);
 		return mfc.getMolfile();
 	}
@@ -81,7 +81,6 @@ public class OclAdapter {
 	public String v3000toV2000MOL(String v3000Mol) {
 		StereoMolecule mol = new StereoMolecule();
 		boolean success = new MolfileParser().parse(mol, v3000Mol);
-		// error messages are sent to a TRACE function that cannot be redefined
 		if (success) {
 			MolfileCreator mfc = new MolfileCreator(mol);
 			return mfc.getMolfile();
@@ -89,6 +88,50 @@ public class OclAdapter {
 		return null;
 	}
 	
+	public String inchiToMOL(String inchi) {
+		StereoMolecule mol = new StereoMolecule();
+		boolean success = new InChIParser().parse(mol, inchi);
+		if (success) {
+			MolfileCreator mfc = new MolfileCreator(mol);
+			return mfc.getMolfile();
+		}
+		return null;
+	}
+
+
+	public String inchikeyToMOL(String inchikey) {
+		StereoMolecule mol = new StereoMolecule();
+		boolean success = new InChIKeyParser().parse(mol, inchikey);
+		if (success) {
+			MolfileCreator mfc = new MolfileCreator(mol);
+			return mfc.getMolfile();
+		}
+		return null;
+	}
+
+
+	public String cdxmlToMOL(String xml) {
+		StereoMolecule mol = new StereoMolecule();
+		boolean success = new CDXParser().parse(mol, xml);
+		if (success) {
+			MolfileCreator mfc = new MolfileCreator(mol);
+			return mfc.getMolfile();
+		}
+		return null;
+	}
+
+	public String cdxToMOL(byte[] bytes) {
+		StereoMolecule mol = new StereoMolecule();
+		boolean success = new CDXParser().parse(mol, bytes);
+		// error messages are sent to a TRACE function that cannot be redefined
+		if (success) {
+			MolfileCreator mfc = new MolfileCreator(mol);
+			return mfc.getMolfile();
+		}
+		return null;
+	}
+
+
 
 	/**
 	 * In most cases, the returned molecule is the same as the input one. If OCL lib
@@ -319,5 +362,6 @@ public class OclAdapter {
 		}
 
 	}
+
 
 }

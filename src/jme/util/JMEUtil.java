@@ -8,6 +8,7 @@ import jme.js.AsyncCallback;
 
 public interface JMEUtil {
 
+	public static boolean isSwingJS = true;
 	/**
 	 * Check if the applet is showing in highDPI or not. In a web browser, this can
 	 * change with the zoom factor, thus this function should be called before each

@@ -1,5 +1,7 @@
 package jme;
 
+// BH 2024.12.13 adds startup args to match applet params. 
+// test with ["smiles", "C1=CC2=C3B4N5C6=C2C=CC=C6C7C8B5O[BH-1]O4.C8=CC=C7.C3=C1"]
 // BH 2023.01.25 fixed mouseShift never resetting
 // BH 2023.01.25 adds smilesAromatic option (def true)
 
@@ -115,7 +117,7 @@ import jme.util.JMEUtil;
 public class JME extends JPanel implements ActionListener, MouseWheelListener, MouseListener, KeyListener,
 		MouseMotionListener, PropertyChangeListener, DragGestureListener, JMEStatusListener {
 
-	public static final String version = "2023-01-27";
+	public static final String version = "2024-12-13";
 	public final static String helpUrl = "https://jsme-editor.github.io/help.html";
 	public final static String websiteUrl = "https://jsme-editor.github.io/";
 	public final static String programName; // JSME or JME
@@ -248,7 +250,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public static final String READ_MOL_FILE = "readMolFile";
 	public static final String READ_RXN_FILE = "readRXNFile";
 	public static final String READ_JME = "readJME";
+	public static final String READ_CDX = "readCDX";
+	public static final String READ_CDXML = "readCDXML";
 	public static final String READ_SMILES = "readSMILES";
+	public static final String READ_SMARTS = "readSMARTS";
+	public static final String READ_INCHI = "readInChI";
+	public static final String READ_INCHIKEY = "readInChIKey";
+	
 	public static final String READ_SMIRKS = "readSMIRKS";
 	public static final String READ_OCLCODE = "readOCLCode";
 	public static final String READ_MULTI_SDF = "readMultiSDF";
@@ -393,7 +401,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public Dimension dimension;
 
 	protected PreciseImage molecularAreaImage;
-	public Dimension molecularArea;
+	public Dimension molecularArea = new Dimension();
 	// these images are not used in depict mode
 	public PreciseImage topMenuImage;
 	public PreciseImage leftMenuImage;
@@ -640,7 +648,7 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 		setLayout(null);
 
-		options.getAppletOptions(this);
+		options.getAppletOptions(this, args);
 
 		gui = new GUI(this);
 
@@ -1958,12 +1966,12 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		// coming from the GUI
 		clearInfo(); // clear previous error message if any
 
-		JMEReader jmeReader = new JMEReader(this, s);
 		boolean runAsync = options.useOpenChemLib;
-		jmeReader.readGenericString(runAsync, callback, repaint, recordEvent);
+		JMEReader jmeReader = new JMEReader(s);
+		jmeReader.readMoleculeData(this, runAsync, callback, repaint, recordEvent);
 		if (runAsync)
 			return;		
-		processFileRead(callback, recordEvent ? jmeReader.fileTypeRead : null, jmeReader.error, repaint);
+		processFileRead(callback, recordEvent ? jmeReader.getFileTypeRead() : null, jmeReader.getError(), repaint);
 	}
 	
 	public void processFileRead(AsyncCallback callback, SupportedInputFileFormat fileTypeRead, String error, boolean repaint) {
@@ -1987,6 +1995,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	private String getEventNameFromFormatRead(SupportedInputFileFormat f) {
 		switch (f) {
+		case CDX:
+			return READ_CDX;
+		case CDXML:
+			return READ_CDXML;
+		case INCHI:
+			return READ_INCHI;
+		case INCHIKEY:
+			return READ_INCHIKEY;
 		case JME:
 			return READ_JME;
 		case MOL:
@@ -1998,6 +2014,8 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			return READ_OCLCODE;
 		case SMILES:
 			return READ_SMILES;
+		case SMARTS:
+			return READ_SMARTS;
 		case SMIRKS:
 			return READ_SMIRKS;		
 		}
@@ -2053,7 +2071,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	/**
-	 * Use the openchemlib to convert a OCL code to a molfile string TODO: what
+	 * Use the openchemlib to convert a OCL code to a molfile string 
+	 * 
+	 * TODO: what
 	 * about 2D coordinates?
 	 * 
 	 * @param oclCode
@@ -2061,6 +2081,46 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	 */
 	public String oclCodeToMOL(String oclCode) {
 		return getOclAdapter().OclCodeToMOL(oclCode);
+	}
+
+	/**
+	 * Use the openchemlib to convert CDX byte array to a molfile string 
+	 * 
+	 * @param oclCode
+	 * @return
+	 */
+	public String cdxToMOL(byte[] data) {
+		return getOclAdapter().cdxToMOL(data);
+	}
+
+	/**
+	 * Use the openchemlib to convert CDXML to a molfile string 
+	 * 
+	 * @param oclCode
+	 * @return
+	 */
+	public String cdxmlToMOL(String xml) {
+		return getOclAdapter().cdxmlToMOL(xml);
+	}
+
+	/**
+	 * Use the openchemlib to convert InChI to a molfile string 
+	 * 
+	 * @param oclCode
+	 * @return
+	 */
+	public String inchiToMOL(String inChI) {
+		return getOclAdapter().inchiToMOL(inChI);
+	}
+
+	/**
+	 * Use the openchemlib to convert a CDX/CDXML code to a molfile string 
+	 * 
+	 * @param oclCode
+	 * @return
+	 */
+	public String inchikeyToMOL(String inchikey) {
+		return getOclAdapter().inchikeyToMOL(inchikey);
 	}
 
 	/**
@@ -6456,7 +6516,7 @@ f
 				readDroppedTextFile((String) evt.getNewValue());
 				break;
 			case FileDropper.PROPERTY_FILEDROPPER_INLINE:
-				readDroppedData(evt.getNewValue());
+				readDroppedData((String) evt.getNewValue());
 				break;
 		    default:
 		    	//System.out.println("JME PL " + name + " " + evt.getNewValue());
@@ -6467,11 +6527,11 @@ f
 		}
 	}
 
-	protected void readDroppedData(Object newValue) {
+	protected void readDroppedData(Object stringOrBytes) {
 //		String data = newValue.toString();
 //		String trimmed = data.trim();
 		// BH 2023.1.18 Allowing for copying with a bit of whitespace for SMILES
-		new JMEReader(this, newValue.toString()).readGenericString(false,  null, true, true);
+		new JMEReader(stringOrBytes).readMoleculeData(this, false,  null, true, true);
 //		reader.
 //		try {
 //			if (trimmed.indexOf("\n") >= 0)
@@ -6509,7 +6569,7 @@ f
 		} catch (Exception e) {
 			System.err.println("JME error reading file " + fileName);
 		}
-		readDroppedData(new String(bos.toByteArray()));
+		readDroppedData(bos.toByteArray());
 	}
 
 	public void options(String parameters) {
@@ -6590,11 +6650,12 @@ f
 		double atomBGcircleRelativeSize = defaultAtomBGcircleRelativeSize;
 		double bondBGrectRelativeSize = defaultBondBGrectRelativeSize;
 
-		public boolean runsmi = false;
+		public boolean runsmi = true;
 		// String depictcgi = null;
 		// String depictservlet = null;
 
 		private String options;
+		private String[] args;
 
 		private Boolean parseOption(String option) {
 			return parseOption(option, "no");
@@ -6617,8 +6678,9 @@ f
 			}
 		}
 
-		public void getAppletOptions(JME jme) {
+		public void getAppletOptions(JME jme, String[] args) {
 			try {
+				this.args = args;
 				String options = getParameter("options");
 				if (options != null)
 					set(options);
@@ -6710,6 +6772,14 @@ f
 		public String getParameter(String p) {
 			// SwingJS sets the applet in the ThreadGroup
 			JApplet applet = (JApplet) getApplet(true);
+			if (applet == null && args != null) {
+				for (int i = 1; i < args.length; i+=2) {
+					if (p.equals(args[i - 1])) {
+						return args[i];						
+					}
+				}
+				return null;
+			}
 			return (applet == null ? null : applet.getParameter(p));
 		}
 

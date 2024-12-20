@@ -36,7 +36,7 @@ public class JMEReader {
 	 * @author hansonr
 	 *
 	 */
-	static class OclCheck {
+	private static class OclCheck {
 		
 		private int nAvail = 6;
 		private int pt;
@@ -48,11 +48,11 @@ public class JMEReader {
 
 		private OclCheck() {}
 		
-		public static boolean isOclIdCode(String s) {
+		protected static boolean isOclIdCode(String s) {
 			return new OclCheck().isIDCode(s);
 		}
 		
-		public boolean isIDCode(String s) {
+		private boolean isIDCode(String s) {
 			// remove coordinates
 			nBytes = s.indexOf('!');
 			if (nBytes < 0)
@@ -124,38 +124,43 @@ public class JMEReader {
 	}
 	
 	
-	public static enum MajorChemicalFormat {
-		MOL, RXN, SDF, RDF, SMILES, SMARTS, SMIRKS, InChI, InChIkey, OCLCODE, JME, SVG, CSRML
+	private static enum MajorChemicalFormat {
+		CDX, CDXML, MOL, RXN, SDF, SMILES, SMARTS, SMIRKS, InChI, InChIkey, OCLCODE, JME, SVG, CSRML
 	}
 
-	public static enum MinorChemicalFormat {
+	private static enum MinorChemicalFormat {
 		V2000, V3000, extended
 	}
 
-	public static enum Author {
-		MDL, DAYLIGHT, IUPAC, OPENCHEMLIB, P_ERTL, MolecularNetworks
+	private static enum Author {
+		MDL, DAYLIGHT, IUPAC, OPENCHEMLIB, P_ERTL, MolecularNetworks, RevitySignals
 	}
 
 	public static enum SupportedInputFileFormat {
-		JME, SMILES, MOL, MOL_V3000, OCLCODE, RXN, SMIRKS
+		CDX, CDXML, INCHI, INCHIKEY, JME, SMARTS, SMILES, MOL, MOL_V3000, OCLCODE, RXN, SMIRKS
 	}
 
-	public MajorChemicalFormat majorChemicalFormat;
-	public MinorChemicalFormat minorChemicalFormat;
+	private MajorChemicalFormat majorChemicalFormat;
+	private MinorChemicalFormat minorChemicalFormat;
 
-	public Author author;
-	public JMEReader embeddedChemicalFormat;
-
-	protected int numberOfLines = 0;
+	private Author author;
+	private JMEReader embeddedChemicalFormat;
 
 	protected boolean isReaction;
-	public boolean isInputEmpty = false;
 
-	public boolean hasSpace;
+	private String chemicalString;
 
-	public String chemicalString;
-	public String error;
-	public SupportedInputFileFormat fileTypeRead;
+	private String error;
+	
+	public String getError() {
+		return error;
+	}
+
+	private SupportedInputFileFormat fileTypeRead;
+	
+	public SupportedInputFileFormat getFileTypeRead() {
+		return fileTypeRead;
+	}
 
 	final static Pattern InchiKeyPattern = Pattern.compile("^[A-Z]{14}\\-[A-Z]{10}\\-[A-Z]$");
 
@@ -184,50 +189,84 @@ public class JMEReader {
 	final static Pattern URLpattern = Pattern.compile("$\\w+:\\/\\/"); // http://, file://
 
 	
-	private JME jme;
-
-
-	public JMEReader(JME jme, String chemicalString) {
-		this.jme = jme;
-		detectFormat(chemicalString);
+	private byte[] chemicalBytes;
+	
+	private boolean formatDetected;
+	
+	public boolean wasFormatDetected() {
+		return formatDetected;
 	}
 
-	public void reset() {
+
+	public JMEReader(Object chemicalStringOrBytes) {
+		formatDetected = detectFormat(chemicalStringOrBytes);
+	}
+
+	private void reset() {
 		init(null);
 
 	}
 
-	public boolean detectFormat(String chemicalString) {
+	private static byte[] cdxMagic = new byte[] { 'V', 'j', 'C', 'D' };
+	  
+	private static boolean isCDXML(String s) {
+		return (s.indexOf("<CDXML") >= 0);
+	}
 
+	private static boolean isCDX(byte[] b) {
+		return bytesMatch(b, 0, cdxMagic);
+	}
+
+	private static boolean bytesMatch(byte[] a, int pt, byte[] b) {
+		if (b.length > a.length - pt)
+			return false;
+		for (int i = b.length; --i >= 0;) {
+			if (a[pt + i] != b[i])
+				return false;
+		}
+		return true;
+	}
+
+	private boolean detectFormat(Object chemicalStringOrBytes) {
 		reset();
 		boolean success = false;
 
+		if (chemicalStringOrBytes instanceof byte[]) {
+			chemicalBytes = (byte[]) chemicalStringOrBytes;
+			if (isCDX(chemicalBytes)) {
+				majorChemicalFormat = MajorChemicalFormat.CDX;
+				return true;
+			}
+			chemicalStringOrBytes = new String(chemicalBytes);
+			chemicalBytes = null;
+		}
+
+		chemicalString = (String) chemicalStringOrBytes;
 		if (chemicalString == null || URLpattern.matcher(chemicalString).find()) {
 			return false;
 		}
 
-		numberOfLines = countLines(chemicalString, 5);
+		if (isCDXML(chemicalString)) {
+			majorChemicalFormat = MajorChemicalFormat.CDXML;
+			return true;
+		}
+
+		int numberOfLines = countLines(chemicalString, 5);
 
 		// remove leading and trailing white spaces only if # LINES > 0 BECAUSE THE
 		// FIRST LINE OF A MOLFILE CAN BE EMPTY
 		if (numberOfLines == 1) {
 			chemicalString = chemicalString.trim();
 		}
-		this.chemicalString = chemicalString;
 		if (chemicalString.length() == 0) {
-			isInputEmpty = true;
 			return false;
 		}
-
-		hasSpace = SpacePattern.matcher(chemicalString).find();
 
 		do {
 
 			// starts with CSRML because it is very specific
 			if (CSRMlpattern.matcher(chemicalString).find()) {
-				this.majorChemicalFormat = MajorChemicalFormat.CSRML;
-				this.author = Author.MolecularNetworks;
-
+				majorChemicalFormat = MajorChemicalFormat.CSRML;
 				break;
 			}
 
@@ -235,10 +274,9 @@ public class JMEReader {
 				if (chemicalString.startsWith("<")) {
 					if (chemicalString.toLowerCase().startsWith("<svg")) {
 						// Extract the embedded chemical within the SVG
-						String mol = ChemicalMimeType
-								.extractEmbeddedChemicalString(chemicalString);
+						String mol = ChemicalMimeType.extractEmbeddedChemicalString(chemicalString);
 						if (mol != null) {
-							this.embeddedChemicalFormat = new JMEReader(jme, mol);
+							this.embeddedChemicalFormat = new JMEReader(mol);
 							if (this.embeddedChemicalFormat.majorChemicalFormat != null) {
 								majorChemicalFormat = MajorChemicalFormat.SVG;
 							}
@@ -247,8 +285,23 @@ public class JMEReader {
 					}
 					break;
 				}
+				if (chemicalString.contains("M  END") ||
+				// if misspelled, check further
+						(chemicalString.contains("M END")
+								&& (chemicalString.contains("V2000") || chemicalString.contains("V3000")))) {
+					majorChemicalFormat = MajorChemicalFormat.MOL;
+					if (chemicalString.contains("V2000")) {
+						minorChemicalFormat = MinorChemicalFormat.V2000;
+					}
+					if (chemicalString.contains("V3000")) {
+						minorChemicalFormat = MinorChemicalFormat.V3000;
+					}
 
-				if (detectMDLformat()) {
+					if (chemicalString.startsWith("$RXN")) {
+						majorChemicalFormat = MajorChemicalFormat.RXN;
+					} else if (chemicalString.contains("$$$$")) {
+						majorChemicalFormat = MajorChemicalFormat.SDF;
+					}
 					break;
 				}
 			}
@@ -267,6 +320,7 @@ public class JMEReader {
 					}
 				}
 				if (chemicalString.length() >= 1) {
+					boolean hasSpace = SpacePattern.matcher(chemicalString).find();
 					if (hasSpace) {
 						// try JME string
 						StringTokenizer st = new StringTokenizer(chemicalString, " |");
@@ -286,13 +340,12 @@ public class JMEReader {
 							isReaction = chemicalString.indexOf(">") > 0;
 
 							majorChemicalFormat = MajorChemicalFormat.JME;
-							author = Author.P_ERTL;
 							break;
 						} catch (Exception e) {
 							// it is not a JME format or the JME input does not have coordinates
 						}
 					} else if (OclCheck.isOclIdCode(chemicalString)) {
-						initAsOClcode();
+						majorChemicalFormat = MajorChemicalFormat.OCLCODE;
 						break;
 					} else if (!NonSmilesPattern.matcher(chemicalString).find()) {
 						boolean isReaction = chemicalString.indexOf(">") > 0;
@@ -304,13 +357,13 @@ public class JMEReader {
 						if (isSmiles) {
 							majorChemicalFormat = MajorChemicalFormat.SMILES;
 							if (isReaction) {
-								this.majorChemicalFormat = MajorChemicalFormat.SMIRKS;
+								majorChemicalFormat = MajorChemicalFormat.SMIRKS;
 								this.isReaction = isReaction;
 							}
 
 							// Note: a smiles is a valid smarts, there is no way to detect the intention
 						} else if (isSmarts || canBeExtendedSmarts) {
-							this.majorChemicalFormat = MajorChemicalFormat.SMARTS;
+							majorChemicalFormat = MajorChemicalFormat.SMARTS;
 							if (canBeExtendedSmarts) {
 								this.minorChemicalFormat = MinorChemicalFormat.extended;
 							}
@@ -323,51 +376,57 @@ public class JMEReader {
 			}
 		} while (false);
 
-		success = majorChemicalFormat != null;
-
-		if (majorChemicalFormat == MajorChemicalFormat.InChIkey || majorChemicalFormat == MajorChemicalFormat.InChI) {
-			author = Author.IUPAC;
-		} else if (majorChemicalFormat == MajorChemicalFormat.SMILES || majorChemicalFormat == MajorChemicalFormat.SMARTS
-				|| majorChemicalFormat == MajorChemicalFormat.SMIRKS) {
-			author = Author.DAYLIGHT;
+		if (majorChemicalFormat != null) {
+			success = true;
+			setAuthor();
 		}
 		return success;
 	}
 
-	protected boolean detectMDLformat() {
-		if (chemicalString.contains("M  END") ||
-		// if misspelled, check further
-				(chemicalString.contains("M END")
-						&& (chemicalString.contains("V2000") || chemicalString.contains("V3000")))) {
+	private void setAuthor() {
+		switch (majorChemicalFormat) {
+		case InChIkey:
+		case InChI:
+			author = Author.IUPAC;
+			break;
+		case SMILES:
+		case SMARTS:
+		case SMIRKS:
+			author = Author.DAYLIGHT;
+			break;
+		case CSRML:
+			author = Author.MolecularNetworks;
+			break;
+		case CDX:
+		case CDXML:
+			author = Author.RevitySignals;
+			break;
+		case JME:
+			author = Author.P_ERTL;
+			break;
+		case MOL:
+		case RXN:
+		case SDF:
 			author = Author.MDL;
-			majorChemicalFormat = MajorChemicalFormat.MOL;
-			if (chemicalString.contains("V2000")) {
-				minorChemicalFormat = MinorChemicalFormat.V2000;
-			}
-			if (chemicalString.contains("V3000")) {
-				minorChemicalFormat = MinorChemicalFormat.V3000;
-			}
-
-			if (chemicalString.startsWith("$RXN")) {
-				majorChemicalFormat = MajorChemicalFormat.RXN;
-			} else if (chemicalString.contains("$$$$")) {
-				majorChemicalFormat = MajorChemicalFormat.SDF;
-			}
-			return true;
+			break;
+		case OCLCODE:
+			author = Author.OPENCHEMLIB;
+			break;
+		case SVG:
+			// author set separately
+			break;
 		}
-
-		return false;
-
 	}
 
-	public boolean isReaction() {
+
+	private boolean isReaction() {
 		return isReaction || majorChemicalFormat == MajorChemicalFormat.RXN
 				|| majorChemicalFormat == MajorChemicalFormat.SMIRKS;
 	}
 
-	public static int countLines(String str) {
-		return countLines(str, -1);
-	}
+//	private static int countLines(String str) {
+//		return countLines(str, -1);
+//	}
 
 	/**
 	 * http://stackoverflow.com/questions/2850203/count-the-number-of-lines-in-a-java-string
@@ -376,7 +435,7 @@ public class JMEReader {
 	 * @param stop : stop counting if number of lines found >= stop
 	 * @return
 	 */
-	public static int countLines(String str, int stop) {
+	private static int countLines(String str, int stop) {
 		if (str == null || str.length() == 0)
 			return 0;
 		int lines = 1;
@@ -397,53 +456,49 @@ public class JMEReader {
 		return lines;
 	}
 
-	public void init(JMEReader other) {
+	private void init(JMEReader other) {
 		if (other == null) {
 			author = null;
 			majorChemicalFormat = null;
 			minorChemicalFormat = null;
 			isReaction = false;
-			// don't clear the chemicalString
+			// don't clear the chemicalString or chemicalBytes
 			return;
 		}
-		this.author = other.author;
-		this.majorChemicalFormat = other.majorChemicalFormat;
-		this.minorChemicalFormat = other.minorChemicalFormat;
-		this.isReaction = other.isReaction;
-		this.embeddedChemicalFormat = other.embeddedChemicalFormat;
-		this.chemicalString = other.chemicalString;
-
+		author = other.author;
+		majorChemicalFormat = other.majorChemicalFormat;
+		minorChemicalFormat = other.minorChemicalFormat;
+		isReaction = other.isReaction;
+		embeddedChemicalFormat = other.embeddedChemicalFormat;
+		chemicalString = other.chemicalString;
+		chemicalBytes = other.chemicalBytes;
 	}
 
-	public boolean checkAndInitAsMDL() {
-		return this.detectMDLformat();
-	}
+//	// initialize my self as a MDL MOL v2000 format
+//	private JMEReader initAsV2000MOL() {
+//		reset();
+//		this.author = Author.MDL;
+//		majorChemicalFormat = MajorChemicalFormat.MOL;
+//		this.minorChemicalFormat = MinorChemicalFormat.V2000;
+//		this.isReaction = false;
+//		this.embeddedChemicalFormat = null;
+//
+//		return this;
+//	}
 
-	// initialize my self as a MDL MOL v2000 format
-	public JMEReader initAsV2000MOL() {
-		reset();
-		this.author = Author.MDL;
-		this.majorChemicalFormat = MajorChemicalFormat.MOL;
-		this.minorChemicalFormat = MinorChemicalFormat.V2000;
-		this.isReaction = false;
-		this.embeddedChemicalFormat = null;
+//	// initialize my self as a MDL MOL v3000 format
+//	private JMEReader initAsV3000MOL() {
+//		initAsV2000MOL();
+//		this.minorChemicalFormat = MinorChemicalFormat.V3000;
+//		return this;
+//	}
 
-		return this;
-	}
-
-	// initialize my self as a MDL MOL v3000 format
-	public JMEReader initAsV3000MOL() {
-		initAsV2000MOL();
-		this.minorChemicalFormat = MinorChemicalFormat.V3000;
-		return this;
-	}
-
-	public JMEReader initAsOClcode() {
-		reset();
-		author = Author.OPENCHEMLIB;
-		majorChemicalFormat = MajorChemicalFormat.OCLCODE;
-		return this;
-	}
+//	private JMEReader initAsOClcode() {
+//		reset();
+//		author = Author.OPENCHEMLIB;
+//		majorChemicalFormat = MajorChemicalFormat.OCLCODE;
+//		return this;
+//	}
 
 	public static JMEmolList readMDLstringInput(String s, Parameters pars) {
 		JMEmolList molList = new JMEmolList();
@@ -511,7 +566,7 @@ public class JMEReader {
 		return molList;
 	}
 
-	public static List<JMEmol> readReactionMols(String s, Parameters pars) throws Exception {
+	private static List<JMEmol> readReactionMols(String s, Parameters pars) throws Exception {
 		List<JMEmol> mols = new ArrayList<>();
 			String separator = JMEUtil.findLineSeparator(s);
 			StringTokenizer st = new StringTokenizer(s, separator, true);
@@ -552,14 +607,9 @@ public class JMEReader {
 			return mols;
 	}
 
-	public static JMEmol readSingleMOL(String s, Parameters pars) throws Exception {
+	private static JMEmol readSingleMOL(String s, Parameters pars) throws Exception {
 		return new JMEmol(null, s, JMEReader.SupportedInputFileFormat.MOL, pars);
 	}
-
-	// from Objects.equals, needed for unittests
-	public static boolean equals(Object a, Object b) {
-	        return (a == b) || (a != null && a.equals(b));
-	    }
 
 	public static void createMolFromString(JMECore mol, String jmeString) {
 		if (jmeString.startsWith("\""))
@@ -851,79 +901,70 @@ public class JMEReader {
 		mol.finalizeMolecule();
 	}
 
-	public void readGenericString(boolean runAsync, AsyncCallback callback, boolean recordEvent, boolean repaint) {
-		do {
+	public void readMoleculeData(JME jme, boolean runAsync, AsyncCallback callback, boolean recordEvent,
+			boolean repaint) {
+		if (majorChemicalFormat == MajorChemicalFormat.SVG && embeddedChemicalFormat != null) {
+			// copy the embedded chemical format to jmeReader
+			init(embeddedChemicalFormat);
+		}
+		if (author == Author.MDL && minorChemicalFormat != MinorChemicalFormat.V3000) {
+			// bug: handling "|" as a line separator
 
-			if (majorChemicalFormat == MajorChemicalFormat.SVG && embeddedChemicalFormat != null) {
-				// copy the embedded chemical format to jmeReader
-				init(embeddedChemicalFormat);
+			// TODO : handleReadMolFileRXN is async because of the 2D coordinate computation
+			if (jme.handleReadMolFileRXN(chemicalString, false))
+				fileTypeRead = isReaction() ? SupportedInputFileFormat.RXN : SupportedInputFileFormat.MOL;
+			else {
+				error = "Invalid V2000 molfile";
 			}
-			if (author == Author.MDL && minorChemicalFormat != MinorChemicalFormat.V3000) {
-				// bug: handling "|" as a line separator
+			return;
+		}
 
-				// TODO : handleReadMolFileRXN is async because of the 2D coordinate computation
-				if (jme.handleReadMolFileRXN(chemicalString, false)) 
-					fileTypeRead = isReaction() ? SupportedInputFileFormat.RXN : SupportedInputFileFormat.MOL;
-				else {
-					error = "Invalid V2000 molfile";
-				}
-				break;
-			}
-
-			if (author == Author.P_ERTL) {
-				if (jme.readMolecule(chemicalString, false)) { // will do repaint later after event recording
-					fileTypeRead = SupportedInputFileFormat.JME;
-				} else {
-					error = "Invalid JME string";
-				}
-				break;
-			}
-			if (author == Author.IUPAC
-					|| majorChemicalFormat == MajorChemicalFormat.CSRML) {
-				error = "Reading " + majorChemicalFormat + " is not supported";
-				break;
-			}
-			Runnable r = ()->{
-				oclSuccess(callback, recordEvent, repaint);				
-			};
-			if (runAsync) {
-				// code splitting used to run OpenChemlib code
-				SwingUtilities.invokeLater(r);
+		if (author == Author.P_ERTL) {
+			if (jme.readMolecule(chemicalString, false)) { // will do repaint later after event recording
+				fileTypeRead = SupportedInputFileFormat.JME;
 			} else {
-				r.run();
+				error = "Invalid JME string";
 			}
-		} while (false);
-
+			return;
+		}
+		if (majorChemicalFormat == MajorChemicalFormat.CSRML) {
+			error = "Reading " + majorChemicalFormat + " is not supported";
+			return;
+		}
+		Runnable r = () -> {
+			oclSuccess(jme, callback, recordEvent, repaint);
+		};
+		if (runAsync) {
+			// code splitting used to run OpenChemlib code
+			SwingUtilities.invokeLater(r);
+		} else {
+			r.run();
+		}
 	}
 
-	/**
-	 * Use the openchemlib to convert a V3000 MOL to a V2000 molfile string
-	 * 
-	 * @param v3000
-	 * @return
-	 * @throws Exception
-	 */
-	public static String v3000toV2000MOL(String v3000Mol) throws Exception {
-		return JME.getOclAdapter().v3000toV2000MOL(v3000Mol);
-	}
-
-	public void oclSuccess(AsyncCallback callback, boolean recordEvent, boolean repaint) {
+	private void oclSuccess(JME jme, AsyncCallback callback, boolean recordEvent, boolean repaint) {
 		String error = null;
 		String convertedmolFile = null;
 		SupportedInputFileFormat fileTypeRead = null;
-
-		if (author == Author.MDL && minorChemicalFormat == MinorChemicalFormat.V3000) {
-			try {
-				convertedmolFile = v3000toV2000MOL(chemicalString);
-				if (convertedmolFile == null) {
-					throw new Exception("V3000 read failed.");
+		switch (majorChemicalFormat) {
+		case MOL:
+			if (minorChemicalFormat == MinorChemicalFormat.V3000) {
+				try {
+					convertedmolFile = v3000toV2000MOL(chemicalString);
+					if (convertedmolFile == null) {
+						throw new Exception("V3000 read failed.");
+					}
+					fileTypeRead = SupportedInputFileFormat.MOL_V3000;
+					jme.sdfPastedMessage.innerString = "V3000 conversion provided by OpenChemLib";
+				} catch (Exception e) {
+					error = e.getMessage();
 				}
-				fileTypeRead = SupportedInputFileFormat.MOL_V3000;
-				jme.sdfPastedMessage.innerString = "V3000 conversion provided by OpenChemLib";
-			} catch (Exception e) {
-				error = e.getMessage();
+				break;
 			}
-		} else if (author == Author.DAYLIGHT) {
+			break;
+		case SMARTS:
+		case SMILES:
+		case SMIRKS:
 			try {
 				convertedmolFile = jme.SMILESorSMIRKStoMolOrRXN(chemicalString);
 				switch (majorChemicalFormat) {
@@ -934,7 +975,7 @@ public class JMEReader {
 					fileTypeRead = SupportedInputFileFormat.SMILES;
 					break;
 				case SMARTS:
-					break; // BH???
+					fileTypeRead = SupportedInputFileFormat.SMARTS;
 				default:
 					break;
 				}
@@ -942,21 +983,63 @@ public class JMEReader {
 			} catch (Exception e) {
 				error = "SMILES parsing error:" + e.getMessage();
 			}
-		} else {
-			error = "Invalid or unsupported input";
-			if (OclCheck.isOclIdCode(chemicalString)) {
-				// try to parse OCL if not SMILES
-				// ChemicalFormatDetector can not detect OCLcode
-				try {
-					convertedmolFile = jme.oclCodeToMOL(chemicalString);
-					fileTypeRead = SupportedInputFileFormat.OCLCODE;
-					error = null;
-				} catch (Exception e) {
-
-				}
+			break;
+		case OCLCODE:
+			// try to parse OCL if not SMILES
+			// ChemicalFormatDetector can not detect OCLcode
+			try {
+				convertedmolFile = jme.oclCodeToMOL(chemicalString);
+				fileTypeRead = SupportedInputFileFormat.OCLCODE;
+				error = null;
+			} catch (Exception e) {
+				error = "OCL parsing failed";
 			}
+			break;
+		case CDX:
+			try {
+				convertedmolFile = jme.cdxToMOL(chemicalBytes);
+				fileTypeRead = SupportedInputFileFormat.CDX;
+				error = null;
+			} catch (Exception e) {
+				error = "CDX parsing failed";
+			}
+			break;
+		case CDXML:
+			try {
+				convertedmolFile = jme.cdxmlToMOL(chemicalString);
+				fileTypeRead = SupportedInputFileFormat.CDXML;
+				error = null;
+			} catch (Exception e) {
+				error = "CDXML parsing failed";
+				e.printStackTrace();
+			}
+			break;
+		case CSRML:
+		case InChI:
+			try {
+				convertedmolFile = jme.inchiToMOL(chemicalString);
+				fileTypeRead = SupportedInputFileFormat.INCHI;
+				error = null;
+			} catch (Exception e) {
+				error = "InChI parsing failed";
+			}
+			break;
+		case InChIkey: 
+			try {
+				convertedmolFile = jme.inchikeyToMOL(chemicalString);
+				fileTypeRead = SupportedInputFileFormat.INCHIKEY;
+				error = null;
+			} catch (Exception e) {
+				error = "InChIKey parsing failed";
+			}
+			break;
+		case JME:
+		case RXN:
+		case SDF:
+		case SVG:
+			// these are all already handled
+			break;
 		}
-
 		if (convertedmolFile != null && error == null) {
 			boolean success = false;
 			try {
@@ -966,7 +1049,19 @@ public class JMEReader {
 			if (!success)
 				error = "Invalid molfile data";
 		}
+
 		jme.processFileRead(callback, fileTypeRead, error, repaint);
+	}
+
+	/**
+	 * Use the openchemlib to convert a V3000 MOL to a V2000 molfile string
+	 * 
+	 * @param v3000
+	 * @return
+	 * @throws Exception
+	 */
+	private static String v3000toV2000MOL(String v3000Mol) throws Exception {
+		return JME.getOclAdapter().v3000toV2000MOL(v3000Mol);
 	}
 
 	/**
@@ -984,8 +1079,10 @@ public class JMEReader {
 				&& equals(minorChemicalFormat, r.minorChemicalFormat)
 				&& equals(isReaction, r.isReaction)
 				&& equals(embeddedChemicalFormat, r.embeddedChemicalFormat);
-
 	}
 
+	private static boolean equals(Object a, Object b) {
+	        return (a == b) || (a != null && a.equals(b));
+	    }
 
 }
