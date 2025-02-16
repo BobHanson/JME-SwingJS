@@ -11,10 +11,10 @@ import com.actelion.research.chem.SVGDepictor;
 import com.actelion.research.chem.SmilesParser;
 import com.actelion.research.chem.StereoMolecule;
 import com.actelion.research.chem.coords.CoordinateInventor;
+import com.actelion.research.chem.inchi.InChIOCL;
 import com.actelion.research.chem.moreparsers.CDXParser;
-import com.actelion.research.chem.moreparsers.CDXMLParser;
+import com.actelion.research.chem.moreparsers.InChIKeyResolver;
 import com.actelion.research.chem.moreparsers.InChIParser;
-import com.actelion.research.chem.moreparsers.InChIKeyParser;
 import com.actelion.research.gui.generic.GenericRectangle;
 
 import jme.JMEmol;
@@ -28,7 +28,15 @@ import jme.io.JMESVGWriter;
 
 public class OclAdapter {
 
-	
+	/**
+	 * get the inchi C APP_DESCRIPTION
+	 * 
+	 * @return "unknown" or something like "InChI version 1, Software 1.07.2 (API Library)"
+	 */
+	public String getInchiVersion() {
+		return InChIOCL.getInChIVersion();
+	}
+
 	public String getOclCode(String molFile) {
 		// TODO : error handling
 		String result = null;
@@ -98,17 +106,21 @@ public class OclAdapter {
 		return null;
 	}
 
+	public String molToInChI(String molFileData, String options) {
+		StereoMolecule mol = new StereoMolecule();
+		new MolfileParser().parse(mol, molFileData);
+		return InChIOCL.getInChI(molFileData, options);
+	}
 
 	public String inchikeyToMOL(String inchikey) {
 		StereoMolecule mol = new StereoMolecule();
-		boolean success = new InChIKeyParser().parse(mol, inchikey);
+		boolean success = new InChIKeyResolver().resolve(mol, inchikey);
 		if (success) {
 			MolfileCreator mfc = new MolfileCreator(mol);
 			return mfc.getMolfile();
 		}
 		return null;
 	}
-
 
 	public String cdxmlToMOL(String xml) {
 		StereoMolecule mol = new StereoMolecule();
@@ -362,6 +374,5 @@ public class OclAdapter {
 		}
 
 	}
-
 
 }

@@ -88,7 +88,7 @@
         <include name="jme/**" />
       </fileset>
       <fileset dir="${appjars.dir}" includes="**/*"/>
-    </jar>
+     	          </jar>
   	<echo>build/JME-SwingJS.jar created (unsigned)</echo>
   	<copy file="build/JME-SwingJS.jar" tofile="dist/JME-SwingJS.jar" />
   	

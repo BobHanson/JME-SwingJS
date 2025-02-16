@@ -2093,6 +2093,22 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return getOclAdapter().cdxToMOL(data);
 	}
 
+	public String getInchiVersion() {
+		return getOclAdapter().getInchiVersion();
+	}
+
+
+	/**
+	 * Use the openchemlib to convert InChI to a molfile string 
+	 * 
+	 * @param oclCode
+	 * @return
+	 */
+	public String molToInChI(String molFileData, String options) {
+		return getOclAdapter().molToInChI(molFileData, options);
+	}
+
+
 	/**
 	 * Use the openchemlib to convert CDXML to a molfile string 
 	 * 
@@ -2104,13 +2120,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	/**
-	 * Use the openchemlib to convert InChI to a molfile string 
+	 * Use the openchemlib to convert InChI to MOL file data 
 	 * 
 	 * @param oclCode
 	 * @return
 	 */
-	public String inchiToMOL(String inChI) {
-		return getOclAdapter().inchiToMOL(inChI);
+	public String inchiToMOL(String inchi) {
+		return getOclAdapter().inchiToMOL(inchi);
 	}
 
 	/**
