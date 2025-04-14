@@ -34,7 +34,8 @@ public class OclAdapter {
 	 * @return "unknown" or something like "InChI version 1, Software 1.07.2 (API Library)"
 	 */
 	public String getInchiVersion() {
-		return InChIOCL.getInChIVersion();
+		return "unknown"; // for now; waiting for JNA-InChI to come up to speed.
+//		return InChIOCL.getInChIVersion();
 	}
 
 	public String getOclCode(String molFile) {
@@ -67,7 +68,6 @@ public class OclAdapter {
 		return null;
 	}
 
-	
 	public String OclCodeToMOL(String oclCode) {
 		StereoMolecule mol = new IDCodeParser().getCompactMolecule(oclCode.trim());
 		MolfileCreator mfc = new MolfileCreator(mol);
@@ -110,6 +110,12 @@ public class OclAdapter {
 		StereoMolecule mol = new StereoMolecule();
 		new MolfileParser().parse(mol, molFileData);
 		return InChIOCL.getInChI(molFileData, options);
+	}
+
+	public String molToInChIKey(String molFileData, String options) {
+		StereoMolecule mol = new StereoMolecule();
+		new MolfileParser().parse(mol, molFileData);
+		return InChIOCL.getInChIKey(molFileData, options);
 	}
 
 	public String inchikeyToMOL(String inchikey) {

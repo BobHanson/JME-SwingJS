@@ -34,7 +34,7 @@ public class JMEWriter extends JMECore {
 	}
 
 		public static enum SupportedOutputFileFormat {
-			JME, SMILES, MOL, MOL_V3000, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC
+			JME, SMILES, MOL, MOL_V3000, STANDARD_INCHI, STANDARD_INCHI_KEY, INCHI_AUXINFO, INCHI_MODEL_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC
 		}
 		// should extend CopyOnClipboard
 		// - not possible in Java ??

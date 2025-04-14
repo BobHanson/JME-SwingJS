@@ -73,6 +73,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
+import io.github.dan2097.jnainchi.InchiFlag;
 import jme.JMEmol.ReactionRole;
 import jme.canvas.ColorManager;
 import jme.canvas.ColorManager.ColorInfo;
@@ -303,8 +304,19 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	public static boolean isStandAloneApplication = false; // by default the program starts as an applet
 
 	public static enum CopyPasteAction {
-		JME, SMILES, MOL, MOL_V3000, INCHI, INCHI_KEY, INCHI_AUXINFO, INCHI_JSON, OCLCODE, SVG, RAW_STRING_GRAPHIC,
+		JME, SMILES, MOL, MOL_V3000, 
+		FIXED_H_INCHI, FIXED_H_INCHI_KEY, 
+		STANDARD_INCHI, STANDARD_INCHI_KEY, 
+		INCHI_AUXINFO, INCHI_MODEL_JSON, 
+		OCLCODE, SVG, RAW_STRING_GRAPHIC,
 		SEARCH_INCHI_KEY, PASTE;
+
+	  public static CopyPasteAction getFromName(String name) {
+	    for (CopyPasteAction item : values())
+	      if (item.toString().equalsIgnoreCase(name))
+	        return item;
+	    return null;
+	  }
 
 		public JMEWriter.SupportedOutputFileFormat getFormat() {
 			return JMEWriter.SupportedOutputFileFormat.valueOf(toString());
@@ -535,15 +547,15 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 
 	// local popup menu for the touched molecule/atom
 	JPopupMenu touchedMolPopuMenu;
-	static String setChiralFlagAction = "Set molecule chiral flag";
-	static String unSetChiralFlagAction = "Unset molecule chiral flag";
+	final static String setChiralFlagAction = "Set molecule chiral flag";
+	final static String unSetChiralFlagAction = "Unset molecule chiral flag";
 	public static String changeAtomChargeAction = "Change atom charge";
 
 	public static String changeAtomMapAction = "Change atom map";
 	public static String changeAtomMarkAction = "Change atom mark value";
-	static String autoAtomMapMoleculeAction = "Auto atom map molecule";
-	static String deleteAtomMapMoleculeAction = "Delete all atom map molecule";
-	private static OclAdapter oclAdapter;
+	final static String autoAtomMapMoleculeAction = "Auto atom map molecule";
+	final static String deleteAtomMapMoleculeAction = "Delete all atom map molecule";
+  private static OclAdapter oclAdapter;
 	final static String deleteHydrogensMoleculeAction = "Delete hydrogens";
 	final static String compute2DcoordinatesMoleculeAction = "Compute 2D coordinates";
 
@@ -942,34 +954,24 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + molOrReaction /* + " to the clipboard" */,
 				CopyPasteAction.MOL);
 
-		// COPY V3000 MOL
 		if (!isReaction) {
 			addMenuItem(popup, hasAtom,
-					"Copy " /* + what */ + "as " + molOrReaction + " V3000" /* + " to the clipboard" */,
+					"Copy " /* + what */ + "as MOL V3000" /* + " to the clipboard" */,
 					CopyPasteAction.MOL_V3000);
-
-			// handling Inchi: only available for JSME - use the inchi-js
-			if (this.canComputeInchi()) {
-				if (options.exportInchi) {
-					addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "InChI" /* + " to the clipboard" */,
-							CopyPasteAction.INCHI);
-				}
-
-				if (options.exportInchiKey) {
-					addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "InChI key" /* + " to the clipboard" */,
-							CopyPasteAction.INCHI_KEY);
-
-				}
-				if (options.searchInchiKey) {
-					addMenuItem(popup, hasAtom, this.searchInchiKeyMenuJLabel, CopyPasteAction.SEARCH_INCHI_KEY);
-				}
-				if (options.exportInchiAuxInfo) {
-					addMenuItem(popup, hasAtom,
-							"Copy " /* + what */ + "as " + "InChI auxinfo" /* + " to the clipboard" */,
-							CopyPasteAction.INCHI_AUXINFO);
-				}
-			}
-
+			addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "InChI (standard)" /* + " to the clipboard" */,
+					CopyPasteAction.STANDARD_INCHI);
+			addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "InChI (fixedH)" /* + " to the clipboard" */,
+					CopyPasteAction.FIXED_H_INCHI);
+			addMenuItem(popup, hasAtom,
+					"Copy " /* + what */ + "as " + "InChIKey (standard)" /* + " to the clipboard" */,
+					CopyPasteAction.STANDARD_INCHI_KEY);
+			addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "InChIKey (fixedH)" /* + " to the clipboard" */,
+					CopyPasteAction.FIXED_H_INCHI_KEY);
+			addMenuItem(popup, hasAtom, "Copy " /* + what */ + "as " + "InChI auxinfo" /* + " to the clipboard" */,
+					CopyPasteAction.INCHI_AUXINFO);
+			addMenuItem(popup, hasAtom, "Copy " /* + what */ + "InChI model (JSON)" /* + " to the clipboard" */,
+					CopyPasteAction.INCHI_MODEL_JSON);
+      addMenuItem(popup, hasAtom, searchInchiKeyMenuJLabel, CopyPasteAction.SEARCH_INCHI_KEY);
 		}
 
 		// COPY JME
@@ -1019,15 +1021,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 	}
 
 	protected void subclassAddToCopyMenu(JPopupMenu popup, boolean hasAtom) {
-	}
-
-	/**
-	 * To be redefined in subclass
-	 * 
-	 * @return true if this implementation can compute inchi
-	 */
-	protected boolean canComputeInchi() {
-		return true;
 	}
 
 	/**
@@ -2108,6 +2101,9 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		return getOclAdapter().molToInChI(molFileData, options);
 	}
 
+  public String molToInChIKey(String molFileData, String options) {
+    return getOclAdapter().molToInChIKey(molFileData, options);
+  }
 
 	/**
 	 * Use the openchemlib to convert CDXML to a molfile string 
@@ -4827,47 +4823,58 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			int colorIndex = colorInfo.index;
 			this.activateMarkerColor(colorIndex);
 			this.showInfo(colorInfo.name);
-
 			return;
 		}
 
-		if (cmd.equals(CopyPasteAction.SMILES.toString())) {
-			clipBoardManager.setClipboardContents(this.smiles());
-		} else if (cmd.equals(CopyPasteAction.MOL.toString())) {
-			this.copyMolFileToClipboard(false);
-		} else if (cmd.equals(CopyPasteAction.MOL_V3000.toString())) {
-			this.copyMolFileToClipboard(true);
-
-		} else if (cmd.equals(CopyPasteAction.JME.toString())) {
-			this.copyJmeStringToClipboard();
-
-		} else if (cmd.equals(CopyPasteAction.PASTE.toString())) {
-			if (options.paste)
-				this.pasteMolFileFromClipboard();
-		} else if (cmd.equals(CopyPasteAction.INCHI.toString())) {
-			this.copyInchiToClipboard(CopyPasteAction.INCHI);
-		} else if (cmd.equals(CopyPasteAction.INCHI_KEY.toString())) {
-			this.copyInchiToClipboard(CopyPasteAction.INCHI_KEY);
-		} else if (cmd.equals(CopyPasteAction.INCHI_AUXINFO.toString())) {
-			this.copyInchiToClipboard(CopyPasteAction.INCHI_AUXINFO);
-		} else if (cmd.equals(CopyPasteAction.OCLCODE.toString())) {
-			this.copyOclCodetoClipboard();
+		CopyPasteAction cpa = CopyPasteAction.getFromName(cmd);
+		if (cpa != null) {
+			switch (cpa) {
+			case FIXED_H_INCHI:
+			case FIXED_H_INCHI_KEY:
+			case INCHI_AUXINFO:
+			case STANDARD_INCHI:
+			case STANDARD_INCHI_KEY:
+			case INCHI_MODEL_JSON:
+				copyInchiToClipboard(cpa);
+				break;
+			case JME:
+				copyJmeStringToClipboard();
+				break;
+			case MOL:
+				copyMolFileToClipboard(false);
+				break;
+			case MOL_V3000:
+				copyMolFileToClipboard(true);
+				break;
+			case OCLCODE:
+				copyOclCodetoClipboard();
+				break;
+			case PASTE:
+				if (options.paste)
+					pasteMolFileFromClipboard();
+				break;
+			case RAW_STRING_GRAPHIC:
+				if (isJavaScript)
+					copyRawGraphicToClipboard();
+				break;
+			case SEARCH_INCHI_KEY:
+				searchChemicalStructureUsingInchiKey();
+				break;
+			case SMILES:
+				clipBoardManager.setClipboardContents(smiles());
+				break;
+			case SVG:
+				copySVGToClipboard();
+				break;
+			default:
+				break;
+			}
+			return;
 		}
-
-		else if (cmd.equals(CopyPasteAction.SEARCH_INCHI_KEY.toString())) {
-			this.searchChemicalStructureUsingInchiKey();
-		}
-
-		else if (cmd.equals(CopyPasteAction.SVG.toString())) {
-			this.copySVGToClipboard();
-		}
-
-		else if (isJavaScript && cmd.equals(CopyPasteAction.RAW_STRING_GRAPHIC.toString())) {
-			this.copyRawGraphicToClipboard();
-		}
-
-		// BB : rotation coming from the touch handling
-		else if (cmd.equals("rotation")) { // used by touch devices
+		boolean changed = false;
+		switch (cmd) {
+		case "rotation":
+	    // BB : rotation coming from the touch handling
 			if (lastAction != LA_ROTATE) {
 				lastRotation = 0;
 			}
@@ -4886,9 +4893,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			// repaint(); //done at the end
 			lastAction = LA_ROTATE;
 			lastRotation = rotation;
-
-		} else if (cmd == unSetChiralFlagAction || cmd == setChiralFlagAction) {
-			boolean changed = this.activeMol.setChiralFlag(cmd == setChiralFlagAction);
+			break;
+		case unSetChiralFlagAction:
+		case setChiralFlagAction:
+			changed = activeMol.setChiralFlag(cmd == setChiralFlagAction);
 			if (changed) {
 				int n = this.moleculePartsList.size();
 				String additional = "";
@@ -4912,12 +4920,10 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 				setMustRedrawMolecularArea(true); // not really needed but the event will be written out only when
 													// redrawing the molecular area
 			}
-
-		} else if (cmd == autoAtomMapMoleculeAction) {
-
+			break;
+		case autoAtomMapMoleculeAction:
 			// find the highest atom map
 			int max = this.findMaxAtomMapAmongAllMolecules();
-			boolean changed = false;
 			for (int at = 1; at <= activeMol.natoms; at++) {
 				Atom atom = activeMol.atoms[at];
 				if (!atom.hasBeenMapped()) {
@@ -4926,25 +4932,26 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 					changed = true;
 				}
 			}
-
 			if (changed) {
 				setMustRedrawMolecularArea(true);
 				this.recordMoleculePartEvent(CHANGE_MANY_ATOM_MAP, this.activeMolIndex());
 			}
-		} else if (cmd == deleteAtomMapMoleculeAction) {
+			break;
+		case deleteAtomMapMoleculeAction:
 			if ((setMustRedrawMolecularArea(activeMol.resetAtomMaps()))) {
 				this.recordMoleculePartEvent(DELETE_ATOM_MAPS, this.activeMolIndex());
 			}
-
-		} else if (cmd == bondSetCoordinationAction || cmd == bondUnSetCoordinationAction) {
+			break;
+		case bondSetCoordinationAction:
+		case bondUnSetCoordinationAction:
 			setMustRedrawMolecularArea(true);
 			int bondIndex = this.inspectorEvent.bondIndex;
 			assert (bondIndex > 0);
 			Boolean isCoordination = this.inspectorEvent.mol.getBond(bondIndex).toggleCoordination().isCoordination();
 			this.recordBondEvent(isCoordination ? SET_BOND_COORDINATION : UNSET_BOND_COORDINATION);
 			// TODO: the event name could be the same as the action
-
-		} else if (cmd == deleteHydrogensMoleculeAction) {
+			break;
+		case deleteHydrogensMoleculeAction:
 
 			// From the user interaction, thus it is not using the settings from options()
 			HydrogenParams options = new Parameters().hydrogenParams;
@@ -4957,13 +4964,14 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 			if (gui.mustReDrawMolecularArea) {
 				this.recordMoleculePartEvent(DELETE_HYDROGENS, this.activeMolIndex());
 			}
-		} else if (cmd == compute2DcoordinatesMoleculeAction) {
+			break;
+		case compute2DcoordinatesMoleculeAction:
 			// compute2Dcoordinates needs openchemlib
 			SwingUtilities.invokeLater(() -> {
 				compute2DSuccess();
 			});
 			return;
-		} else if (cmd.equals("scale100")) { // used by touch devices
+		case "scale100": // used by touch devices
 			// BB : rotation coming from the touch handling
 			// problem: unwanted interaction with the rotation
 			// Chemdoodle rotation & scaling works nice
@@ -4986,10 +4994,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 //
 //				}
 //			}
-		} else if (cmd.equals("end_gesture")) {
-			this.willPostSave(true);
-		} else {
-			this.setSubstituent(cmd);
+		  break;
+		case "end_gesture":
+			willPostSave(true);
+			break;
+		default:
+			setSubstituent(cmd);
+			break;
 		}
 
 		if (gui.mustReDrawMolecularArea || gui.mustReDrawInfo) {
@@ -5028,42 +5039,6 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		}
 	}
 
-	/**
-	 * nEW tbc, SHOULD ENCAPSULATED THE RUN asYn WHEN NEEDED tO BE USED IN ACTIO
-	 * MENU AND DIRECT COPY AND DIRECT CUT AND d&d
-	 * 
-	 * @param format
-f
-	 * @param callBack
-	 */
-	public void exportFile(JMEWriter.SupportedOutputFileFormat format, final AsyncCallback callBack) {
-		// TODO NOTE IMPLEMENTED
-		switch (format) {
-		case INCHI:
-			break;
-		case INCHI_AUXINFO:
-			break;
-		case INCHI_KEY:
-			break;
-		case JME:
-			break;
-		case MOL:
-			break;
-		case MOL_V3000:
-			break;
-		case OCLCODE:
-			break;
-		case RAW_STRING_GRAPHIC:
-			break;
-		case SMILES:
-			break;
-		case SVG:
-			break;
-		default:
-			break;
-		}
-	}
-
 	// not used?
 	public void copyFileToClipboard() {
 		switch (this.clipboardFormat) {
@@ -5085,14 +5060,14 @@ f
 		case SMILES:
 			clipBoardManager.setClipboardContents(this.smiles());
 			break;
-		case INCHI:
-			this.copyInchiToClipboard(CopyPasteAction.INCHI);
+		case STANDARD_INCHI:
+			this.copyInchiToClipboard(CopyPasteAction.STANDARD_INCHI);
 			break;
 		case INCHI_AUXINFO:
 			this.copyInchiToClipboard(CopyPasteAction.INCHI_AUXINFO);
 			break;
-		case INCHI_KEY:
-			this.copyInchiToClipboard(CopyPasteAction.INCHI_KEY);
+		case STANDARD_INCHI_KEY:
+			this.copyInchiToClipboard(CopyPasteAction.STANDARD_INCHI_KEY);
 			break;
 		case OCLCODE:
 			this.copyOclCodetoClipboard();
@@ -5108,20 +5083,21 @@ f
 	 * 
 	 * @param format
 	 */
-	public void generateOuttputFile(final AsyncCallback callBack) {
+	public void generateOutputFile(final AsyncCallback callBack) {
 		this.generateOuttputFile(this.clipboardFormat, callBack);
 
 	}
 
 	/**
-	 * Work for all upported file formats, even thos that require loading code
+	 * Work for all supported file formats, even thos that require loading code
 	 * dynamically, hence the callback argument
 	 * 
 	 * @param format
 	 * @param callBack
 	 */
 
-	public void generateOuttputFile(JMEWriter.SupportedOutputFileFormat format, final AsyncCallback callBack) {
+	private void generateOuttputFile(JMEWriter.SupportedOutputFileFormat format, final AsyncCallback callBack) {
+		// was public, but that would require JMEWriter access, which seems unlikely
 		String output = null;
 		switch (format) {
 		case MOL:
@@ -5148,10 +5124,10 @@ f
 			output = this.smiles();
 			break;
 
-		case INCHI:
+		case STANDARD_INCHI:
 		case INCHI_AUXINFO:
-		case INCHI_KEY:
-		case INCHI_JSON:
+		case STANDARD_INCHI_KEY:
+		case INCHI_MODEL_JSON:
 			this.computeInchi(format, callBack);
 			break;
 		case OCLCODE:
@@ -5170,12 +5146,37 @@ f
 	}
 
 	public void computeInchi(final JMEWriter.SupportedOutputFileFormat format, final AsyncCallback callBack) {
-
+		switch (format) {
+		case STANDARD_INCHI:
+			break;
+		case INCHI_AUXINFO:
+			break;
+		case INCHI_MODEL_JSON:
+			break;
+		case STANDARD_INCHI_KEY:
+			break;
+		case JME:
+			break;
+		case MOL:
+			break;
+		case MOL_V3000:
+			break;
+		case OCLCODE:
+			break;
+		case RAW_STRING_GRAPHIC:
+			break;
+		case SMILES:
+			break;
+		case SVG:
+			break;
+		default:
+			break;
+		
+		}
 	}
 
  	// BB
 	// should use new gneral methodexportFile
-	@Deprecated
 	public void copyMolFileToClipboard(boolean isV3000) {
 		clipBoardManager.setClipboardContents(this.molFile(isV3000));
 	}
@@ -5215,9 +5216,42 @@ f
 
 	// should use new gneral methodexportFile
 
-	public void copyInchiToClipboard(CopyPasteAction action) {
-		// for subclasses
-		// clipBoardManager.setClipboardContents(this.computeInchi(isKey));
+	public void copyInchiToClipboard(CopyPasteAction cpa) {
+		String option = null;
+		boolean isKey = false;
+		switch (cpa) {
+		case FIXED_H_INCHI:
+		  option = "fixedH";
+      break;
+    case STANDARD_INCHI:
+      option = "standard";
+      break;
+    case INCHI_MODEL_JSON:
+      option = "model";
+    case INCHI_AUXINFO:
+      option = "auxinfo";
+      break;
+		case FIXED_H_INCHI_KEY:
+		  option = "fixedH";
+		  isKey = true;
+      break;
+    case STANDARD_INCHI_KEY:
+      option = "standard";
+      isKey = true;
+      break;
+		default:
+		  break;
+		}
+		if (option != null) {
+       String s = molFile(true);
+       if (isKey) {
+         s = molToInChIKey(s, option);
+       } else {
+         s = molToInChI(s, option);
+       }
+       System.out.println(s);
+		   clipBoardManager.setClipboardContents(s);
+		}
 	}
 
 	public void searchChemicalStructureUsingInchiKey() { // for subclasses
@@ -5410,7 +5444,7 @@ f
 
 		// this.activeMol.forceUniColor(Color.RED); // need a delay for that?? no
 		// visible effect
-		this.generateOuttputFile(callBack);
+		this.generateOutputFile(callBack);
 		// this.redrawMolecularAreaOnly();
 		clear();
 
