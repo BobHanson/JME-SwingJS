@@ -3429,6 +3429,13 @@ public class JME extends JPanel implements ActionListener, MouseWheelListener, M
 		activeMol = moleculePartsList.get(0);
 		// if an atom or a bond is deleted, then create new molecule if needed
 		moleculePartsList.splitFragments(true); // true: remove any empty molecule
+		if (moleculePartsList.isEmpty()) {
+			// can happen when all atoms have been x'd out
+			moleculePartsList.add(new JMEmol());
+		}
+	    
+		
+		
 	}
 
 	/**

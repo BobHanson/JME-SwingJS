@@ -428,10 +428,10 @@ public class GUI {
 			break;
 		case Actions.ACTION_CLEAR:
 			g.setColor(Color.white);
-			g.fillRect(xstart + 3, ystart + 5, menuCellSize - 7, menuCellSize - 11);
+			g.fillRect(xstart+1, ystart+2, menuCellSize-2, menuCellSize-3);
 			g.setColor(Color.black);
-			g.drawRect(xstart + 3, ystart + 5, menuCellSize - 7, menuCellSize - 11);
-			// squareText(g,xstart,ystart,"CLR");
+//			g.drawRect(xstart, ystart, menuCellSize-1, menuCellSize);
+			squareText(g,xstart,ystart,"CLR");
 			break;
 		case Actions.ACTION_NEW:
 			// special handling (aby boli 2 stvorce on)
@@ -937,7 +937,7 @@ public class GUI {
 								 * in depict mode, another graphics must be used because the info bar is not
 								 * present
 								 */
-			// TODO: the java implemenrtation does not support drag and drop
+			// TODO: the java implementation does not support drag and drop
 			drawDragAndDropIcon(og, 1.0);
 			if (jme.options.fullScreenIconOption && JME.isFullScreenSupported())
 				drawFullScreenIcon(og, 1.0, dragAndDropIcon);
@@ -978,17 +978,17 @@ public class GUI {
 
 		// Smaller font is needed to display NEW and 123
 		// If the text is too wide for the cell, then use a smaller font
-		if (w >= menuCellSize - 1) {
-			int size = fm.getFont().getSize();
+		if (w >= menuCellSize - 3) {
+			Font font = fm.getFont();
+			int size = font.getSize();
 			// TODO: font cache does not work here
 			// decrease font size until the text fits in the cell
-			while (w >= menuCellSize - 1 && size > 1) {
+			while (w >= menuCellSize - 3 && size > 1) {
 				size--;
 				Font smallerFont = new Font(fm.getFont().getName(), fm.getFont().getStyle(), size);
 				fm = jme.getFontMetrics(smallerFont);
 				w = fm.stringWidth(text);
 				g.setFont(smallerFont);
-
 			}
 		} else {
 			g.setFont(GUI.menuCellFont);
