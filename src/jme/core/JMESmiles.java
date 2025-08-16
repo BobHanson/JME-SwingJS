@@ -24,6 +24,11 @@ public class JMESmiles extends JMECore {
 
 	private boolean smartsMode = false;
 
+	/**
+	 * BH 2025.08.16 search,nohydrogens
+	 */
+	private boolean smartsModeNoH = false;
+	
 	public JMESmiles(JMECore mol, int part, boolean isQuery) {
 		super(mol, part);
 		this.isQuery = isQuery;
@@ -67,6 +72,7 @@ public class JMESmiles extends JMECore {
 		// btype RING_NONAROMATIC sa nepouziva ! (len aromatic)
 		if (mpars.smilesParams.canonize && !haveQueryOrCoordBonds()) {
 			smartsMode = mpars.smilesParams.smarts;
+			smartsModeNoH = smartsMode && !mpars.hydrogenParams.showHs;
 			Parameters.HydrogenParams pars = setHydrogenParams(mpars);
 			deleteHydrogens(pars);
 			cleanPolarBonds(mpars.smilesParams.polarnitro);
@@ -290,8 +296,9 @@ public class JMESmiles extends JMECore {
 		Parameters.HydrogenParams pars = new Parameters().hydrogenParams;
 		pars.keepStereoHs = !mpars.smilesParams.stereo;
 		// BH TODO -- this should be allowed to be modifed based on user settings
-//		pars.removeHs = true;
-		pars.removeOnlyCHs = mpars.smilesParams.smarts;
+		pars.removeHs = !mpars.smilesParams.smarts;
+		// BH idea here is that if the H atoms are not showing, then they should not be included in the SMARTS
+		pars.removeOnlyCHs = mpars.hydrogenParams.showHs && mpars.smilesParams.smarts;
 		return pars;
 	}
 
@@ -312,7 +319,7 @@ public class JMESmiles extends JMECore {
 				|| stereo[at] != 0 
 				|| isMapped
 				|| doMark && atom.backgroundColors[0] > 0
-				|| smartsMode && nh > 0 && an != Atom.AN_C
+				|| !smartsModeNoH && smartsMode && nh > 0 && an != Atom.AN_C
 				);
 		switch (an) {
 		case Atom.AN_B:
